@@ -104,3 +104,16 @@ test("the Bluetooth numbers of the page are the numbers of the firmware", { skip
   const compared = pairs.map((pair) => pair[0]);
   assert.deepEqual(declared.filter((name) => !compared.includes(name) && !ownNumbers.includes(name)), []);
 });
+
+/* The app commands and their status codes: js/apps-protocol.js and main/ble_commands.h */
+test("the app command numbers of the page are the numbers of the firmware", { skip: !fs.existsSync(path.join(ROOT, "..", "main", "ble_commands.h")) && "the firmware source is not here" }, () => {
+  const header = fs.readFileSync(path.join(ROOT, "..", "main", "ble_commands.h"), "utf8");
+  const page = read("js/apps-protocol.js");
+  const firmware = {};
+  for (const match of header.matchAll(/BLE_COMMAND__APP_([A-Z_]+)\s*=\s*(0x[0-9A-Fa-f]+)/g)) firmware["CMD__" + match[1]] = Number(match[2]);
+  for (const match of header.matchAll(/BLE_COMMAND_STATUS__([A-Z_]+)\s*=\s*(\d+)/g)) firmware["STATUS__" + match[1]] = Number(match[2]);
+  const ours = {};
+  for (const match of page.matchAll(/static ((?:CMD|STATUS)__[A-Z_]+)\s*=\s*(0x[0-9A-Fa-f]+|\d+);/g)) ours[match[1]] = Number(match[2]);
+  assert.ok(Object.keys(firmware).length >= 25, "the firmware numbers were not found");
+  assert.deepEqual(ours, firmware);
+});

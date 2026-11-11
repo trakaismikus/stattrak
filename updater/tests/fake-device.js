@@ -820,6 +820,19 @@
     this.events.push("app refused");
   };
 
+  /* An installed app has a run-time error (Apps_noteError). At 3 errors it is switched off:
+     hidden, also when it is the last shown app (the menu then shows KILLS). */
+  P.appError = function (id) {
+    const app = this.installed.get(id);
+    if (!app) return;
+    if (app.errors < 0xFF) app.errors++;
+    this.appWrites++;
+    if (app.errors >= APPS_ERROR_LIMIT) {
+      const entry = this.appList.find((e) => e.id === id);
+      if (entry) entry.flags |= FLAG_HIDDEN;
+    }
+  };
+
   /* The names of the app list in menu order (SETTINGS is not in the list) */
   P.appNames = function () {
     return this.appList.map((e) => this._appName(e.id));
