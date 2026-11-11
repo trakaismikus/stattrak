@@ -31,6 +31,7 @@
 #include "app_host_view.h"
 #include "app_settings_view.h"
 #include "time.h"
+#include "bsp_button.h"
 
 /* > Defines **************************************************************************************/
 #define OPEN_MS           260   // App up, menu up from below
@@ -116,12 +117,22 @@ void Launcher_onBothButtons(void) {
   _buildMenu();
   const int8_t index = _indexOf(next);
   s_selected = (index >= 0) ? index : 0;
+  // Also here and not only in _init(): when the menu was closing, it stays and _init() does not run
+  s_lastInputMs = Time_getMillis() + OPEN_MS;
   AppView_setFrom(VIEW_ID__LAUNCHER, APP_VIEW_FROM__BOTTOM, OPEN_MS);
 }
 
 void Launcher_update(uint32_t now) {
   if(AppView_get() != VIEW_ID__LAUNCHER || AppView_getNext() != VIEW_ID__LAUNCHER || s_slide.active)
     return;
+
+  // A button that is down stops the 3 s time; it starts again at the release, so the short press
+  // event (180 ms after the release) still comes to the menu. The real button state, not the
+  // events: a button can be held already when the menu comes back (after a battery warning).
+  if(BspButton_getState(0) || BspButton_getState(1)) {
+    s_lastInputMs = now;
+    return;
+  }
 
   if((int32_t)(now - s_lastInputMs) >= LAUNCHER_SELECT_MS)
     _openSelected();

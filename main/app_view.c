@@ -144,9 +144,13 @@ void AppView_update(void) {
   }
 }
 
+// While the app menu slides in, button events go to the menu: a fast press after "both buttons"
+// moves the menu, it does not count in the app that slides away. All other view changes keep
+// the events in the current view (warnings go back to AppView_getPrevious()).
 bool AppView_eventHandler(uint16_t event) {
-  if(s_viewList[s_viewId]->eventHandler)
-    return s_viewList[s_viewId]->eventHandler(event);
+  const view_id_t target = (s_nextViewId == VIEW_ID__LAUNCHER) ? s_nextViewId : s_viewId;
+  if(s_viewList[target]->eventHandler)
+    return s_viewList[target]->eventHandler(event);
   else
     return false;
 }
