@@ -108,5 +108,47 @@ class CheckMatchTest(unittest.TestCase):
         self.compare(packages)
 
 
+def find_headless():
+    for folder in (os.path.join(REPO_ROOT, "build-host"), os.path.join(REPO_ROOT, "build-host", "Debug")):
+        for name in ("stattrak_headless", "stattrak_headless.exe"):
+            if os.path.isfile(os.path.join(folder, name)):
+                return True
+    return False
+
+
+@unittest.skipIf(not find_headless(), "the simulator is not built (python tools/check.py --build-only)")
+class ScreenMatchTest(unittest.TestCase):
+    """The first screen of each example app is the same in `tools/app.py run` (the preview) and on
+    the simulated device (the firmware engine and the firmware draw functions)."""
+
+    def frame_lines(self, text):
+        return [line for line in text.splitlines() if len(line) == 128 and set(line) <= set(".#")]
+
+    def test_example_apps_look_the_same_on_the_device(self):
+        apps_dir = os.path.join(REPO_ROOT, "apps")
+        names = [n for n in sorted(os.listdir(apps_dir)) if os.path.isfile(os.path.join(apps_dir, n, n + ".sts"))]
+        self.assertGreaterEqual(len(names), 3)
+        for name in names:
+            with self.subTest(app=name):
+                source = os.path.join(apps_dir, name, name + ".sts")
+                preview = subprocess.run([sys.executable, os.path.join(REPO_ROOT, "tools", "app.py"), "run", source, "frame"],
+                                         stdout=subprocess.PIPE, universal_newlines=True, check=True).stdout
+                folder = tempfile.mkdtemp(prefix="stattrak_screen_")
+                try:
+                    package = os.path.join(folder, name + ".stapp")
+                    with open(package, "wb") as handle:
+                        handle.write(app.load_package(source))
+                    # Install it. The menu opens on the first app (APP_SYNC is not in the menu); button 1
+                    # goes back to SETTINGS, again to the installed app (the last one before SETTINGS)
+                    device = subprocess.run([sys.executable, os.path.join(REPO_ROOT, "tools", "sim.py"), "--fresh",
+                                             "--out", folder, "boot", "app:" + package, "both", "click1", "click1",
+                                             "both", "wait:500", "state", "frame"],
+                                            stdout=subprocess.PIPE, universal_newlines=True, check=True).stdout
+                finally:
+                    shutil.rmtree(folder, ignore_errors=True)
+                self.assertIn("view=APP_HOST", device)
+                self.assertEqual(self.frame_lines(device)[-32:], self.frame_lines(preview)[-32:])
+
+
 if __name__ == "__main__":
     unittest.main()
