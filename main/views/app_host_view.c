@@ -380,7 +380,7 @@ static int32_t _sys(void* ctx, uint8_t sysId, const int32_t* a, bool drawing) {
       if(drawing || !(s_event == STAPP_EVENT__PRESS_1 || s_event == STAPP_EVENT__PRESS_2 ||
                       s_event == STAPP_EVENT__LONG_1 || s_event == STAPP_EVENT__LONG_2))
         return 0;
-      // A few changes for one press: each one is a flash write
+      // At most 4 add_counter calls for one press (each change is a flash write)
       if(s_counterChanges >= APP_HOST_MAX_COUNTER_CHANGES)
         return _counter(a[0]);
       s_counterChanges++;
