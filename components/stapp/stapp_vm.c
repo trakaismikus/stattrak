@@ -89,7 +89,8 @@ stapp_result_t Stapp_run(stapp_vm_t* vm, stapp_event_t event, stapp_sys_fn_t sys
 
 #define NEED(_n)    do { if(sp < (_n)) { error = STAPP_ERR_STACK; goto fail; } } while(0)
 #define ROOM(_n)    do { if(sp + (_n) > STAPP_STACK_SIZE) { error = STAPP_ERR_STACK; goto fail; } } while(0)
-#define PUSH(_v)    do { ROOM(1); stack[sp++] = (int32_t)(_v); } while(0)
+// The value first, then sp changes: DUP pushes stack[sp - 1]
+#define PUSH(_v)    do { ROOM(1); const int32_t pushed_ = (int32_t)(_v); stack[sp] = pushed_; sp++; } while(0)
 #define BINARY(_expr) do { NEED(2); const int32_t a = stack[sp - 2], b = stack[sp - 1]; (void)a; (void)b; \
                             sp--; stack[sp - 1] = (int32_t)(_expr); } while(0)
 
