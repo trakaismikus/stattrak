@@ -1,6 +1,7 @@
 # StatTrak Web Updater
 
-A web page that sends a firmware file to a StatTrak device over Bluetooth.
+A web page that sends a firmware file to a StatTrak device over Bluetooth, and that manages the
+apps on the device (the tab "Apps").
 
 - The page is `index.html`. It has no build step and no packages.
 - The browser must have Web Bluetooth: Chrome, Edge or Opera, on a computer or on Android.
@@ -45,6 +46,30 @@ firmware. For a transfer that an other browser made, the button
 The page does not send a confirmation at each connection: firmware 1.0.1 shows "Accepted" on
 its display for each confirmation command, also when no new firmware waits.
 
+## The Apps tab
+
+`index.html#apps`. The person opens Settings > "Apps: SYNC" on the device, holds button 2, and
+clicks **Connect**. Then the page shows the apps of the device in menu order (SETTINGS is always
+last) and the storage of the 24 KB for apps. The person can show or hide an app, move it (drag,
+arrows, or the arrow keys on the handle), change its settings, and delete it (the page asks in the
+row, not in a browser dialog). Under "Add apps" are the apps of `apps/catalog.json` (made by
+`python tools/app.py catalog`; do not change these files by hand) and **From file** for a
+`.stapp` file. An install sends the package, then the device asks "INSTALL <NAME>?": the person
+holds button 2 on the device (button 1 or 30 seconds = not installed).
+
+- The tab has its own Bluetooth connection and sends only the app commands of `docs/APPS.md`
+  section 6, never a firmware update command (a test checks this).
+- The tabs do not change while a firmware update or an app install runs. Opening the Apps tab
+  closes a connection of the firmware tab: the device cannot show the update screen and
+  "Apps: SYNC" at the same time.
+- An old firmware (no app commands): "Update the firmware first", with a link to the firmware tab.
+  A device that is not in "Apps: SYNC" (status 3): the page says what to do on the device.
+- The page checks a `.stapp` file (magic, size, CRC-32) before it sends it. The device does the
+  full check.
+- The device has no command for the title picture or the setting names of an installed app. The
+  page knows them for catalog apps and for a file installed in this page session; other apps show
+  their name as the picture, and their settings are changed on the device.
+
 ## Files
 
 | File | What it is |
@@ -53,9 +78,15 @@ its display for each confirmation command, also when no new firmware waits.
 | `js/ble.js` | The Bluetooth code: connect, commands, firmware transfer |
 | `js/firmware.js` | Checks of the firmware file |
 | `js/main.js` | The steps of the page |
-| `tests/fake-device.js` | A stand-in for the device and for Web Bluetooth. Its packet code is a port of the firmware code in `../components/ble_ota/` |
+| `js/apps-protocol.js` | The app commands (`StatTrakApps`) and the check of a `.stapp` file (`StappFile`) |
+| `js/apps-pictures.js` | Title pictures and the device display, drawn with the firmware fonts |
+| `js/apps.js`, `css/apps.css` | The tabs and the Apps tab |
+| `apps/` | The app catalog: made by `python tools/app.py catalog`, not by hand |
+| `tests/fake-device.js` | A stand-in for the device and for Web Bluetooth. Its packet code is a port of the firmware code in `../components/ble_ota/`; its app commands are a port of `../main/ble_commands.c`, `../main/apps.c` and `../main/views/app_sync_view.c` |
 | `tests/ble.test.js` | Tests of `js/ble.js` and `js/firmware.js` in Node.js |
 | `tests/page.test.js` | Tests of the full page in a headless Chrome. They click the buttons as a user does |
+| `tests/apps.test.js` | Tests of `js/apps-protocol.js` in Node.js, and each rule of `docs/APPS.md` section 6 against the stand-in device |
+| `tests/apps-page.test.js` | Tests of the Apps tab in a headless Chrome: connect, list, hide, move, delete, settings, install with the answer on the device, refused, no answer in 30 s, a lost answer, no space, old firmware, not in "Apps: SYNC", bad files, lost connection, the tab lock |
 | `tests/files.test.js` | Tests of the fonts, of files from other sites, and that the Bluetooth numbers of the page are the numbers of the firmware |
 
 ## Run it on your computer
@@ -82,6 +113,8 @@ browser these tests are skipped). There is nothing to install.
 The tests use a stand-in device. **They do not show that an update works on a real device.**
 After a change to `js/ble.js` or to the update steps in `js/main.js`, do an update of a real
 device before the page is published.
+After a change to the Apps tab, install, move, hide and delete an app on a real device in
+"Apps: SYNC" before the page is published.
 
 ## Publish
 

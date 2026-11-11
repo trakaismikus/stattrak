@@ -23,6 +23,7 @@
 .apps .banner__act { margin-left: auto; align-self: center; }
 .apps .banner__more { margin-top: 10px; }
 .apps .banner__close { margin: -8px -8px 0 auto; }
+.apps .sec-head + .banner { margin-bottom: 10px; }
 .apps button { font-family: inherit; }
 
 .apps .btn--sm { padding: 6px 12px; font-size: 13px; min-height: 34px; }
