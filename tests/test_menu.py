@@ -95,6 +95,44 @@ class AppMenuTest(SimTestCase):
         self.assertEqual(state["view"], "LAUNCHER")
         self.assertEqual(state["eeprom.total_kills"], 0)
 
+    def test_a_very_fast_press_after_both_buttons_goes_to_the_menu(self):
+        # Sol review S3: the press comes while the menu still slides in
+        self.dev.boot()
+        self.dev.click_both(settle_ms=30)
+        self.dev.click(1, hold_ms=40)
+        self.dev.run(500)
+        state = self.dev.state()
+        self.assertEqual(state["view"], "LAUNCHER")
+        self.assertEqual(state["eeprom.total_kills"], 0)
+
+    def test_a_held_button_stops_the_3_seconds(self):
+        # Sol review S1: the menu must not close while a button is down
+        self.dev.boot()
+        self.dev.click_both()
+        self.dev.run(2400)          # 2.9 s after the menu was open
+        self.dev.press(2)
+        self.dev.run(400)           # Held past the 3 s
+        self.assertEqual(self.dev.view, "LAUNCHER")
+        self.dev.release(2)
+        self.dev.run(400)
+        state = self.dev.state()
+        self.assertEqual(state["view"], "LAUNCHER")
+        self.assertEqual(state["launcher_sel"], "KILL_DEAD")
+        self.assertEqual(state["eeprom.total_kills"], 0)
+        self.dev.run(3300)          # 3 s after the move (the press comes 180 ms after the release)
+        self.assertEqual(self.dev.view, "KILL_DEAD")
+
+    def test_both_buttons_while_the_menu_closes_keep_it_open(self):
+        # Sol review S2: the menu closes by itself, both buttons during the close reopen it
+        self.dev.boot()
+        self.dev.click_both()
+        self.dev.run(3000 - 500 + 250 + 20)   # Just after the auto-open started
+        self.dev.click_both(hold_ms=40, settle_ms=0)
+        self.dev.run(1000)
+        self.assertEqual(self.dev.view, "LAUNCHER")
+        self.dev.run(2500)
+        self.assertEqual(self.dev.view, "TOTAL")
+
     def test_a_press_after_opening_an_app_counts_in_the_app(self):
         self.dev.boot()
         self.dev.click_both()

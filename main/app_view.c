@@ -144,9 +144,11 @@ void AppView_update(void) {
   }
 }
 
+// While a view change is animated, button events go to the new view: a fast press after
+// "both buttons" belongs to the app menu, not to the app that slides away.
 bool AppView_eventHandler(uint16_t event) {
-  if(s_viewList[s_viewId]->eventHandler)
-    return s_viewList[s_viewId]->eventHandler(event);
+  if(s_viewList[s_nextViewId]->eventHandler)
+    return s_viewList[s_nextViewId]->eventHandler(event);
   else
     return false;
 }
