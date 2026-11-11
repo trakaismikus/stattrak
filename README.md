@@ -101,7 +101,7 @@ simulator. Only when you are happy, it makes the firmware file for your device.
 
 ---
 
-## ✏️ The Screen Designer
+## ✏ The Screen Designer
 
 You know exactly how a screen must look? **Draw it.** The Screen Designer is a page that opens
 in your browser: the file `tools/designer/index.html` in the project folder (double click).
@@ -149,7 +149,7 @@ The Web Updater puts a firmware file on your StatTrak over Bluetooth. It is a we
   </tr>
   <tr>
     <td><b>1. Connect.</b> On the StatTrak: Settings, then <code>Firmware: UPDATE</code>, hold the right button. The display shows <code>FIRMWARE UPDATE</code> and <code>Waiting...</code>. On the page: <b>Pair device</b>, then pick <code>StatTrak</code>.</td>
-    <td><b>2. Select the file.</b> Drop your firmware file on the page (the AI tool makes it: <code>out/stattrak-...bin</code>), or pick an official release. The page refuses a file that is not a StatTrak firmware.</td>
+    <td><b>2. Select the file.</b> Drop your firmware file on the page (the AI tool makes it: <code>out/stattrak-...bin</code>), or download an official release from the <b>Official releases</b> tab, go back to <b>Upload .bin</b> and drop that file there. The page refuses a file that is not a StatTrak firmware. Click <b>Next</b>.</td>
   </tr>
   <tr>
     <td><img src="docs/images/updater-flash.png" alt="Step 3: the transfer is running"></td>
@@ -205,7 +205,7 @@ Only an idea, no code? Tell us on the "Issues" page of this repository ("Feature
 
 ---
 
-## 🛠️ For developers
+## 🛠 For developers
 
 <details>
 <summary><b>Commands, hardware and folders</b> (click to open)</summary>
