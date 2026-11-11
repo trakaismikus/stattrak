@@ -221,6 +221,10 @@ must match it):
 - `bitmap`: the pixels that are on in the bitmap get color c; the others do not change.
 - `invert(x, y, w, h)`: inverts the w x h pixels.
 
+Where calls work: drawing calls only in `draw`. `add_counter` only in `press1`, `press2`,
+`long1`, `long2` (in other handlers it does nothing and gives 0). `click` does nothing in `draw`.
+Each `draw` may draw at most about 8 full screens of pixels; more = app error `too many steps`.
+
 ### Events
 
 | Handler | When |
@@ -242,7 +246,9 @@ Both buttons are never sent to an app: short = app menu, long = power off.
 | `p<id 8 hex>` | the package |
 | `v<id 8 hex>` | the saved variables (count x i32) |
 | `s<id 8 hex>` | the setting values (count x u8) |
-| `e<id 8 hex>` | error count (u8). 3 = the app is switched off (hidden, "APP ERROR" in the manager) |
+| `e<id 8 hex>` | error count (a 1-byte blob). 3 = the app is switched off: it is hidden, also when it was the last shown app (the menu then shows KILLS), and LIST sets the error flag. SET_HIDDEN 0 sets the count back to 0 |
+
+Saved values are written when the app closes, at power-off and by `save()` (at most once in 30 s). A factory reset deletes all apps.
 
 A missing or broken `list` = the default list (the 3 built-in apps, shown). An entry whose
 package is missing or fails the check is left out of the menu. At least one app before SETTINGS
@@ -251,25 +257,34 @@ is always shown: if all are hidden, KILLS is shown.
 ## 6. Bluetooth commands
 
 Same channel as `docs/BLUETOOTH.md` (characteristic `0x8023`, 16 data bytes in, status + 13
-bytes out). The app commands work only in the "Apps: SYNC" view; elsewhere they answer status 3
-(not in app sync).
+bytes out). The app commands work only in the "Apps: SYNC" view; elsewhere they answer status 3.
+This table is what the firmware does (`main/ble_commands.c`, `main/apps.c`,
+`main/views/app_sync_view.c`); the fake device of the web updater (`updater/tests/`) must do the
+same.
+
+Status codes: 0 ok, 1 unknown command (an old firmware), 2 bad data (an unknown id, a value out of
+range, a bad byte), 3 not in "Apps: SYNC", 4 index too large, 5 no space, 6 package too large,
+7 too many apps, 8 wrong offset, 9 bad CRC, 10 bad package, 11 the install question is on the
+display (any command that changes apps answers 11 until the person answers), 12 built-in app,
+13 the last shown app.
 
 | Number | Name | Data in | Answer |
 | --- | --- | --- | --- |
 | `0x0110` | INFO | | u8 engine version, u8 format version, u16 free bytes, u16 max package, u8 app count, u8 max apps |
 | `0x0111` | LIST | u8 index | u32 id, u16 version, u16 size, u8 flags (bit 0 hidden, bit 1 built-in, bit 2 has settings, bit 3 error), u8 setting count, 3 chars of the name (use NAME for the full name). Status 4 = index too large |
-| `0x0112` | NAME | u32 id, u8 part | 13 bytes of the name from part * 13 |
-| `0x0113` | BEGIN | u32 id, u16 size, u32 crc | status 5 no space, 6 too large, 7 too many apps |
-| `0x0114` | DATA | u16 offset, 14 bytes | status 8 = wrong offset (the page sends again from the answer's u16 expected offset) |
-| `0x0115` | END | | checks the CRC and the package (status 9 bad CRC, 10 bad package, with u8 reason) and shows "INSTALL <NAME>?" on the device. Status 11 = waiting for the person |
-| `0x0116` | STATUS | | u8 install state: 0 idle, 1 receiving, 2 waiting for the person, 3 installed, 4 refused, 5 timeout (30 s) |
-| `0x0117` | DELETE | u32 id | built-in apps cannot be deleted (status 12) |
-| `0x0118` | SET_ORDER | u8 count, then up to 3 x u32 id, u8 part | the full order comes in parts (4 ids per part after the first); applied when the last part is in |
-| `0x0119` | SET_HIDDEN | u32 id, u8 hidden | the last shown app cannot be hidden (status 13) |
-| `0x011A` | SETTING | u32 id, u8 setting, u8 value (0xFF = read) | u8 value |
+| `0x0112` | NAME | u32 id, u8 part | 13 bytes of the name from part * 13. Status 2 = unknown id |
+| `0x0113` | BEGIN | u32 id, u16 size, u32 crc | crc = CRC-32 of the whole package file. Status 2 for an id 0 .. 255 or 0xFFFFFFFF or a size under 308; 5 no space, 6 too large, 7 too many apps. An id that is installed already is replaced: it keeps its place in the menu, and it is shown again if errors had switched it off |
+| `0x0114` | DATA | u16 offset, 14 bytes | answer: u16 next expected offset (also when it is ok). Status 8 = wrong offset: send again from the expected offset |
+| `0x0115` | END | | checks the CRC and the package: status 9 bad CRC, 10 bad package (u8 reason = `stapp_result_t`), 8 missing data (u16 expected offset). Status 0 = the device shows "INSTALL <NAME>?" now |
+| `0x0116` | STATUS | | u8 install state: 0 idle, 1 receiving, 2 waiting for the person, 3 installed, 4 refused, 5 timeout (30 s; the display shows "REFUSED") |
+| `0x0117` | DELETE | u32 id | deletes the package and its values. Status 12 for a built-in app, 2 for an unknown id |
+| `0x0118` | SET_ORDER | u8 count, 3 x u32 id, u8 part | every part has this layout (16 bytes); part numbers go from 0 in order; ids after the end are 0. The order must have each app of the list one time. Applied when the last part is in |
+| `0x0119` | SET_HIDDEN | u32 id, u8 hidden (0 / 1) | hidden 0 also sets the error count back to 0. Status 13 = the last shown app cannot be hidden |
+| `0x011A` | SETTING | u32 id, u8 setting, u8 value (0xFF = read) | u8 value. Status 2 = unknown id, setting or value |
 
 Install: BEGIN, DATA from offset 0 in order, END, then STATUS until 3, 4 or 5. Data is kept in
-RAM until the person accepts; then the package is written to flash once.
+RAM until the person holds button 2 ("INSTALL <NAME>?"); then the package is written to flash
+once. Button 1 or 30 s without an answer = refused.
 
 ## 7. StatTrak Script (`.sts`)
 
