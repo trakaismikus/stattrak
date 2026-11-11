@@ -117,7 +117,9 @@ const AppPictures = (() => {
     } else if (kind === "question") {
       const question = "INSTALL " + arg + "?";
       textCenter(b, 11, question, textWidth(question, "5x5") > 124 ? "3x5" : "5x5");
-      textCenter(b, 23, "HOLD 2: YES  HOLD 1: NO", "3x5");
+      // GFX_ALIGN__LEFT at x 2 and GFX_ALIGN__RIGHT at x 126 (each answer over its button)
+      text(b, 2, 23, "HOLD 1: NO", "3x5", 1);
+      text(b, 126 - textWidth("HOLD 2: YES", "3x5"), 23, "HOLD 2: YES", "3x5", 1);
     } else if (kind === "installed") {
       textCenter(b, 12, "INSTALLED", "5x5");
       textCenter(b, 22, arg, "5x5");

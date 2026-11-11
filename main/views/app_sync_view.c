@@ -253,7 +253,9 @@ static void _draw(void) {
       snprintf(str, sizeof(str), "INSTALL %s?", s_name);
       const gfx_font_t* font = (Gfx_getStringWidth(str, &font5x5) > SCREEN_W - 4) ? &font3x5 : &font5x5;
       Gfx_drawStringAligned(SCREEN_W / 2, 11, str, font, 1, 0, GFX_ALIGN__CENTER, GFX_ROTATION__0);
-      Gfx_drawStringAligned(SCREEN_W / 2, 23, "HOLD 2: YES  HOLD 1: NO", &font3x5, 1, 0, GFX_ALIGN__CENTER, GFX_ROTATION__0);
+      // Each answer over its button: button 1 is the left round button, button 2 the right one
+      Gfx_drawStringAligned(2, 23, "HOLD 1: NO", &font3x5, 1, 0, GFX_ALIGN__LEFT, GFX_ROTATION__0);
+      Gfx_drawStringAligned(SCREEN_W - 2, 23, "HOLD 2: YES", &font3x5, 1, 0, GFX_ALIGN__RIGHT, GFX_ROTATION__0);
     } break;
 
     case APP_SYNC_STATE__INSTALLED:

@@ -125,7 +125,7 @@ const AppsTab = (() => {
 
   const device = (screen, alt, pressTwo) =>
     `<div class="dev${pressTwo ? " dev--b2" : ""}"><div class="dev__screen"><img alt="${esc(alt)}" src="${screen}"></div>` +
-    '<div class="dev__btn dev__btn--1"><span>1</span></div><div class="dev__btn dev__btn--2"><span>2</span></div></div>';
+    '<i class="dev__mock"></i><i class="dev__mock dev__mock--2"></i><div class="dev__btn dev__btn--1"><span>1</span></div><div class="dev__btn dev__btn--2"><span>2</span></div></div>';
 
   function vConnect() {
     const supported = typeof detectBleSupport !== "function" || detectBleSupport().supported;
