@@ -165,6 +165,14 @@ class SafetyCheckTest(unittest.TestCase):
         self.edit("main/app.c", "      AppView_set(VIEW_ID__UPDATE);", "      AppView_set(VIEW_ID__TOTAL);")
         self.assert_fails("update-views")
 
+    def test_settings_removed_from_the_app_menu(self):
+        self.edit("main/views/launcher_view.c", "  { VIEW_ID__SETTINGS,  _coverSettings },\n", "")
+        self.assert_fails("update-views")
+
+    def test_both_buttons_do_not_open_the_app_menu(self):
+        self.edit("main/main.c", "          Launcher_onBothButtons();", "          AppView_set(VIEW_ID__TOTAL);")
+        self.assert_fails("update-views")
+
     def test_update_view_refuses_new_firmware(self):
         self.edit("main/views/update_view.c", "  Ota_init();", "  Ota_init();\n  Ota_setUpdateAllowed(false);")
         self.assert_fails("update-views")

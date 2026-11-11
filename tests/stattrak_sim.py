@@ -259,7 +259,7 @@ class Device:
         return self
 
     def click_both(self, hold_ms=80, settle_ms=500):
-        """Short press on the two buttons together (go to the next view)."""
+        """Short press on the two buttons together (app menu, or open the selected app)."""
         self.press(1)
         self.press(2)
         self.run(hold_ms)

@@ -71,6 +71,7 @@ set(FIRMWARE_SOURCES
   ${MAIN_DIR}/views/fw_accept_view.c
   ${MAIN_DIR}/views/intro_view.c
   ${MAIN_DIR}/views/kill_dead_view.c
+  ${MAIN_DIR}/views/launcher_view.c
   ${MAIN_DIR}/views/msg_view.c
   ${MAIN_DIR}/views/settings_view.c
   ${MAIN_DIR}/views/space_view.c
@@ -81,6 +82,7 @@ set(FIRMWARE_SOURCES
   ${MAIN_DIR}/resources/font.c
   ${MAIN_DIR}/resources/font_glyph.c
   ${MAIN_DIR}/resources/img.c
+  ${MAIN_DIR}/resources/app_icons.c
 
   ${COMPONENT_DIR}/gfx/gfx.c
   ${COMPONENT_DIR}/gui/animation.c

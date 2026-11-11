@@ -18,6 +18,7 @@
 #include "gfx.h"
 #include "gfx_fx.h"
 #include "app_view.h"
+#include "launcher_view.h"
 #include "app.h"
 #include "debug.h"
 #include "eeprom.h"
@@ -148,19 +149,18 @@ static void _guiTask(void *pvParameters)
       App_updateActivity(tNow);
 
       switch(event) {
-        // Switch views
+        // Both buttons: an app opens the app menu, the app menu opens the selected app.
+        // The menu always has SETTINGS, the way to the firmware update.
         case EVENT__PRESS_BOTH: {
-          view_id_t id = AppView_get();
+          // The view that is shown or comes in now (a view change can still be animated)
+          view_id_t id = AppView_getNext();
 
           if(id == VIEW_ID__ASK || id == VIEW_ID__UPDATE ||
              id == VIEW_ID__AUTO_OFF || id == VIEW_ID__FW_ACCEPT ||
              id == VIEW_ID__BATTERY_LOW || id == VIEW_ID__BATTERY_CRITICAL)
             break;
 
-          id++;
-          if(id > VIEW_ID__SETTINGS)
-            id = VIEW_ID__TOTAL;
-          AppView_set(id);
+          Launcher_onBothButtons();
         } break;
         
         // Shutdown

@@ -34,7 +34,7 @@ of this repository (also on Windows). Then:
 
 ```sh
 python tools/sim.py boot click1 click1 frame          # 2 kills, print the display
-python tools/sim.py boot both both both png:settings  # save out/settings.png
+python tools/sim.py boot both click1 both png:settings  # menu, SETTINGS, open: out/settings.png
 python tools/sim.py boot:10600 state                  # hold both buttons 10 s: update mode
 python tools/sim.py --fresh boot set:auto_off=1       # a new device
 python tools/sim.py --help                            # all actions
@@ -65,7 +65,7 @@ with Device() as dev:
     dev.boot()                      # hold both buttons, release, wait for the animation
     dev.click(1)                    # short press on button 1
     dev.long_press(2)               # long press on button 2
-    dev.click_both()                # next view
+    dev.click_both()                # app menu (or: open the selected app)
     dev.run(30000)                  # 30 simulated seconds (this takes milliseconds)
     print(dev.state()["view"])      # TOTAL, KILL_DEAD, STATS, SETTINGS, UPDATE, ...
     print(dev.state()["eeprom.total_kills"])
@@ -96,7 +96,7 @@ cmake --build build-sim
 | Key | Function |
 | --- | --- |
 | LEFT / RIGHT | Button 1 / button 2 |
-| LEFT + RIGHT | Short: next view. Long: power off. After a power-off: power on |
+| LEFT + RIGHT | Short: app menu, or open the selected app. Long: power off. After a power-off: power on |
 | UP / DOWN | Battery voltage + / - 100 mV |
 | U | A phone sends new firmware (only in the update view) |
 | A | A phone accepts the new firmware (only in the "Verifying..." view) |

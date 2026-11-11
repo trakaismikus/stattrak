@@ -35,6 +35,10 @@ static const animation_functions_t kAnimationFunc = {
 
 static int16_t yOffset = 0, yOld = 0;
 
+// Where the new view comes from in the change animation, and how long the change takes
+static app_view_from_t s_from = APP_VIEW_FROM__TOP;
+static const uint32_t kDefaultChangeMs = 300;
+
 static animation_t s_anim = {
   .func = &kAnimationFunc,
   .curve = ANIMATION_CURVE__EASE_OUT,
@@ -46,6 +50,10 @@ static animation_t s_anim = {
 /* > Function Definitions *************************************************************************/
 
 void AppView_set(view_id_t viewId) {
+  AppView_setFrom(viewId, APP_VIEW_FROM__TOP, kDefaultChangeMs);
+}
+
+void AppView_setFrom(view_id_t viewId, app_view_from_t from, uint32_t durationMs) {
   if(viewId >= VIEW_COUNT)
     return;
 
@@ -61,6 +69,8 @@ void AppView_set(view_id_t viewId) {
       if(s_viewList[s_nextViewId]->init)
         s_viewList[s_nextViewId]->init();
 
+      s_from = from;
+      s_anim.duration = ANIMATION_MS_TO_TICKS(durationMs);
       Animation_start(&s_anim);
     }
   }
@@ -86,11 +96,15 @@ void AppView_show(void) {
   gfx_ctx_t* gfx = Gfx_getContext();
 
   if(s_viewId != s_nextViewId) {
-    gfx->offset.y = yOffset;
+    // From the top: the old view moves down, the new view comes down from above.
+    // From the bottom: the old view moves up, the new view comes up from below.
+    const int16_t dir = (s_from == APP_VIEW_FROM__BOTTOM) ? -1 : 1;
+
+    gfx->offset.y = dir * yOffset;
     if(s_viewList[s_viewId]->draw)
       s_viewList[s_viewId]->draw();
 
-    gfx->offset.y = yOffset - 32;
+    gfx->offset.y = dir * (yOffset - 32);
     if(s_viewList[s_nextViewId]->draw)
       s_viewList[s_nextViewId]->draw();
 

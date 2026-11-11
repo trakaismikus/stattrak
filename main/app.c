@@ -15,6 +15,7 @@
 #include "app_view.h"
 #include "ask_view.h"
 #include "settings_view.h"
+#include "launcher_view.h"
 
 #include "gfx_fx.h"
 
@@ -149,6 +150,9 @@ void App_update(void) {
 
   // Answer the Bluetooth commands of user features
   BleCommands_update();
+
+  // The app menu opens the selected app after 3 s without a press
+  Launcher_update(now);
 
   // While firmware is being received, count it as activity, so auto off and dim start after it
   if(Ota_isBusy(otaState)) {

@@ -116,7 +116,9 @@ Only an idea, no code? Tell us on the "Issues" page of this repository ("Feature
 | Action | Result |
 | --- | --- |
 | Hold both buttons | Power on / power off |
-| Short press on both buttons | Next view: total, kill/death, statistics, settings |
+| Short press on both buttons | App menu: KILLS, KILLS + DEAD, STATS, SETTINGS |
+| App menu: button 1 / button 2 | Previous / next app |
+| App menu: both buttons, or wait 3 seconds | Open the selected app |
 | Total view: short press | +1 kill. Long press: -1 kill |
 | Kill/death view: button 1 / button 2 | +1 kill / +1 death. Long press: -1 |
 | Settings: short press button 1 / 2 | Up / down |

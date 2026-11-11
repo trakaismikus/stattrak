@@ -109,7 +109,7 @@ the update mode and the start sequence.
 | Switch the device off for a low battery while firmware is received | A device that reads a wrong battery level could never get a new firmware. |
 | Rename, reuse or change the meaning of a flash value in `ENTRY_LIST` (`main/app.h`) | Users lose their counters, or an other firmware version reads a wrong value. |
 | Block the main loop: `while(1)` or a long delay without `vTaskDelay()`, slow code in a `draw` function | Buttons, the display and the update mode stop. The user cannot switch off. |
-| Handle `EVENT__PRESS_BOTH` or `EVENT__LONG_PRESS_B` in a different way in normal views | "Both short" = next view (the way to Settings and to the update). "Both long" = power off. |
+| Handle `EVENT__PRESS_BOTH` or `EVENT__LONG_PRESS_B` in a different way in normal views, or remove `SETTINGS` from the app menu (`kApps` in `main/views/launcher_view.c`) | "Both short" = app menu, and the app menu always has SETTINGS (the way to the update). "Both long" = power off. |
 | Tell the user to run `idf.py flash`, `idf.py erase-flash` or `esptool` | These need a wired connection and replace the bootloader. Only do it if the user asks for it and says that the device has a serial (UART) connection. |
 
 `python tools/check_safety.py` finds most of these changes automatically.
@@ -282,7 +282,7 @@ logic) for the computer. Only the hardware and ESP-IDF are replaced (`sim/host/`
 ```sh
 python tools/check.py --build-only            # build it (folder build-host/)
 python tools/sim.py boot click1 click1 frame  # 2 kills, print the display as text
-python tools/sim.py boot both both both png:settings state
+python tools/sim.py boot both click1 both png:settings state   # menu, SETTINGS, open
 python tools/sim.py --tour                    # a picture of each main view in out/
 python tools/sim.py --help                    # all actions
 ```
@@ -370,17 +370,23 @@ Button events (`event_t` in `main/app.h`):
 | `EVENT__LONG_PRESS_1`, `_2` | The button is held for 700 ms. |
 | `EVENT__LONG_HOLD_1`, `_2` | Each 500 ms after that, while the button is held. |
 | `EVENT__RAW_PRESS_x`, `EVENT__RAW_RELEASE_x` | Immediately. Use them only to show a pressed button. |
-| `EVENT__PRESS_BOTH`, `EVENT__LONG_PRESS_B` | Handled in `main/main.c`: next view / power off. Not for views. |
+| `EVENT__PRESS_BOTH`, `EVENT__LONG_PRESS_B` | Handled in `main/main.c`: app menu / power off. Not for views. |
+
+The app menu (`main/views/launcher_view.c`): both buttons in an app open it. Button 1 = previous
+app, button 2 = next app (it wraps around). Both buttons, or 3 seconds without a press, open the
+selected app. The apps are the list `kApps`, in menu order; each has a title picture of 80 x 24
+pixels (icons in `main/resources/app_icons.c`).
 
 To add a view:
 
 1. Make `main/views/my_view.c` with `view_t g_myView = { ... };`. Copy a small view, for
    example `stats_view.c`. The draw code can come from a design file (section 5).
-2. Add `VIEW(MY, my)` to `VIEW_LIST` in `main/app_view.h`. Views between `TOTAL` and `SETTINGS`
-   are in the "both buttons" cycle. Put special views after `SETTINGS`.
+2. Add `VIEW(MY, my)` to `VIEW_LIST` in `main/app_view.h`, after `LAUNCHER`. To show it in the
+   app menu, add it to `kApps` in `main/views/launcher_view.c` with a title picture (80 x 24),
+   before `SETTINGS`. `SETTINGS` stays the last app.
 3. Add the file to `main/CMakeLists.txt` (`SRC_FILES`) **and** to `sim/CMakeLists.txt`
    (`FIRMWARE_SOURCES`).
-4. Update `MAIN_VIEWS` in `tests/helpers.py` if the view is in the cycle. Add a test.
+4. Update `MAIN_VIEWS` in `tests/helpers.py` if the view is in the app menu. Add a test.
 
 ### Drawing
 

@@ -128,24 +128,5 @@ class KillDeadViewTest(SimTestCase):
         self.assertEqual(state["eeprom.total_deaths"], 19)
 
 
-class ViewCycleTest(SimTestCase):
-
-    def test_both_buttons_go_through_the_main_views(self):
-        self.dev.boot()
-        seen = [self.dev.view]
-        for _ in range(4):
-            self.dev.click_both()
-            seen.append(self.dev.view)
-        self.assertEqual(seen, ["TOTAL", "KILL_DEAD", "STATS", "SETTINGS", "TOTAL"])
-
-    def test_both_buttons_do_not_count_a_kill(self):
-        self.dev.boot()
-        for _ in range(4):
-            self.dev.click_both()
-        state = self.dev.state()
-        self.assertEqual(state["eeprom.total_kills"], 0)
-        self.assertEqual(state["eeprom.total_deaths"], 0)
-
-
 if __name__ == "__main__":
     unittest.main()

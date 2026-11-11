@@ -17,7 +17,7 @@ SETTINGS_WITH_BATTERY = [
 ]
 SETTINGS_NO_BATTERY = [name for name in SETTINGS_WITH_BATTERY if name not in ("SHOW_BATTERY", "LOW_BAT")]
 
-# Views that the "both buttons" short press goes through, in order.
+# The apps of the app menu, in menu order (kApps in main/views/launcher_view.c).
 MAIN_VIEWS = ["TOTAL", "KILL_DEAD", "STATS", "SETTINGS"]
 
 # Battery types (main/battery.h)
@@ -59,11 +59,17 @@ class SimTestCase(unittest.TestCase):
         return self.dev
 
     def go_to_view(self, name):
-        """Use the "both buttons" short press until the view is `name`."""
-        for _ in range(len(MAIN_VIEWS) + 1):
-            if self.dev.view == name:
-                return
-            self.dev.click_both()
+        """Open the app `name` with the app menu: both buttons, button 2 until it is selected, both."""
+        if self.dev.view == name:
+            return
+        self.dev.click_both()
+        self.assertEqual(self.dev.view, "LAUNCHER")
+        for _ in range(len(MAIN_VIEWS)):
+            if self.dev.state()["launcher_sel"] == name:
+                break
+            self.dev.click(2)
+        self.assertEqual(self.dev.state()["launcher_sel"], name)
+        self.dev.click_both()
         self.assertEqual(self.dev.view, name)
 
     def open_setting(self, name, battery=None):
