@@ -1,0 +1,41 @@
+dependencies:
+  espressif/button:
+    component_hash: d8c89767960aa80f9cbb92a047282c24aecb96a4e963b06e8e2634284884ad73
+    dependencies:
+    - name: espressif/cmake_utilities
+      registry_url: https://components.espressif.com
+      require: private
+      version: '*'
+    - name: idf
+      require: private
+      version: '>=4.0'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 4.1.2
+  espressif/cmake_utilities:
+    component_hash: 05165f30922b422b4b90c08845e6d449329b97370fbd06309803d8cb539d79e3
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=4.1'
+    source:
+      registry_url: https://components.espressif.com
+      type: service
+    version: 1.1.1
+  idf:
+    source:
+      type: idf
+    version: 5.4.0
+  nimble_peripheral_utils:
+    dependencies: []
+    source:
+      path: /Users/janis_zaharans/Development/esp/esp-idf/examples/bluetooth/nimble/common/nimble_peripheral_utils
+      type: local
+    version: '*'
+direct_dependencies:
+- espressif/button
+- nimble_peripheral_utils
+manifest_hash: 1f8c7c60470fed7fed17c1e1510fc10f54cb9c652d15283c2f5ea573e1cc1b5b
+target: esp32c2
+version: 2.0.0
