@@ -17,6 +17,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 
 /* > Local Function Declarations ******************************************************************/
 static bool _eventHandler(uint16_t event);
@@ -82,6 +83,13 @@ static setting_entry_t kSettingEntries[] = {
     SETTING_LIST
   #undef SETTING
 };
+
+// Each stored setting must have one text for each value that ENTRY_LIST (app.h) allows.
+#define SETTING(_id, _name, _str, _nonvolatile, _cycle, _values) \
+  IF(_nonvolatile, static_assert(elemof(k##_name##Values) == (ENTRY_MAX__##_id + 1), \
+    "Setting " _str ": the count of values is not the same as the limit in ENTRY_LIST");)
+  SETTING_LIST
+#undef SETTING
 
 const struct setting_eeprom_map_struct {
   uint8_t settingId;
@@ -290,7 +298,6 @@ static bool _eventHandler(uint16_t event) {
 
 
 static void _draw(void) {
-  settings_view_t * self = &s_settingsView;
   int32_t offset;
   uint32_t animOffset = (uint32_t)(s_animValue.offset >> 8);
   int32_t idx = animOffset;
@@ -299,10 +306,15 @@ static void _draw(void) {
   const int16_t y2 = 20-6-3; // 20
   const int16_t y3 = 11-6-3; // 33
   
+  // Never read after the end of the setting list
+  if(idx >= s_settingCount)
+    idx = s_settingCount - 1;
+
+  // Neighbour ids are only drawn when in range, clamp so they are never read out of bounds
   const uint8_t id_m1 = (idx > 0) ? SETTING_GET_ID(idx - 1) : SETTING_GET_ID(idx);
   const uint8_t id_0  = SETTING_GET_ID(idx + 0);
-  const uint8_t id_p1 = SETTING_GET_ID(idx + 1);
-  const uint8_t id_p2 = SETTING_GET_ID(idx + 2);
+  const uint8_t id_p1 = ((idx + 1) < s_settingCount) ? SETTING_GET_ID(idx + 1) : id_0;
+  const uint8_t id_p2 = ((idx + 2) < s_settingCount) ? SETTING_GET_ID(idx + 2) : id_0;
 
   offset = (9 * (s_animValue.offset - (idx * 256))) >> 8;
   Gfx_setWindow(0, y1-4, 128, 11);

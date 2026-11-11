@@ -1,0 +1,53 @@
+/* Utils */
+
+// This function keeps calling "toTry" until promise resolves or has
+// retried "max" number of times. First retry has a delay of "delay" seconds.
+// "success" is called upon success.
+async function exponentialBackoff(max, delay, toTry, success, fail) {
+try {
+    const result = await toTry();
+    success(result);
+} catch(error) {
+    if (max === 0) {
+    return fail();
+    }
+    time('Retrying in ' + delay + 's... (' + max + ' tries left)');
+    setTimeout(function() {
+    exponentialBackoff(--max, delay * 2, toTry, success, fail);
+    }, delay * 1000);
+}
+}
+  
+function time(text) {
+console.log('[' + new Date().toJSON().substr(11, 8) + '] ' + text);
+}
+  
+
+// Precomputed CRC-16/CCITT table
+const CRC16_CCITT_TABLE = (() => {
+  let table = new Uint16Array(256);
+  let polynomial = 0x1021;
+  
+  for (let i = 0; i < 256; i++) {
+      let crc = i << 8;
+      for (let j = 0; j < 8; j++) {
+          if (crc & 0x8000) {
+              crc = (crc << 1) ^ polynomial;
+          } else {
+              crc <<= 1;
+          }
+      }
+      table[i] = crc & 0xFFFF;
+  }
+  return table;
+})();
+
+function crc16_ccitt(buffer) {
+  let crc = 0x0000; // Initial value
+  for (let i = 0; i < buffer.length; i++) {
+      let byte = buffer[i];
+      let index = ((crc >> 8) ^ byte) & 0xFF;
+      crc = ((crc << 8) ^ CRC16_CCITT_TABLE[index]) & 0xFFFF;
+  }
+  return crc;
+}

@@ -21,7 +21,7 @@
 static void _readEntries(void);
 
 /* > Constants ************************************************************************************/
-const char* TAG = "EEPROM";
+static const char* TAG = "EEPROM";
 
 /* > Local Variables ******************************************************************************/
 
@@ -134,6 +134,7 @@ void Eeprom_writeDefaults(const uint32_t* defaults) {
     for(uint32_t i=0; i<s_eeprom->entryCount; i++) {
       Eeprom_write(i, defaults[i]);
     }
+    s_eeprom->missing = 0;
 
     if(nvs_commit(s_eeprom->nvsHandle) == ESP_OK) {
       ESP_LOGI(TAG, "Defaults written successfully");
@@ -144,9 +145,31 @@ void Eeprom_writeDefaults(const uint32_t* defaults) {
 }
 
 
+// Write defaults only for entries that were not found in flash, e.g. added by a firmware update
+void Eeprom_writeMissingDefaults(const uint32_t* defaults) {
+  if(defaults == NULL || s_eeprom->missing == 0)
+    return;
+
+  for(uint32_t i = 0; i < s_eeprom->entryCount; i++) {
+    if(s_eeprom->missing & (1UL << i)) {
+      ESP_LOGI(TAG, "%s set to default: %ld", s_eeprom->entryKeys[i], defaults[i]);
+      s_eeprom->entries[i] = defaults[i];
+      nvs_set_u32(s_eeprom->nvsHandle, s_eeprom->entryKeys[i], defaults[i]);
+      s_eeprom->updateNeeded = true;
+    }
+  }
+  s_eeprom->missing = 0;
+}
+
+
 /* > Local Function Definitions *******************************************************************/
 
 static void _readEntries(void) {
+  s_eeprom->missing = 0;
+  if(s_eeprom->entryCount > 32) {
+    ESP_LOGE(TAG, "Too many entries for missing mask");
+  }
+
   for(uint32_t i = 0; i < s_eeprom->entryCount; i++) {
     uint32_t value;
     esp_err_t err = nvs_get_u32(s_eeprom->nvsHandle, s_eeprom->entryKeys[i], &value);
@@ -156,7 +179,10 @@ static void _readEntries(void) {
       ESP_LOGI(TAG, "%s: %ld", s_eeprom->entryKeys[i], value);
     } else if(err == ESP_ERR_NVS_NOT_FOUND) {
       // Key not found, initialize with default value
-      s_eeprom->entries[i] = 0;  // or some other default value
+      // Key not found: 0 until defaults are written (INIT == 0 marks first boot)
+      s_eeprom->entries[i] = 0;
+      if(i < 32)
+        s_eeprom->missing |= (1UL << i);
       ESP_LOGI(TAG, "%s not found", s_eeprom->entryKeys[i]);
     } else {
       ESP_LOGE(TAG, "Error reading key %s: %s", s_eeprom->entryKeys[i], esp_err_to_name(err));

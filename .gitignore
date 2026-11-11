@@ -4,3 +4,17 @@ sdkconfig.old
 sdkconfig
 .vscode/
 managed_components
+# Python
+__pycache__/
+*.pyc
+
+# Simulator and test output
+build-*/
+stattrak_sim_state.txt
+/out/
+
+# Tools that tools/setup.py installs for this repository
+.venv/
+
+# Notes of this computer: who the user is (for AI tools), where ESP-IDF is
+.stattrak/

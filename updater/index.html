@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>StatTrak™ · Firmware Updater</title>
+  <link rel="stylesheet" href="css/colors_and_type.css" />
+  <link rel="stylesheet" href="css/main.css" />
+</head>
+<body>
+  <div class="app">
+
+    <!-- ================= TOP BAR ================= -->
+    <header class="topbar">
+      <div class="topbar__brand">
+        <img src="assets/stattrak-wordmark-white.svg" alt="StatTrak" />
+        <span class="topbar__eyebrow">Firmware Updater</span>
+      </div>
+      <nav class="topbar__meta">
+        <a class="topbar__link" href="https://github.com/janiszah/stattrak-fw" target="_blank" rel="noreferrer">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+          janiszah/stattrak-fw
+        </a>
+        <button class="btn btn--ghost" id="consoleBtn" type="button">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+          Console
+          <span class="btn__count" id="logCount">0</span>
+        </button>
+      </nav>
+    </header>
+
+    <!-- ================= UNSUPPORTED-BROWSER BANNER ================= -->
+    <div class="banner banner--warn" role="alert" id="compatBanner" hidden>
+      <div class="banner__icon" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </div>
+      <div>
+        <div class="banner__title">Unsupported browser for BLE</div>
+        <div class="banner__body">
+          <strong id="browserName">This browser</strong> doesn't implement <code>navigator.bluetooth</code>.
+          Open this page in <strong>Chrome</strong>, <strong>Edge</strong>, or <strong>Opera</strong> (desktop or Android).
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= MESSAGE (file refused, update not complete, firmware confirmed) ================= -->
+    <div class="banner banner--error" role="alert" id="noticeBanner" hidden>
+      <div class="banner__icon" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </div>
+      <div>
+        <div class="banner__title" id="noticeTitle"></div>
+        <div class="banner__body" id="noticeBody"></div>
+      </div>
+    </div>
+
+    <!-- ================= STEPS ================= -->
+    <div class="grid">
+      <div class="steps">
+
+        <!-- ---------- Step 1: Connect ---------- -->
+        <section class="step step--active" id="step1" data-step="1">
+          <header class="step__header">
+            <div class="step__badge" id="step1Badge">1</div>
+            <h2 class="step__title">Enter update mode &amp; connect</h2>
+            <div class="step__head-meta">
+              <span class="step__status step__status--active" id="step1Status">Ready</span>
+              <button class="btn btn--ghost" id="step1EditBtn" type="button" hidden>Edit</button>
+            </div>
+          </header>
+          <div class="step__body">
+
+            <!-- before-pair content -->
+            <div id="step1Before">
+              <p class="step1-instructions">
+                Turn on StatTrak and navigate to&nbsp;
+                <span class="path-crumb">Settings</span>
+                <span class="path-sep" aria-hidden="true">→</span>
+                <span class="path-crumb">Firmware: Update</span>
+                <span class="path-sep" aria-hidden="true">→</span>
+                <span class="path-crumb">Hold right button</span>
+              </p>
+
+              <div class="video-ph">
+                <video src="assets/how-to-update.mp4" autoplay loop muted playsinline preload="auto"></video>
+              </div>
+
+              <div class="btn-row">
+                <button class="btn btn--primary" id="pairBtn" type="button">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg>
+                  <span id="pairBtnLabel">Pair device</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- after-pair content -->
+            <div id="step1After" hidden>
+              <div class="connect-row">
+                <div class="connect-panel">
+                  <div class="connect-panel__label">Device</div>
+                  <div class="connect-panel__value" id="deviceName">—</div>
+                </div>
+                <div class="connect-panel">
+                  <div class="connect-panel__label">Device ID</div>
+                  <div class="connect-panel__value" id="deviceIdVal">—</div>
+                </div>
+                <div class="connect-panel">
+                  <div class="connect-panel__label">Current firmware</div>
+                  <div class="connect-panel__value" id="deviceFw">—</div>
+                </div>
+                <div class="connect-panel">
+                  <div class="connect-panel__label">Connection</div>
+                  <div class="connect-panel__value" id="deviceLink">GATT bonded</div>
+                </div>
+              </div>
+              <div class="btn-row">
+                <button class="btn btn--primary" id="step1NextBtn" type="button">
+                  Next
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                </button>
+                <button class="btn btn--danger-ghost" id="disconnectBtn" type="button">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  Disconnect
+                </button>
+                <button class="btn btn--ghost" id="confirmFwBtn" type="button" title="Use this when the device display shows “Verifying…” and this page did not confirm the firmware by itself.">
+                  Display shows “Verifying…”?
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ---------- Step 2: Select firmware ---------- -->
+        <section class="step step--locked" id="step2" data-step="2">
+          <header class="step__header">
+            <div class="step__badge" id="step2Badge">2</div>
+            <h2 class="step__title">Select firmware</h2>
+            <div class="step__head-meta">
+              <span class="step__status" id="step2Status">Pick one</span>
+              <button class="btn btn--ghost" id="step2EditBtn" type="button" hidden>Edit</button>
+            </div>
+          </header>
+          <div class="step__body">
+
+            <div class="fw-tabs" role="tablist">
+              <button role="tab" aria-selected="true" class="fw-tab fw-tab--active" data-tab="upload" type="button">Upload .bin</button>
+              <button role="tab" aria-selected="false" class="fw-tab" data-tab="hosted" type="button">Official releases</button>
+            </div>
+
+            <!-- upload pane (default) -->
+            <div id="uploadPane">
+              <div class="dropzone" id="dropzone" tabindex="0">
+                <div class="dropzone__icon">
+                  <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                </div>
+                <h3 class="dropzone__title">Drop firmware image</h3>
+                <p class="dropzone__hint">or <strong>browse</strong> — <code>.bin</code> built from <code>stattrak-fw</code>, max 1 MB</p>
+                <p class="dropzone__note">
+                  <strong>First, download the firmware from the&nbsp;<em>Official releases</em> tab</strong> — the updater flashes a local file, so the <code>.bin</code> must already be on your computer.
+                </p>
+                <input type="file" id="fileInput" accept=".bin" hidden />
+              </div>
+            </div>
+
+            <!-- hosted-releases pane -->
+            <div id="hostedPane" hidden>
+              <div class="release-list" id="releaseList">
+                <div class="release-empty">Loading releases from GitHub…</div>
+              </div>
+            </div>
+
+            <div id="fileCardHolder">
+              <div class="file-card" id="fileCard" hidden>
+                <div class="file-card__icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                </div>
+                <div style="min-width:0;">
+                  <div class="file-card__name" id="fileCardName">—</div>
+                  <div class="file-card__meta" id="fileCardMeta">—</div>
+                </div>
+                <button class="file-card__remove" id="fileCardRemove" type="button" aria-label="Remove">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="btn-row" id="step2NextRow" hidden>
+              <button class="btn btn--primary" id="step2NextBtn" type="button">
+                Next
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+              </button>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ---------- Step 3: Flash ---------- -->
+        <section class="step step--locked" id="step3" data-step="3">
+          <header class="step__header">
+            <div class="step__badge" id="step3Badge">3</div>
+            <h2 class="step__title">Flash firmware</h2>
+            <div class="step__head-meta">
+              <span class="step__status" id="step3Status">Ready</span>
+            </div>
+          </header>
+          <div class="step__body">
+
+            <!-- pre-done view -->
+            <div id="step3Pre">
+              <div class="flash-summary">
+                <div class="sum-card">
+                  <div class="sum-card__label">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
+                    Target device
+                  </div>
+                  <div class="sum-card__row"><span>Name</span><span id="sumDeviceName">—</span></div>
+                  <div class="sum-card__row"><span>Version</span><span id="sumDeviceFw">—</span></div>
+                  <div class="sum-card__row"><span>Serial</span><span id="sumDeviceId">—</span></div>
+                </div>
+                <div class="flash-summary__arrow">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                </div>
+                <div class="sum-card">
+                  <div class="sum-card__label">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    Firmware image
+                  </div>
+                  <div class="sum-card__row"><span>File</span><span id="sumFwName">—</span></div>
+                  <div class="sum-card__row"><span>Version</span><span id="sumFwVersion">—</span></div>
+                  <div class="sum-card__row"><span>Size</span><span id="sumFwSize">—</span></div>
+                </div>
+              </div>
+
+              <div class="flash-progress" id="flashProgress" hidden>
+                <div class="flash-progress__head">
+                  <span class="flash-progress__label" id="flashLabel">Writing firmware</span>
+                  <span class="flash-progress__pct" id="flashPct">0%</span>
+                </div>
+                <div class="flash-progress__bar">
+                  <div class="flash-progress__fill" id="flashFill"></div>
+                </div>
+                <div class="flash-progress__meta">
+                  <span id="flashBytes">0 B / 0 B</span>
+                  <span id="flashNote">Do not disconnect</span>
+                </div>
+              </div>
+
+              <p class="flash-hint" id="flashHint" hidden>
+                The device checks the file and restarts. <strong>If the display stays off, switch the device on.</strong>
+                This page confirms the new firmware when the display shows “Verifying…”.
+              </p>
+
+              <div class="btn-row">
+                <button class="btn btn--primary btn--lg" id="flashBtn" type="button" disabled>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                  <span id="flashBtnLabel">Flash firmware</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- done view -->
+            <div class="success" id="successPanel" hidden>
+              <div class="success__icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+              <h3 class="success__title">Flash complete.</h3>
+              <p class="success__sub">Your StatTrak™ restarted with the new firmware and confirmed it. Count is preserved. Press a button on the device to continue.</p>
+              <div class="success__meta">
+                <span>Version <strong id="successVersion">—</strong></span>
+                <span>Size <strong id="successSize">—</strong></span>
+                <span>Device <strong id="successDevice">—</strong></span>
+              </div>
+              <div class="success__actions">
+                <button class="btn btn--ghost" id="flashAgainBtn" type="button">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+                  Flash again
+                </button>
+                <button class="btn btn--primary" id="doneBtn" type="button">Done</button>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+      </div>
+    </div>
+
+    <!-- ================= FOOTER ================= -->
+    <footer class="footer">
+      <div>© StatTrak™ is a trademark of Valve Corporation, used in tribute.</div>
+      <div class="footer__right">
+        <a href="https://tridos.design/" target="_blank" rel="noreferrer" class="footer__brand">TRIDOS.DESIGN</a>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- ================= MODAL ROOT (portal target) ================= -->
+  <div class="modal-root" id="modalRoot" hidden></div>
+
+  <!-- Templates consumed by js/main.js when mounting modals -->
+  <template id="consoleModalTpl">
+    <div class="modal-backdrop" data-dismiss>
+      <div class="modal-panel modal-panel--console" role="dialog" aria-label="Console">
+        <header class="modal__header">
+          <div style="display:inline-flex; align-items:center;">
+            <h3 class="modal__header-title">Console</h3>
+            <span class="modal__header-meta"><span data-log-count>0</span> lines · Live OTA log</span>
+          </div>
+          <div class="modal__header-actions">
+            <button class="btn btn--ghost" data-clear type="button">Clear</button>
+            <button class="file-card__remove" data-close type="button" aria-label="Close">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        </header>
+        <div class="modal__body">
+          <div class="log" data-log-body></div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <template id="confirmModalTpl">
+    <div class="modal-backdrop" data-dismiss>
+      <div class="modal-panel modal-panel--danger" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+        <div class="modal__icon" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+        </div>
+        <div class="modal__eyebrow">Danger · Irreversible during write</div>
+        <h2 id="confirmTitle" class="modal__title">Flash firmware now?</h2>
+        <p class="modal__text">
+          Writing <strong data-fw-name>firmware</strong> (<span data-fw-size>—</span>) to <strong data-device-name>device</strong>.
+        </p>
+        <ul class="modal__checklist">
+          <li><span class="modal__dot"></span> Keep the device powered and within 2m of your computer.</li>
+          <li><span class="modal__dot"></span> Do not unplug, reset, or close this tab.</li>
+          <li><span class="modal__dot"></span> After the transfer the device restarts. If its display stays off, switch the device on. Keep this tab open until it shows “Flash complete”.</li>
+          <li data-unofficial hidden><span class="modal__dot"></span> This file is not a known official release. Flash it only if you made it, or if you trust the person who made it.</li>
+          <li><span class="modal__dot"></span> Interrupting the write can brick the unit — recovery requires a wired programmer.</li>
+        </ul>
+        <div class="modal__actions">
+          <button class="btn btn--ghost" data-cancel type="button">Cancel</button>
+          <button class="btn btn--danger" data-confirm type="button">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            I understand, flash now
+          </button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <script src="js/utils.js"></script>
+  <script src="js/ble.js"></script>
+  <script src="js/firmware.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

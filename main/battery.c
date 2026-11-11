@@ -9,6 +9,8 @@
 #include "battery.h"
 #include "board.h"
 
+#include <assert.h>
+
 
 /* > Defines **************************************************************************************/
 
@@ -52,9 +54,11 @@ const battery_specs_t kBatterySpecs[] = {
   { (8 * NIMH_CRITICAL_VOLTAGE), (8 * NIMH_MIN_VOLTAGE), (8 * NIMH_MAX_VOLTAGE) }, // NiMH 8S
 };
 
+static_assert((sizeof(kBatterySpecs)/sizeof(kBatterySpecs[0])) == BATTERY_TYPE_COUNT, "All battery types should have specs");
+
 /* > Local Variables ******************************************************************************/
 
-battery_t s_battery;
+static battery_t s_battery;
 
 /* > Function Definitions *************************************************************************/
 
@@ -88,7 +92,7 @@ uint8_t Battery_readLevel(void) {
     // uint8_t type = (s_battery.type == BATTERY_TYPE__AUTO) ? s_battery.typeDetected : s_battery.type;
     battery_specs_t specs = kBatterySpecs[s_battery.type];
 
-    int32_t level = (100 * (Board_readVoltage() - specs.min)) / (specs.max - specs.min);
+    int32_t level = (100 * ((int32_t)s_battery.voltage - specs.min)) / (specs.max - specs.min);
 
     // Limit
     if(level < 0) level = 0;
@@ -99,17 +103,19 @@ uint8_t Battery_readLevel(void) {
 }
 
 bool Battery_isCritical(void) {
-  if(s_battery.type == BATTERY_TYPE__UNKNOWN) {
+  // No battery supervision for NONE and USB (the same rule as in Battery_readLevel)
+  if(s_battery.type == BATTERY_TYPE__UNKNOWN || s_battery.type == BATTERY_TYPE__USB) {
     return false;
   } else {
     battery_specs_t specs = kBatterySpecs[s_battery.type];
 
-    return (Board_readVoltage() <= specs.critical);
+    return (s_battery.voltage <= specs.critical);
   }
 }
 
+// Voltage sampled by the last Battery_read() call
 uint16_t Battery_readVoltage(void) {
-  return s_battery.voltage;//Board_readVoltage();
+  return s_battery.voltage;
 }
 
 uint8_t Battery_getType(void) {
@@ -117,6 +123,10 @@ uint8_t Battery_getType(void) {
 }
 
 void Battery_setType(uint8_t type) {
+  // Type comes from EEPROM, it indexes kBatterySpecs
+  if(type >= (sizeof(kBatterySpecs) / sizeof(kBatterySpecs[0])))
+    type = BATTERY_TYPE__UNKNOWN;
+
   s_battery.type = type;
 }
 

@@ -1,0 +1,92 @@
+name: CI
+
+# Runs for pull requests that are ready for review (not for drafts) and for the main branch.
+# About 12 minutes of runner time for one run (3 jobs). Free for a public repository.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Safety check and tests
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # tags give the firmware version
+
+      - name: Install the compiler tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build gcc-multilib
+
+      - name: Let the memory checker work on this runner
+        run: sudo sysctl -w vm.mmap_rnd_bits=28 vm.mmap_rnd_compat_bits=8 || true
+
+      - name: Run all checks
+        run: python3 tools/check.py --seeds 8
+
+  firmware:
+    name: Firmware build (ESP-IDF v5.4)
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    container: espressif/idf:v5.4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build the release firmware
+        shell: bash
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          . "$IDF_PATH/export.sh"
+          idf.py -DSDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.release" build
+
+      - name: The dependency versions must not change in a build
+        shell: bash
+        run: git diff --exit-code dependencies.lock
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stattrak-firmware
+          path: build/stattrak.bin
+          retention-days: 14
+
+  web-simulator:
+    name: Web simulator build
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container: emscripten/emsdk:4.0.10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build the web simulator (one html file)
+        shell: bash
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          emcmake cmake -S sim -B build-web -DSINGLE_FILE=1
+          cmake --build build-web
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stattrak-web-simulator
+          path: build-web/simulator.html
+          retention-days: 14

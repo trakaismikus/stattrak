@@ -13,9 +13,22 @@ const uint8_t font_3x5_data[][3];
 const uint8_t font_5x5_data[][5];
 const uint8_t font_5x5_mask_data[][7];
 
+// Count of characters in each font table. The values are set at the end of this file,
+// after the font data.
+static const uint8_t kFont5x7Count;
+static const uint8_t kFont3x5Count;
+static const uint8_t kFont5x5Count;
+
+// A character that the font does not have is drawn as a space (index 0).
+// Without this limit, the draw functions read after the end of the font table.
+static inline uint8_t _limitIdx(uint8_t idx, uint8_t count)
+{
+  return (idx < count) ? idx : 0;
+}
+
 uint8_t font5x7_to_idx(char c)
 {
-  return (c - ' ');
+  return _limitIdx((uint8_t)(c - ' '), kFont5x7Count);
 }
 
 uint8_t font3x5_to_idx(char c)
@@ -62,7 +75,7 @@ uint8_t font3x5_to_idx(char c)
     //		c_idx = c - 'a' + 'A' - ' ';
 
 
-    return c_idx;
+    return _limitIdx(c_idx, kFont3x5Count);
 }
 
 uint8_t font5x5_to_idx(char c)
@@ -81,7 +94,7 @@ uint8_t font5x5_to_idx(char c)
     //		c_idx = c - 'a' + 'A' - ' ';
 
 
-    return c_idx;
+    return _limitIdx(c_idx, kFont5x5Count);
 }
 
 
@@ -512,3 +525,13 @@ const uint8_t font_5x5_mask_data[][7] = {
 
     { 0x00,0x00,0x00,0x00,0x00,0x00,0x00 }, // Lock (8Ch) - ni
 };
+
+
+static const uint8_t kFont5x7Count = sizeof(font_5x7_data) / sizeof(font_5x7_data[0]);
+static const uint8_t kFont3x5Count = sizeof(font_3x5_data) / sizeof(font_3x5_data[0]);
+static const uint8_t kFont5x5Count = sizeof(font_5x5_data) / sizeof(font_5x5_data[0]);
+
+// font5x5mask uses the index function of font5x5: the two tables must have the same length
+_Static_assert((sizeof(font_5x5_mask_data) / sizeof(font_5x5_mask_data[0])) ==
+               (sizeof(font_5x5_data) / sizeof(font_5x5_data[0])),
+               "font_5x5_mask_data and font_5x5_data must have the same count of characters");

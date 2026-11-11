@@ -24,7 +24,7 @@ static spi_device_handle_t s_spiHandle;
 
 
 // --- OLED ---
-ssd1307_drv_t s_oled = {
+static ssd1307_drv_t s_oled = {
   .rstPin = OLED_RST_PIN,
   .dcPin = OLED_DC_PIN,
   .csPin = OLED_CS_PIN,

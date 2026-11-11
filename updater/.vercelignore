@@ -1,0 +1,5 @@
+# Files that the published page does not need
+tests
+.github
+.claude
+package.json

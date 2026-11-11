@@ -51,6 +51,8 @@ static int _writeFw(struct os_mbuf *om);
 static int _writeCustom(struct os_mbuf *om);
 
 static int _notify(uint16_t connHandle, uint16_t attrHandle, uint8_t* data, uint16_t len, ble_ota_char_id_t otaChar);
+static void _sendFwAck(uint16_t sector, uint16_t status);
+static void _resetSector(void);
 
 static uint16_t crc16_ccitt(const uint8_t *data, uint16_t len);
 
@@ -66,16 +68,17 @@ static uint16_t s_customVal;
 static ble_ota_char_t s_otaChars[BLE_OTA_CHAR_COUNT];
 
 
-static bool s_otaInProgress = false;
+static volatile bool s_otaInProgress = false;
 static uint32_t s_curSector = 0;
 static uint32_t s_curPacket = 0;
 static uint32_t s_fwLen = 0;
 
 static uint8_t s_fwBuf[OTA_BUFFER_SIZE];
 static uint32_t s_fwBufOffset = 0;
+static bool s_sectorError = false;
 
 static void (*s_receiveFwCallback)(uint8_t* data, uint16_t len) = NULL;
-static void (*s_eventCallback)(uint8_t event) = NULL;
+static bool (*s_eventCallback)(ble_ota_event_t event) = NULL;
 static uint16_t (*s_customCallback)(uint8_t* data, uint16_t len, uint8_t* resp, uint16_t respLen) = NULL;
 
 static const struct ble_gatt_svc_def kOtaSvc[] = {
@@ -122,7 +125,7 @@ static const struct ble_gatt_svc_def kOtaSvc[] = {
 ble_app_service_t g_otaService = {
   .gap = {
     .connectCb = NULL,
-    .disconnectCb = NULL,
+    .disconnectCb = BleOta_disconnect,
     .subscribeCb = BleOta_subscribe,
   },
   .init = BleOta_init,
@@ -176,7 +179,28 @@ void BleOta_subscribe(struct ble_gap_event *event) {
 
 
 
-void BleOta_setEventCallback(void (*callback)(uint8_t event)) {
+void BleOta_disconnect(void) {
+  // Client is gone, so the transfer can't be completed
+  if(s_otaInProgress) {
+    MODLOG_DFLT(INFO, "Disconnected during OTA\n");
+    s_otaInProgress = false;
+    if(s_eventCallback != NULL) {
+      s_eventCallback(BLE_OTA_EVENT__STOP);
+    }
+  }
+
+  for(int i = 0; i < BLE_OTA_CHAR_COUNT; i++) {
+    s_otaChars[i].notifyEnabled = false;
+  }
+}
+
+void BleOta_abort(void) {
+  // Further firmware packets are rejected
+  s_otaInProgress = false;
+}
+
+
+void BleOta_setEventCallback(bool (*callback)(ble_ota_event_t event)) {
   s_eventCallback = callback;
 }
 
@@ -195,6 +219,14 @@ uint32_t BleOta_getFwLength(void) {
 
 uint16_t BleOta_calculateCrc(const uint8_t *data, uint16_t len) {
   return crc16_ccitt(data, len);
+}
+
+
+int BleOta_sendCustom(const uint8_t* data, uint16_t len) {
+  if(data == NULL || len == 0)
+    return ESP_FAIL;
+
+  return _notify(s_connHandle, s_customVal, (uint8_t*)data, len, BLE_OTA_CHAR_ID__CUSTOM);
 }
 
 
@@ -263,16 +295,18 @@ static int _otaSvcAccess(uint16_t conn_handle, uint16_t attr_handle,
 
 
 static int _writeCommand(struct os_mbuf *om) {
+  ble_ota_cmd_t cmdBuf;
+  ble_ota_cmd_t* cmd = &cmdBuf;
 
   // Check if received data length is correct
-  if(om->om_len != sizeof(ble_ota_cmd_t)) {
-    MODLOG_DFLT(ERROR, "Invalid command length: %d\n", om->om_len);
+  if(OS_MBUF_PKTLEN(om) != sizeof(ble_ota_cmd_t)) {
+    MODLOG_DFLT(ERROR, "Invalid command length: %d\n", OS_MBUF_PKTLEN(om));
     return 0;
   }
-  ble_ota_cmd_t* cmd = (ble_ota_cmd_t *)om->om_data;
+  os_mbuf_copydata(om, 0, sizeof(ble_ota_cmd_t), cmd);
 
   // Check CRC
-  uint16_t crc = crc16_ccitt(om->om_data, sizeof(ble_ota_cmd_t) - sizeof(uint16_t));
+  uint16_t crc = crc16_ccitt((uint8_t*)cmd, sizeof(ble_ota_cmd_t) - sizeof(uint16_t));
   if(crc != cmd->crc) {
     MODLOG_DFLT(ERROR, "CRC error: %02X != %02X\n", crc, cmd->crc);
     return 0;
@@ -283,22 +317,29 @@ static int _writeCommand(struct os_mbuf *om) {
 
   switch(cmd->cmdId) {
     case CMD_ID__START: {
-      MODLOG_DFLT(INFO, "Start command received\n");
-      s_otaInProgress = true;
+      uint32_t fwLen;
+      memcpy(&fwLen, &cmd->payload[0], sizeof(fwLen));
+      MODLOG_DFLT(INFO, "Start command received, length: %" PRIu32 "\n", fwLen);
+
+      s_otaInProgress = false;
       s_curSector = 0;
-      s_curPacket = 0;
-      s_fwLen = *((uint32_t*)&cmd->payload[0]);
-      s_fwBufOffset = 0;
-      accept = true;
-      if(s_eventCallback != NULL) {
-        s_eventCallback(1);
+      s_fwLen = fwLen;
+      _resetSector();
+
+      accept = (fwLen > 0);
+      if(accept && s_eventCallback != NULL) {
+        accept = s_eventCallback(BLE_OTA_EVENT__START);
       }
+      s_otaInProgress = accept;
     } break;
 
     case CMD_ID__STOP: {
       MODLOG_DFLT(INFO, "Stop command received\n");
       s_otaInProgress = false;
       accept = true;
+      if(s_eventCallback != NULL) {
+        s_eventCallback(BLE_OTA_EVENT__STOP);
+      }
     } break;
 
     default: {
@@ -318,119 +359,136 @@ static int _writeCommand(struct os_mbuf *om) {
 }
 
 
+/*
+ * Firmware packet: [sector u16 LE][packet seq u8][data...]
+ * Each sector carries OTA_BUFFER_SIZE bytes: min(OTA_BLOCK_SIZE, remaining) firmware bytes,
+ * zero padding, and CRC16 of the firmware bytes at offset OTA_BLOCK_SIZE.
+ * The last packet of a sector has sequence number 0xFF and is acknowledged.
+ */
 static int _writeFw(struct os_mbuf *om) {
-  ble_ota_fw_header_t *header = (ble_ota_fw_header_t *)om->om_data;
-
-  // Do not accept data if OTA not started
-  if(!s_otaInProgress) {
-    MODLOG_DFLT(ERROR, "OTA not in progress\n");
-    return 0;
-  }
+  const uint16_t pktLen = OS_MBUF_PKTLEN(om);
+  uint8_t header[OTA_FW_HEADER_SIZE];
 
   // Check if received data length is atleast the size of the header
-  if(om->om_len < (sizeof(ble_ota_fw_header_t))) {
-    MODLOG_DFLT(ERROR, "Invalid firmware packet length: %d\n", om->om_len);
+  if(pktLen < OTA_FW_HEADER_SIZE) {
+    MODLOG_DFLT(ERROR, "Invalid firmware packet length: %d\n", pktLen);
+    return 0;
+  }
+  os_mbuf_copydata(om, 0, OTA_FW_HEADER_SIZE, header);
+
+  const uint16_t sector = header[0] | (header[1] << 8);
+  const uint8_t packetSeq = header[2];
+  const uint16_t dataLen = pktLen - OTA_FW_HEADER_SIZE;
+  const bool lastPacket = (packetSeq == 0xFF);
+
+  // Do not accept data if OTA not started or aborted
+  if(!s_otaInProgress) {
+    MODLOG_DFLT(ERROR, "OTA not in progress\n");
+    if(lastPacket) {
+      _sendFwAck(sector, ACK_STATUS__SECTOR_IDX_ERR);
+    }
     return 0;
   }
 
-  ble_ota_ack_t ack = { 0 };
-
   // Check sector index
-  if(header->sector != s_curSector) {
-    // Sector error
-    if(header->sector == 0xFFFF) {
-      MODLOG_DFLT(INFO, "Last sector");
+  if(sector != s_curSector) {
+    MODLOG_DFLT(ERROR, "Sector error, cur: %" PRIu32 ", recv: %d\n", s_curSector, sector);
+    if(lastPacket) {
+      _sendFwAck(s_curSector, ACK_STATUS__SECTOR_IDX_ERR);
     }
-    else {
-      MODLOG_DFLT(ERROR, "Sector error, cur: %ld, recv: %d\n", s_curSector, header->sector);
-      ack.sector = s_curSector;
-      ack.ackStatus = ACK_STATUS__SECTOR_IDX_ERR;
-      ack.currentSector = s_curSector;
-      ack.crc = crc16_ccitt((uint8_t*)&ack, sizeof(ble_ota_ack_t) - sizeof(uint16_t));
-      _notify(s_connHandle, s_receiveFwVal, (uint8_t*)&ack, sizeof(ble_ota_cmd_t), BLE_OTA_CHAR_ID__RECV_FW);
-    }
+    return 0;
   }
 
   // Check packet sequence
-  if(header->packetSeq != s_curPacket) { // packet seq error
-    if(header->packetSeq == 0xff) { // last packet
-      MODLOG_DFLT(INFO, "Last packet");
-    } else { // packet seq error
-      MODLOG_DFLT(ERROR, "Packet index error, cur: %ld, recv: %d\n", s_curPacket, header->packetSeq);
-    }
+  if(!lastPacket && packetSeq != s_curPacket) {
+    MODLOG_DFLT(ERROR, "Packet index error, cur: %" PRIu32 ", recv: %d\n", s_curPacket, packetSeq);
+    s_sectorError = true;
   }
 
   // Copy firmware data
-  if(s_fwBufOffset + (om->om_len - 3) > OTA_BUFFER_SIZE) {
-    MODLOG_DFLT(ERROR, "Firmware buffer overflow, cur: %ld, recv: %d\n", s_fwBufOffset, om->om_len - 3);
-
-    // TODO: Allow to copy only the remaining space
-
-    assert(0); // TODO
-    return 0;
-  }
-  
-  memcpy(s_fwBuf + s_fwBufOffset, om->om_data + 3, om->om_len - 3);
-  s_fwBufOffset += om->om_len - 3;
-  // MODLOG_DFLT(INFO, "Firmware received: %ld", s_fwBufOffset);
-
-  if(SLIST_NEXT(om, om_next) != NULL) {
-    struct os_mbuf *last;
-    last = om;
-    while (SLIST_NEXT(last, om_next) != NULL) {
-      struct os_mbuf *temp = SLIST_NEXT(last, om_next);
-      memcpy(s_fwBuf + s_fwBufOffset, temp->om_data, temp->om_len);
-      s_fwBufOffset += temp->om_len;
-      last = SLIST_NEXT(last, om_next);
-      temp = NULL;
-    }
+  if(s_fwBufOffset + dataLen > OTA_BUFFER_SIZE) {
+    MODLOG_DFLT(ERROR, "Firmware buffer overflow, cur: %" PRIu32 ", recv: %d\n", s_fwBufOffset, dataLen);
+    s_sectorError = true;
+  } else if(!s_sectorError) {
+    os_mbuf_copydata(om, OTA_FW_HEADER_SIZE, dataLen, s_fwBuf + s_fwBufOffset);
+    s_fwBufOffset += dataLen;
   }
 
-  MODLOG_DFLT(DEBUG, "DEBUG: Sector:%" PRIu32 ", total length:%" PRIu32 ", length:%d", 
-    s_curSector, s_fwBufOffset, om->om_len - 3);
-
-  if (header->packetSeq == 0xff) {
-    s_curPacket = 0;
-    s_curSector++;
-    MODLOG_DFLT(DEBUG, "DEBUG: recv %" PRIu32 " sector", s_curSector);
-  } else {
-    MODLOG_DFLT(DEBUG, "DEBUG: wait next packet");
+  if(!lastPacket) {
     s_curPacket++;
     return 0;
   }
 
   // Sector end
-  MODLOG_DFLT(INFO, "Sector end, sector: %d, len: %ld", header->sector, s_fwBufOffset);
-  if(s_receiveFwCallback != NULL) {
-    if (s_fwBufOffset < OTA_BUFFER_SIZE) {
-      s_receiveFwCallback(s_fwBuf, s_fwBufOffset);
-    } else {
-      s_receiveFwCallback(s_fwBuf, OTA_BLOCK_SIZE);
-    }
+  MODLOG_DFLT(INFO, "Sector end, sector: %d, len: %" PRIu32, sector, s_fwBufOffset);
+
+  const uint32_t sectorStart = s_curSector * OTA_BLOCK_SIZE;
+  const uint32_t remaining = (s_fwLen > sectorStart) ? (s_fwLen - sectorStart) : 0;
+  const uint16_t fwDataLen = (remaining < OTA_BLOCK_SIZE) ? remaining : OTA_BLOCK_SIZE;
+
+  if(s_sectorError || s_fwBufOffset != OTA_BUFFER_SIZE || fwDataLen == 0) {
+    MODLOG_DFLT(ERROR, "Invalid sector length: %" PRIu32 "\n", s_fwBufOffset);
+    _resetSector();
+    _sendFwAck(sector, ACK_STATUS__PAYLOAD_LEN_ERR);
+    return 0;
   }
 
-  // Reset Data Buffer
-  s_fwBufOffset = 0;
-  memset(s_fwBuf, 0x0, OTA_BUFFER_SIZE);
+  // Check sector CRC
+  const uint16_t crc = crc16_ccitt(s_fwBuf, fwDataLen);
+  const uint16_t recvCrc = s_fwBuf[OTA_BLOCK_SIZE] | (s_fwBuf[OTA_BLOCK_SIZE + 1] << 8);
+  if(crc != recvCrc) {
+    MODLOG_DFLT(ERROR, "Sector CRC error: %04X != %04X\n", crc, recvCrc);
+    _resetSector();
+    _sendFwAck(sector, ACK_STATUS__CRC_ERR);
+    return 0;
+  }
 
-  // Send ACK
-  ack.sector = header->sector;
-  ack.ackStatus = ACK_STATUS__SUCCESS;
-  ack.crc = crc16_ccitt((uint8_t*)&ack, sizeof(ble_ota_ack_t) - sizeof(uint16_t));
-  _notify(s_connHandle, s_receiveFwVal, (uint8_t*)&ack, sizeof(ble_ota_cmd_t), BLE_OTA_CHAR_ID__RECV_FW);
+  if(s_receiveFwCallback != NULL) {
+    s_receiveFwCallback(s_fwBuf, fwDataLen);
+  }
+
+  s_curSector++;
+  _resetSector();
+
+  _sendFwAck(sector, ACK_STATUS__SUCCESS);
 
   return 0;
 }
 
 
+static void _sendFwAck(uint16_t sector, uint16_t status) {
+  ble_ota_ack_t ack = { 0 };
+  ack.sector = sector;
+  ack.ackStatus = status;
+  ack.currentSector = s_curSector;
+  ack.crc = crc16_ccitt((uint8_t*)&ack, sizeof(ble_ota_ack_t) - sizeof(uint16_t));
+  _notify(s_connHandle, s_receiveFwVal, (uint8_t*)&ack, sizeof(ble_ota_ack_t), BLE_OTA_CHAR_ID__RECV_FW);
+}
+
+
+static void _resetSector(void) {
+  s_curPacket = 0;
+  s_fwBufOffset = 0;
+  s_sectorError = false;
+}
+
+
 static int _writeCustom(struct os_mbuf *om) {
   // We are reusing the cmd structure for custom commands
-  MODLOG_DFLT(INFO, "Custom received: %d\n", om->om_len);
+  const uint16_t pktLen = OS_MBUF_PKTLEN(om);
+  MODLOG_DFLT(INFO, "Custom received: %d\n", pktLen);
 
   if(s_customCallback != NULL) {
+    uint8_t data[sizeof(ble_ota_cmd_t)];
+    if(pktLen != sizeof(data)) {
+      MODLOG_DFLT(ERROR, "Invalid custom command length: %d\n", pktLen);
+      return 0;
+    }
+    os_mbuf_copydata(om, 0, sizeof(data), data);
+
     // Call custom callback if set
     uint8_t resp[32] = { 0 };
-    uint16_t respLen = s_customCallback(om->om_data, om->om_len, resp, sizeof(resp));
+    uint16_t respLen = s_customCallback(data, sizeof(data), resp, sizeof(resp));
     
     // Notify with response
     if(respLen > 0) {
@@ -448,8 +506,6 @@ static int _notify(uint16_t connHandle, uint16_t attrHandle, uint8_t* data, uint
   bool notifyEnable = false;
   int rc;
   
-  txom = ble_hs_mbuf_from_flat(data, len);
-
   if(otaChar < BLE_OTA_CHAR_COUNT) {
     if(s_otaChars[otaChar].notifyEnabled) {
       notifyEnable = true;
@@ -457,6 +513,13 @@ static int _notify(uint16_t connHandle, uint16_t attrHandle, uint8_t* data, uint
   }
 
   if (notifyEnable) {
+    // Get the buffer only when it is used. ble_gattc_notify_custom() always takes it.
+    txom = ble_hs_mbuf_from_flat(data, len);
+    if(txom == NULL) {
+      MODLOG_DFLT(ERROR, "No buffer for notification");
+      return ESP_FAIL;
+    }
+
     rc = ble_gattc_notify_custom(connHandle, attrHandle, txom);
     if (rc == 0) {
       MODLOG_DFLT(DEBUG, "Notification sent, attr_handle = %d", attrHandle);

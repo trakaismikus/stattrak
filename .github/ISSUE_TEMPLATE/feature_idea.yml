@@ -1,0 +1,32 @@
+name: Feature idea
+description: Tell us what you want your StatTrak to do. No code is necessary.
+title: "Idea: "
+labels: ["idea"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What do you want the StatTrak to do?
+      description: Use plain words. One idea in one issue.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: When do you want to use it?
+      description: For example "in an airsoft game, when I ..."
+    validations:
+      required: true
+  - type: textarea
+    id: picture
+    attributes:
+      label: A picture of the screen (optional)
+      description: A photo of a sketch on paper is fine. A picture from the simulator or the Screen Designer is better. Drag the file into this field.
+  - type: dropdown
+    id: build
+    attributes:
+      label: Do you want to build it yourself?
+      options:
+        - "No, it is only an idea"
+        - "Yes, with an AI coding tool"
+        - "Yes, I am a developer"

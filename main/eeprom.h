@@ -29,6 +29,7 @@ typedef struct {
   const char** entryKeys;
 
   bool updateNeeded;
+  uint32_t missing; // Bit mask of entries not found in flash (max 32 entries)
 } eeprom_t;
  
  /* > Function Declaration *************************************************************************/
@@ -43,6 +44,7 @@ typedef struct {
  
  void Eeprom_format(const uint32_t* defaults);
  void Eeprom_writeDefaults(const uint32_t* defaults);
+ void Eeprom_writeMissingDefaults(const uint32_t* defaults);
  
  #ifdef __cplusplus
  }

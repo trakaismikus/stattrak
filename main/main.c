@@ -33,7 +33,7 @@ static const char *TAG = "App";
 #define EEPROM_ENTRY_COUNT  (ENTRY_ID_COUNT)
 
 const char* kEepromEntryKeys[EEPROM_ENTRY_COUNT] = {
-  #define ENTRY(_id, _key, _default) [ENTRY_ID__## _id] = #_key,
+  #define ENTRY(_id, _key, _default, _max) [ENTRY_ID__## _id] = #_key,
     ENTRY_LIST
   #undef ENTRY
 };

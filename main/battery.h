@@ -24,6 +24,9 @@ enum {
   BATTERY_TYPE__LIPO_3S,
   BATTERY_TYPE__NIMH_3S,
   BATTERY_TYPE__NIMH_8S,
+
+  // Count of battery types. Add new types before this line.
+  BATTERY_TYPE_COUNT
 };
 
 /* > Function Declarations ************************************************************************/

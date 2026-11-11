@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>My SDL App</title>
+  <title>StatTrak Simulator</title>
   <style>
     html, body {
       margin: 0;
@@ -115,7 +115,8 @@
   </div>
 
   <div id="instructions">
-    <p>Use left(←) and right(→) arrow keys to navigate</p>
+    <p>Buttons: left (←) and right (→) arrow keys. Both together: next view. Hold both: power off / power on.</p>
+    <p>Battery voltage: up (↑) / down (↓). Firmware update test: U = send, A = accept.</p>
     <p>Version v@PROJECT_VER@</p>
   </div>
 

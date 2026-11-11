@@ -1,0 +1,51 @@
+{
+  "format": "stattrak-design",
+  "version": 1,
+  "name": "Example screens",
+  "screens": [
+    {
+      "id": "counter",
+      "name": "Big counter",
+      "note": "The main screen. It shows the total kills as 5 digits. Button 1 adds one kill. A long press on button 1 removes one kill.",
+      "elements": [
+        { "type": "text", "x": 64, "y": 1, "text": "TOTAL KILLS", "font": "3x5", "align": "center" },
+        { "type": "line", "x1": 20, "y1": 7, "x2": 107, "y2": 7 },
+        { "type": "text", "x": 64, "y": 12, "text": "01337", "font": "numbers", "align": "center", "note": "the live total kills value" }
+      ]
+    },
+    {
+      "id": "killsDeaths",
+      "name": "Kills and deaths",
+      "note": "Shows the kills and the deaths of this game side by side. Button 1 adds a kill, button 2 adds a death.",
+      "elements": [
+        { "type": "text", "x": 32, "y": 2, "text": "KILLS", "font": "5x5", "align": "center" },
+        { "type": "text", "x": 96, "y": 2, "text": "DEATHS", "font": "5x5", "align": "center" },
+        { "type": "line", "x1": 64, "y1": 2, "x2": 64, "y2": 29 },
+        { "type": "text", "x": 32, "y": 12, "text": "23", "font": "5x7", "align": "center", "scale": 2, "gap": false, "note": "the live game kills value" },
+        { "type": "text", "x": 96, "y": 12, "text": "7", "font": "5x7", "align": "center", "scale": 2, "gap": false, "note": "the live game deaths value" }
+      ]
+    },
+    {
+      "id": "streak",
+      "name": "Kill streak",
+      "note": "An idea for a new screen. It shows for 2 seconds when the user makes 5 kills in less than 30 seconds, then the device goes back to the screen before.",
+      "elements": [
+        { "type": "rect", "x": 0, "y": 0, "w": 128, "h": 32, "fill": false, "radius": 3 },
+        { "type": "pixels", "x": 8, "y": 9, "rows": [
+          "...#####...",
+          "..#######..",
+          ".#########.",
+          ".##..#..##.",
+          ".##..#..##.",
+          ".#########.",
+          "..###.###..",
+          "..#######..",
+          "..#.#.#.#..",
+          "..#######.."
+        ], "note": "a small skull" },
+        { "type": "text", "x": 72, "y": 4, "text": "KILL STREAK", "font": "big", "align": "center" },
+        { "type": "text", "x": 72, "y": 15, "text": "x5", "font": "5x7", "align": "center", "scale": 2, "gap": true, "note": "the count of kills in the streak" }
+      ]
+    }
+  ]
+}

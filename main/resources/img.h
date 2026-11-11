@@ -4,7 +4,7 @@
 #include "gfx.h"
 
 
-extern const gfx_bitmap_t kBmptridos;
+extern const gfx_bitmap_t kBmpTridos;
 extern const gfx_bitmap_t kBmpStattrak;
 extern const gfx_bitmap_t kBmpWarning;
 

@@ -9,11 +9,15 @@
 
 #define APPLY_VOLTAGE_DIV_COEF(_voltage)  (((_voltage) * (36 + 10)) / 10) // 36kOhm + 10kOhm voltage divider
 
+#define FILTER_SHIFT  (4) // Low-pass filter coefficient 1/16
+
 
 static adc_oneshot_unit_handle_t s_handle;
 static adc_cali_handle_t s_caliHandle;
 
-static uint32_t s_adcVoltage = 0;
+// Filtered ADC voltage in mV, scaled by (1 << FILTER_SHIFT) to avoid truncation error
+static int32_t s_adcVoltageAcc = 0;
+static bool s_filterInit = false;
 
 
 void BspAdc_init(void) {
@@ -54,11 +58,20 @@ void BspAdc_deinit(void) {
 int BspAdc_readVoltage(void) {
   int raw = 0;
   int voltage = 0;
-  ESP_ERROR_CHECK(adc_oneshot_read(s_handle, ADC_CHANNEL_2, &raw));
-  ESP_ERROR_CHECK(adc_cali_raw_to_voltage(s_caliHandle, raw, &voltage));
 
-  // Simple low-pass filter for voltage
-  s_adcVoltage = (s_adcVoltage * 15 + voltage) / 16;
+  // On a read error keep the last filtered value
+  if(adc_oneshot_read(s_handle, ADC_CHANNEL_2, &raw) == ESP_OK &&
+     adc_cali_raw_to_voltage(s_caliHandle, raw, &voltage) == ESP_OK) {
+    if(!s_filterInit) {
+      // Start from the first sample instead of ramping up from 0
+      s_adcVoltageAcc = voltage << FILTER_SHIFT;
+      s_filterInit = true;
+    } else {
+      // Simple low-pass filter for voltage
+      s_adcVoltageAcc += voltage - (s_adcVoltageAcc >> FILTER_SHIFT);
+    }
+  }
 
-  return APPLY_VOLTAGE_DIV_COEF(s_adcVoltage);
+  int32_t filtered = (s_adcVoltageAcc + (1 << (FILTER_SHIFT - 1))) >> FILTER_SHIFT;
+  return APPLY_VOLTAGE_DIV_COEF(filtered);
 }
