@@ -57,6 +57,7 @@ set(FIRMWARE_SOURCES
   ${MAIN_DIR}/main.c
   ${MAIN_DIR}/app.c
   ${MAIN_DIR}/app_view.c
+  ${MAIN_DIR}/apps.c
   ${MAIN_DIR}/battery.c
   ${MAIN_DIR}/ble_commands.c
   ${MAIN_DIR}/eeprom.c
@@ -64,6 +65,9 @@ set(FIRMWARE_SOURCES
 
   ${MAIN_DIR}/board/bsp_button.c
 
+  ${MAIN_DIR}/views/app_host_view.c
+  ${MAIN_DIR}/views/app_settings_view.c
+  ${MAIN_DIR}/views/app_sync_view.c
   ${MAIN_DIR}/views/ask_view.c
   ${MAIN_DIR}/views/auto_off_view.c
   ${MAIN_DIR}/views/battery_critical_view.c
@@ -176,6 +180,14 @@ if(NOT EMSCRIPTEN)
   target_compile_definitions(gfx_tool PRIVATE GFX_SUPPORT_GLYPH_FONT=1)
   target_link_options(gfx_tool PRIVATE ${COMMON_LINK_OPTIONS})
   target_link_libraries(gfx_tool PRIVATE m)
+endif()
+
+
+# --- App package check: the C check of the firmware for tests/test_app_match.py
+if(NOT EMSCRIPTEN)
+  add_executable(stapp_tool tools/stapp_tool.c ${COMPONENT_DIR}/stapp/stapp_check.c ${COMPONENT_DIR}/stapp/stapp_vm.c)
+  target_compile_options(stapp_tool PRIVATE ${COMMON_OPTIONS} ${FIRMWARE_WARNINGS})
+  target_link_options(stapp_tool PRIVATE ${COMMON_LINK_OPTIONS})
 endif()
 
 

@@ -182,8 +182,7 @@ stapp_result_t Stapp_run(stapp_vm_t* vm, stapp_event_t event, stapp_sys_fn_t sys
         pc = Stapp_rd16(code + pc + 1);
         continue;
       case STAPP_OP__RET:
-        if(depth == 0)
-          return STAPP_OK;      // Return from the handler
+        if(depth == 0) { error = STAPP_ERR_CALLS; goto fail; }   // A handler ends with HALT
         pc = vm->calls[--depth];
         continue;
 
@@ -196,6 +195,12 @@ stapp_result_t Stapp_run(stapp_vm_t* vm, stapp_event_t event, stapp_sys_fn_t sys
         }
         NEED((uint8_t)argc);
         sp = (uint8_t)(sp - argc);
+        // A string or bitmap that is not in the package is an app error (the third argument)
+        if((id == STAPP_SYS__TEXT && (stack[sp + 2] < 0 || stack[sp + 2] >= vm->info.stringCount)) ||
+           (id == STAPP_SYS__BITMAP && (stack[sp + 2] < 0 || stack[sp + 2] >= vm->info.bitmapCount))) {
+          error = STAPP_ERR_ARG;
+          goto fail;
+        }
         // The arguments are stack[sp .. sp + argc - 1], the first one pushed first
         const int32_t result = sys ? sys(ctx, id, &stack[sp], drawing) : 0;
         PUSH(result);

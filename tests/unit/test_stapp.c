@@ -348,16 +348,16 @@ TEST(engine_loop_and_call) {
 }
 
 TEST(engine_system_call_gets_its_arguments_in_order) {
-  // text(x=3, y=4, str=0, font=1, c=1, align=2) in the open handler: not drawing
-  const uint8_t code[] = { OP_PUSH8, 3, OP_PUSH8, 4, OP_PUSH8, 0, OP_PUSH8, 1, OP_PUSH8, 1, OP_PUSH8, 2,
-                           OP_SYS, 6, OP_STORE, 0, OP_HALT };
+  // fill(x=3, y=4, w=5, h=6, c=2) in the open handler: not drawing
+  const uint8_t code[] = { OP_PUSH8, 3, OP_PUSH8, 4, OP_PUSH8, 5, OP_PUSH8, 6, OP_PUSH8, 2,
+                           OP_SYS, 4, OP_STORE, 0, OP_HALT };
   stapp_vm_t vm; sys_log_t log = { 0 };
   log.result = 77;
   CHECK_EQ(_runCode(code, sizeof(code), &vm, &log), STAPP_OK);
   CHECK_EQ(log.calls, 1);
-  CHECK_EQ(log.lastId, 6);
+  CHECK_EQ(log.lastId, 4);
   CHECK_EQ(log.lastArgs[0], 3);
-  CHECK_EQ(log.lastArgs[5], 2);
+  CHECK_EQ(log.lastArgs[4], 2);
   CHECK(!log.lastDrawing);
   CHECK_EQ(vm.globals[0], 77);
 }
@@ -396,16 +396,42 @@ TEST(engine_limits_stop_the_app) {
   const uint8_t sysUnderflow[] = { OP_SYS, 3, OP_HALT };   // rect needs 5 arguments
   CHECK_EQ(_runCode(sysUnderflow, sizeof(sysUnderflow), &vm, &log), STAPP_ERR_STACK);
 
-  const uint8_t recursion[] = { OP_CALL, 0x00, 0x00 };
+  const uint8_t recursion[] = { OP_CALL, 0x00, 0x00, OP_HALT };
   CHECK_EQ(_runCode(recursion, sizeof(recursion), &vm, &log), STAPP_ERR_CALLS);
 
-  const uint8_t retFromHandler[] = { OP_PUSH8, 5, OP_STORE, 0, OP_RET, OP_PUSH8, 6, OP_STORE, 0 };
-  CHECK_EQ(_runCode(retFromHandler, sizeof(retFromHandler), &vm, &log), STAPP_OK);
+  // A handler ends with HALT. RET without a CALL is an error (the work before it stays).
+  const uint8_t retFromHandler[] = { OP_PUSH8, 5, OP_STORE, 0, OP_RET };
+  CHECK_EQ(_runCode(retFromHandler, sizeof(retFromHandler), &vm, &log), STAPP_ERR_CALLS);
   CHECK_EQ(vm.globals[0], 5);
 
+  // Code that could run past its end does not pass the check
   const uint8_t offTheEnd[] = { OP_PUSH8, 9, OP_STORE, 0 };
-  CHECK_EQ(_runCode(offTheEnd, sizeof(offTheEnd), &vm, &log), STAPP_OK);
-  CHECK_EQ(vm.globals[0], 9);
+  CHECK_EQ(_runCode(offTheEnd, sizeof(offTheEnd), &vm, &log), STAPP_ERR_CODE);
+}
+
+TEST(check_ids_and_fixed_string_ids) {
+  static pkg_t pkg;
+  spec_t spec = _spec(kHalt, sizeof(kHalt));
+  _build(&pkg, &spec);
+  _put32(pkg.data + 8, 255); _finish(&pkg);
+  CHECK_EQ(Stapp_check(pkg.data, pkg.size, NULL), STAPP_ERR_HEADER);   // Kept for built-in apps
+  _put32(pkg.data + 8, 256); _finish(&pkg);
+  CHECK_EQ(Stapp_check(pkg.data, pkg.size, NULL), STAPP_OK);
+  memcpy(pkg.data + 16, "test", 4); _finish(&pkg);
+  CHECK_EQ(Stapp_check(pkg.data, pkg.size, NULL), STAPP_ERR_HEADER);   // Lower case
+
+  // text(1, 2, 3, 0, 1, 0): string 3 does not exist (no strings)
+  const uint8_t text[] = { OP_PUSH8, 1, OP_PUSH8, 2, OP_PUSH8, 3, OP_PUSH8, 0, OP_PUSH8, 1, OP_PUSH8, 0, OP_SYS, 6, OP_DROP, OP_HALT };
+  CHECK_EQ(_checkCode(text, sizeof(text), 0, 0), STAPP_ERR_STRINGS);
+  // bitmap(1, 2, 0, 1): no bitmaps
+  const uint8_t bitmap[] = { OP_PUSH8, 1, OP_PUSH8, 2, OP_PUSH8, 0, OP_PUSH8, 1, OP_SYS, 9, OP_DROP, OP_HALT };
+  CHECK_EQ(_checkCode(bitmap, sizeof(bitmap), 0, 0), STAPP_ERR_BITMAPS);
+  // The id comes from a variable: checked when the code runs
+  const uint8_t textVar[] = { OP_PUSH8, 1, OP_PUSH8, 2, OP_LOAD, 0, OP_PUSH8, 0, OP_PUSH8, 1, OP_PUSH8, 0, OP_SYS, 6, OP_DROP, OP_HALT };
+  CHECK_EQ(_checkCode(textVar, sizeof(textVar), 0, 0), STAPP_OK);
+  stapp_vm_t vm; sys_log_t log = { 0 };
+  CHECK_EQ(_runCode(textVar, sizeof(textVar), &vm, &log), STAPP_ERR_ARG);
+  CHECK_EQ(log.calls, 0);
 }
 
 TEST(engine_sys_table) {
@@ -502,6 +528,7 @@ int main(void) {
   RUN(engine_system_call_gets_its_arguments_in_order);
   RUN(engine_drawing_flag_only_in_draw);
   RUN(engine_limits_stop_the_app);
+  RUN(check_ids_and_fixed_string_ids);
   RUN(engine_sys_table);
   RUN(fuzz_broken_packages_are_safe);
   return utest_finish();

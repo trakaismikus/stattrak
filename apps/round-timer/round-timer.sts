@@ -1,0 +1,127 @@
+# ROUND TIMER: the time left in the round, and the round number.
+#   Button 1: start / pause.  Button 2: next round.  Hold button 2: back to round 1.
+#   When the round time is over, it beeps 3 times.
+
+app "ROUND TIMER"
+version 1
+description "Times each round: button 1 starts and pauses, button 2 goes to the next round. It beeps at the end."
+picture icon stopwatch "ROUND" "TIMER"
+permission sound
+
+setting length "ROUND TIME" "0:30" "1:00" "1:30" "2:00" "3:00" "5:00" default "1:00"
+setting beep "SOUND" "ON" "OFF"
+
+saved round = 1        # the round number (kept when the app is closed)
+var running = 0        # 1 while the time runs
+var start = 0          # time() of the last start
+var used = 0           # milliseconds of the round before the last start
+var done = 0           # 1 when the round time is over
+var beeps = 0          # beeps that are still to come
+var next_beep = 0      # time() of the next beep
+
+# The round time in milliseconds (setting ROUND TIME)
+func round_ms() {
+  var i = setting(length)
+  if i < 4 { return (i + 1) * 30000 }
+  if i == 4 { return 180000 }
+  return 300000
+}
+
+# Milliseconds of the round that are used
+func elapsed() {
+  if running { return used + time() - start }
+  return used
+}
+
+func sound(freq) {
+  if setting(beep) == 0 { click(freq) }
+}
+
+# Back to the start of the round (the round number stays)
+func reset_time() {
+  running = 0
+  used = 0
+  done = 0
+  beeps = 0
+}
+
+on press1 {
+  if done { return }
+  if running {
+    used = elapsed()
+    running = 0
+  } else {
+    start = time()
+    running = 1
+  }
+  sound(1000)
+}
+
+on press2 {
+  round = round + 1
+  if round > 99 { round = 1 }
+  reset_time()
+  sound(1500)
+  save()
+}
+
+on long2 {
+  if round != 1 || used != 0 || running {
+    round = 1
+    reset_time()
+    sound(600)
+    save()
+  }
+}
+
+on tick {
+  if running && elapsed() >= round_ms() {
+    running = 0
+    used = round_ms()
+    done = 1
+    beeps = 3
+    next_beep = time()
+  }
+  if beeps > 0 && time() >= next_beep {
+    sound(2000)
+    beeps -= 1
+    next_beep = time() + 400
+  }
+}
+
+on draw {
+  # Left: the round number, dark on a white box
+  rrect(0, 2, 30, 28, 1)
+  text(15, 6, "ROUND", small, off, center)
+  bignum(4, 14, round, 2, 2, off)
+
+  # Right: the time left as M:SS, in big dotted digits
+  var rest = round_ms() - elapsed()
+  var s = (rest + 999) / 1000
+  var show = 1
+  if (done || (!running && used > 0)) && (time() / 500) % 2 == 1 { show = 0 }   # blinks when paused or over
+  if show {
+    bignum(40, 4, s / 60, 1, 3, on)
+    fill(57, 9, 2, 2, on)
+    fill(57, 17, 2, 2, on)
+    bignum(62, 4, s % 60, 2, 3, on)
+  }
+
+  # The part of the round that is used, as a bar
+  rect(40, 28, 87, 3, on)
+  hline(41, 29, used_width(85), on)
+
+  # The state, at the right
+  if done {
+    text(115, 4, "END", small, on, center)
+  } else if running {
+    text(115, 4, "RUN", small, on, center)
+  } else {
+    text(115, 4, "STOP", small, on, center)
+  }
+}
+
+# Width of the bar for the used time, from 0 to `full`
+func used_width(full) {
+  return min(elapsed() * full / round_ms(), full)
+}

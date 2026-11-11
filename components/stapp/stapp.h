@@ -25,6 +25,7 @@
 #define STAPP_PICTURE_SIZE        (STAPP_PICTURE_W * STAPP_PICTURE_H / 8)   // 240
 #define STAPP_HANDLERS_OFFSET     (STAPP_PICTURE_OFFSET + STAPP_PICTURE_SIZE) // 288
 #define STAPP_NO_HANDLER          0xFFFF
+#define STAPP_RESERVED_IDS        255   // App ids 0 .. 255: 0 and the built-in apps (1, 2, 3, later more)
 
 #define STAPP_MAX_SIZE            4096
 #define STAPP_MAX_NAME            14

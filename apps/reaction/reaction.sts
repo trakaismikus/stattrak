@@ -1,0 +1,137 @@
+# REACTION: a reaction game.
+#   Press a button to start. Wait: after 1 to 4 seconds the screen shows GO. Then press a button
+#   as fast as you can. The app shows your time in milliseconds and keeps the best time.
+#   Hold button 2: forget the best time.
+
+app "REACTION"
+version 1
+description "A reaction game: wait for GO, then press a button as fast as you can. It keeps your best time."
+picture icon lightning "REACTION"
+permission sound
+
+saved best = 0       # the best time in ms (0 = no time yet)
+var state = 0        # 0 ready, 1 wait for GO, 2 GO, 3 result, 4 too soon
+var go_at = 0        # time() when GO comes (state 1) or came (state 2)
+var result = 0       # the last time in ms
+var new_best = 0     # 1 if the last time is a new best time
+
+const READY = 0
+const WAIT = 1
+const GO = 2
+const RESULT = 3
+const TOO_SOON = 4
+
+bitmap go_picture {
+  "...#######.........#######..."
+  ".###########.....###########."
+  "###.......###...###.......###"
+  "##..............##.........##"
+  "##..............##.........##"
+  "##.....######...##.........##"
+  "##.....######...##.........##"
+  "##.........##...##.........##"
+  "###.......###...###.......###"
+  ".###########.....###########."
+  "...#######.........#######..."
+}
+
+func begin() {
+  state = WAIT
+  go_at = time() + 1000 + random(3001)
+}
+
+func press() {
+  if state == WAIT {
+    state = TOO_SOON
+    click(300)
+    return
+  }
+  if state == GO {
+    result = time() - go_at
+    state = RESULT
+    new_best = best == 0 || result < best
+    if new_best {
+      best = result
+      save()
+    }
+    return
+  }
+  begin()
+}
+
+on press1 { press() }
+on press2 { press() }
+
+on long2 {
+  if state != GO && best != 0 {
+    best = 0
+    state = READY
+    save()
+    click(600)
+  }
+}
+
+on draw {
+  if state == WAIT && time() >= go_at {
+    state = GO
+    go_at = time()
+    click(2000)
+  }
+
+  if state == READY {
+    text(64, 5, "PRESS TO START", caps, on, center)
+    text(64, 15, "THEN WAIT FOR GO", small, on, center)
+    show_best(24)
+  }
+  if state == WAIT {
+    var dots = (time() / 300) % 4
+    text(64, 12, "WAIT", title, on, center)
+    fill(76, 18, 2, 2, dots >= 1)
+    fill(80, 18, 2, 2, dots >= 2)
+    fill(84, 18, 2, 2, dots >= 3)
+  }
+  if state == GO {
+    fill(0, 0, 128, 32, on)
+    bitmap(50, 11, go_picture, off)
+  }
+  if state == RESULT {
+    var shown = min(result, 9999)
+    var x = 2
+    if shown < 1000 { x = 20 }
+    if shown < 100 { x = 38 }
+    bignum(x, 5, shown, 0, 3, on)
+    text(73, 19, "MS", text, on, left)
+    rrect(88, 2, 40, 28, 1)
+    if new_best {
+      text(108, 8, "NEW", small, off, center)
+      text(108, 17, "BEST!", small, off, center)
+    } else {
+      text(108, 6, "BEST", small, off, center)
+      num(108, 15, min(best, 9999), 0, text, off, center)
+    }
+  }
+  if state == TOO_SOON {
+    text(64, 6, "TOO SOON!", title, on, center)
+    text(64, 20, "PRESS TO TRY AGAIN", small, on, center)
+  }
+}
+
+func show_best(y) {
+  if best == 0 {
+    text(64, y, "NO BEST TIME YET", small, on, center)
+  } else {
+    text(62, y, "BEST", small, on, right)
+    num(66, y, min(best, 9999), 0, small, on, left)
+    text(66 + width_of(best), y, "MS", small, on, left)
+  }
+}
+
+# Width in pixels of a number in the 3x5 font (4 pixels for each digit)
+func width_of(value) {
+  var width = 4
+  while value >= 10 {
+    value = value / 10
+    width += 4
+  }
+  return width + 1
+}

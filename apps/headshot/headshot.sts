@@ -1,0 +1,92 @@
+# HEADSHOT %: counts kills and headshots, and shows the headshot percentage of the game.
+#   Button 1: a kill.  Button 2: a headshot kill (a kill and a headshot).
+#   Hold a button: undo the last kill.
+# The kills go into the kill counters of the device (total and game). The headshots are a saved
+# value of this app. When the game counter is reset, the headshots start again at 0.
+
+app "HEADSHOT %"
+version 1
+description "Counts kills and headshots and shows the headshot percentage. Button 1: kill, button 2: headshot, hold: undo."
+picture icon headshot "HEADSHOT" "PERCENT"
+permission counters
+
+saved heads = 0         # headshots in this game
+saved last_kills = 0    # the game kills after the last change by this app
+var history = 0         # the last kills, the newest in bit 0 (1 = headshot)
+var history_count = 0
+var message = 0         # 0 none, 1 kill, 2 headshot, 3 undo, 4 nothing to undo
+var message_until = 0
+var last_long = 0       # time() of the last long press event
+
+on open {
+  var kills = counter(game_kills)
+  if kills < last_kills { heads = 0 }     # the game counter was reset
+  heads = min(heads, kills)
+  last_kills = kills
+}
+
+func show(what) {
+  message = what
+  message_until = time() + 1200
+}
+
+func kill(head) {
+  last_kills = add_counter(game_kills, 1)
+  heads += head
+  history = (history << 1) | head
+  history_count = min(history_count + 1, 30)
+  show(1 + head)
+}
+
+func undo() {
+  if history_count == 0 {
+    show(4)
+    return
+  }
+  last_kills = add_counter(game_kills, -1)
+  heads = max(heads - (history & 1), 0)
+  history = history >> 1
+  history_count -= 1
+  show(3)
+}
+
+# A long press sends an event at the start and each 500 ms while it is held: undo only once
+func long_press() {
+  if time() - last_long > 700 { undo() }
+  last_long = time()
+}
+
+on press1 { kill(0) }
+on press2 { kill(1) }
+on long1 { long_press() }
+on long2 { long_press() }
+on close { save() }
+
+on draw {
+  var kills = counter(game_kills)
+  var hs = min(heads, kills)
+  var percent = 0
+  if kills > 0 { percent = (hs * 100 + kills / 2) / kills }
+
+  # Left: the percentage in big dotted digits, right-aligned at the % sign
+  var x = 38
+  if percent >= 10 { x = 20 }
+  if percent >= 100 { x = 2 }
+  bignum(x, 5, percent, 0, 3, on)
+  text(56, 19, "%", text, on, left)
+
+  # Right: kills and headshots, dark on a white box
+  rrect(64, 2, 64, 28, 1)
+  text(68, 6, "KILLS", small, off, left)
+  num(123, 5, kills, 0, text, off, right)
+  text(68, 14, "HEADS", small, off, left)
+  num(123, 13, hs, 0, text, off, right)
+  hline(66, 21, 60, off)
+
+  if time() >= message_until { message = 0 }
+  if message == 0 { text(96, 23, "1 KILL  2 HEAD", small, off, center) }
+  if message == 1 { text(96, 23, "KILL +1", small, off, center) }
+  if message == 2 { text(96, 23, "HEADSHOT +1", small, off, center) }
+  if message == 3 { text(96, 23, "UNDO", small, off, center) }
+  if message == 4 { text(96, 23, "NOTHING TO UNDO", small, off, center) }
+}
