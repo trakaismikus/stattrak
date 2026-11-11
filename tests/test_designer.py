@@ -263,9 +263,11 @@ class DesignerFilesTest(unittest.TestCase):
             self.assertTrue(os.path.isfile(os.path.join(DESIGNER_DIR, *name.split("/"))), name)
         for name in ("OFL-BarlowCondensed.txt", "OFL-JetBrainsMono.txt"):
             self.assertTrue(os.path.isfile(os.path.join(DESIGNER_DIR, "fonts", name)), name)
-        other = [name for name in os.listdir(os.path.join(DESIGNER_DIR, "fonts"))
-                 if not name.endswith((".woff2", ".txt"))]
-        self.assertEqual(other, [], "only the free fonts and their license texts belong in this folder")
+        # Only these free fonts and their license texts belong in the folder
+        self.assertEqual(sorted(os.listdir(os.path.join(DESIGNER_DIR, "fonts"))), [
+            "BarlowCondensed-400.woff2", "BarlowCondensed-500.woff2", "BarlowCondensed-700.woff2",
+            "BarlowCondensed-800.woff2", "BarlowCondensed-800i.woff2", "BarlowCondensed-900i.woff2",
+            "JetBrainsMono.woff2", "OFL-BarlowCondensed.txt", "OFL-JetBrainsMono.txt"])
 
     def test_no_dialogs_that_stop_the_page(self):
         page = self.read("index.html")

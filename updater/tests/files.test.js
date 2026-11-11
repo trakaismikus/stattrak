@@ -80,6 +80,8 @@ test("the Bluetooth numbers of the page are the numbers of the firmware", { skip
     ["CMD_ID__START", bleOta, /CMD_ID__START\s*=\s*(0x[0-9A-Fa-f]+)/],
     ["CMD_ID__STOP", bleOta, /CMD_ID__STOP\s*=\s*(0x[0-9A-Fa-f]+)/],
     ["CMD_ID__ACK", bleOta, /CMD_ID__ACK\s*=\s*(0x[0-9A-Fa-f]+)/],
+    ["CMD_ACK__ACCEPT", bleOta, /CMD_ACK__ACCEPT\s*=\s*(0x[0-9A-Fa-f]+)/],
+    ["CMD_ACK__REJECT", bleOta, /CMD_ACK__REJECT\s*=\s*(0x[0-9A-Fa-f]+)/],
     ["ACK_STATUS__SUCCESS", bleOta, /ACK_STATUS__SUCCESS\s*=\s*(0x[0-9A-Fa-f]+)/],
     ["ACK_STATUS__CRC_ERR", bleOta, /ACK_STATUS__CRC_ERR\s*=\s*(0x[0-9A-Fa-f]+)/],
     ["ACK_STATUS__SECTOR_IDX_ERR", bleOta, /ACK_STATUS__SECTOR_IDX_ERR\s*=\s*(0x[0-9A-Fa-f]+)/],
@@ -89,8 +91,16 @@ test("the Bluetooth numbers of the page are the numbers of the firmware", { skip
     ["CUSTOM_ID__GET_UID", ota, /CUSTOM_ID__GET_UID\s*=\s*(0x[0-9A-Fa-f]+)/],
     ["CUSTOM_ID__ACCEPT_FW", ota, /CUSTOM_ID__ACCEPT_FW\s*=\s*(0x[0-9A-Fa-f]+)/],
     ["CUSTOM_ID__REJECT_FW", ota, /CUSTOM_ID__REJECT_FW\s*=\s*(0x[0-9A-Fa-f]+)/],
+    ["CUSTOM_ID__REBOOT", ota, /CUSTOM_ID__REBOOT\s*=\s*(0x[0-9A-Fa-f]+)/],
   ];
   for (const [name, source, pattern] of pairs) {
     assert.equal(pageNumber(name), firmwareNumber(source, pattern, name), name);
   }
+
+  // Each number of the page is in the list above, or is not a number of the firmware
+  const ownNumbers = ["OTA_BUFFER_SIZE", "BLE_MTU", "SECTOR_TRIES", "INDICATION_TIMEOUT_MS",
+    "RECONNECT_FIRST_MS", "RECONNECT_MAX_MS", "RECONNECT_GIVE_UP_MS"];
+  const declared = [...page.matchAll(/^\s*static ([A-Z][A-Z0-9_]*)\s*=/gm)].map((match) => match[1]);
+  const compared = pairs.map((pair) => pair[0]);
+  assert.deepEqual(declared.filter((name) => !compared.includes(name) && !ownNumbers.includes(name)), []);
 });
