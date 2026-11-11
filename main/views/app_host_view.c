@@ -48,6 +48,8 @@ static bool _eventHandler(uint16_t event);
 static void _open(uint32_t id);
 static void _close(void);
 static void _run(stapp_event_t event);
+static uint8_t s_counterChanges = 0;   // add_counter calls in the event that runs now
+#define APP_HOST_MAX_COUNTER_CHANGES  4
 static void _fail(stapp_result_t result);
 static bool _valuesChanged(void);
 static void _queueSave(void);
@@ -270,6 +272,7 @@ static void _run(stapp_event_t event) {
     return;
 
   s_event = event;
+  s_counterChanges = 0;
   stapp_result_t result = Stapp_run(&s_vm, event, _sys, NULL);
   if(result == STAPP_OK)
     result = s_vm.error;   // A bad argument that a system call found
@@ -377,6 +380,10 @@ static int32_t _sys(void* ctx, uint8_t sysId, const int32_t* a, bool drawing) {
       if(drawing || !(s_event == STAPP_EVENT__PRESS_1 || s_event == STAPP_EVENT__PRESS_2 ||
                       s_event == STAPP_EVENT__LONG_1 || s_event == STAPP_EVENT__LONG_2))
         return 0;
+      // A few changes for one press: each one is a flash write
+      if(s_counterChanges >= APP_HOST_MAX_COUNTER_CHANGES)
+        return _counter(a[0]);
+      s_counterChanges++;
       return _addCounter(a[0], a[1]);
 
     case STAPP_SYS__SETTING:

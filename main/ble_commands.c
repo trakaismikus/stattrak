@@ -228,6 +228,8 @@ static uint8_t _setOrder(const uint8_t* data) {
   const uint8_t count = data[0];
   const uint8_t part = data[1 + 4 * ORDER_IDS_PER_PART];
 
+  if(part == 0)
+    s_orderNextPart = 0;   // A new order starts again (an old one can be unfinished: connection lost)
   if(count == 0 || count > APPS_LIST_MAX || part != s_orderNextPart || (part > 0 && count != s_orderCount) ||
      (uint32_t)part * ORDER_IDS_PER_PART >= count) {
     s_orderNextPart = 0;

@@ -222,7 +222,8 @@ must match it):
 - `invert(x, y, w, h)`: inverts the w x h pixels.
 
 Where calls work: drawing calls only in `draw`. `add_counter` only in `press1`, `press2`,
-`long1`, `long2` (in other handlers it does nothing and gives 0). `click` does nothing in `draw`.
+`long1`, `long2` (in other handlers it does nothing and gives 0), at most 4 times in one event
+(more calls only give the value). `click` does nothing in `draw`.
 Each `draw` may draw at most about 8 full screens of pixels; more = app error `too many steps`.
 
 ### Events

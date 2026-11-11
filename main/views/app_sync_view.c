@@ -154,11 +154,12 @@ app_sync_result_t AppSync_end(stapp_result_t* reason, uint16_t* expected) {
 }
 
 void AppSync_update(uint32_t now) {
-  if(s_state == APP_SYNC_STATE__WAITING && (now - s_questionStart) >= APP_SYNC_QUESTION_MS)
+  // Signed: a Bluetooth command can set the start time a little after `now` was read
+  if(s_state == APP_SYNC_STATE__WAITING && (int32_t)(now - s_questionStart) >= APP_SYNC_QUESTION_MS)
     s_state = APP_SYNC_STATE__TIMEOUT;
 
   // The page stopped sending: wait for a new install
-  if(s_state == APP_SYNC_STATE__RECEIVING && (now - s_lastDataMs) >= APP_SYNC_DATA_MS)
+  if(s_state == APP_SYNC_STATE__RECEIVING && (int32_t)(now - s_lastDataMs) >= APP_SYNC_DATA_MS)
     _reset();
 }
 

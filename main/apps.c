@@ -366,6 +366,13 @@ apps_result_t Apps_install(const uint8_t* package, const stapp_info_t* info) {
   const installed_t* old = _findInstalled(info->id);
   const bool isNew = (old == NULL);
   const bool wasSwitchedOff = (old != NULL && old->errors >= APPS_ERROR_LIMIT);
+
+  // A new app starts clean: values of the same id can be left from a delete that a power loss stopped
+  if(isNew) {
+    _eraseKey('v', info->id);
+    _eraseKey('s', info->id);
+    _eraseKey('e', info->id);
+  }
   _cacheInstalled(info->id, package, info, false);
 
   // A new version starts without errors

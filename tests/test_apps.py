@@ -257,6 +257,21 @@ class InstallTest(AppTestCase):
         self.assertEqual(state["eeprom.game_kills"], 0)
         self.assertEqual(state["eeprom.total_kills"], 0)
 
+    def test_one_press_changes_the_counters_at_most_4_times(self):
+        # Fable review F3: each change is a flash write
+        asm = Asm()
+        asm.handler("press1")
+        for _ in range(10):
+            asm.sys_drop("add_counter", 2, 1)
+        asm.halt()
+        self.assert_installed(build(name="MANY", app_id=0x1100, permissions=PERM_COUNTERS, asm=asm))
+        self.leave_sync()
+        self.open_app(0x1100)
+        self.dev.click(1)
+        state = self.dev.state()
+        self.assertEqual(state["eeprom.game_kills"], 4)
+        self.assertEqual(state["eeprom.total_kills"], 4)
+
     def test_an_app_without_the_permission_is_refused(self):
         package = counter_app()
         # The same code with the permission bits taken out of the header
@@ -451,6 +466,13 @@ class ManageTest(AppTestCase):
         # A part out of order
         data = bytes([5]) + bytes(12) + bytes([1])
         self.assertEqual(self.cmd(APP_CMD_SET_ORDER, data)[0], ERROR)
+        # Fable review F4: an unfinished order (connection lost after part 0), then a new one
+        self.assertEqual(self.set_order([KILLS, KILL_DEAD, STATS, 0x300, 0x1000])[:1], [OK])
+        data = bytes([5]) + struct.pack("<III", STATS, KILLS, KILL_DEAD) + bytes([0])
+        self.assertEqual(self.cmd(APP_CMD_SET_ORDER, data)[0], OK)   # Part 0 again: a new order
+        data = bytes([5]) + struct.pack("<II", 0x300, 0x1000).ljust(12, b"\0") + bytes([1])
+        self.assertEqual(self.cmd(APP_CMD_SET_ORDER, data)[0], OK)
+        self.assertEqual(self.apps_list(), [STATS, KILLS, KILL_DEAD, 0x300, 0x1000])
 
     def test_settings_over_bluetooth(self):
         self.assert_installed(counter_app())

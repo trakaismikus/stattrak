@@ -87,7 +87,7 @@ In short:
 10. Keep the Bluetooth name and service numbers.
 11. Never block the main loop.
 12. Keep "both buttons short" = app menu and "both buttons long" = power off. The app menu
-    (`kApps` in `main/views/launcher_view.c`) must always have SETTINGS.
+    (`_buildMenu()` in `main/views/launcher_view.c`) must always have SETTINGS.
 13. Do not switch the device off for a low battery while firmware is received. A device that
     reads a wrong battery level could never get a new firmware.
 14. Bluetooth features go into `main/ble_commands.c`, not into the update code. The update
@@ -112,7 +112,7 @@ In short:
    `python tools/build.py`. It runs the checks again and checks the firmware file.
 4. In the simulator, these still work with your firmware:
    - Settings, `Firmware: UPDATE` opens the update view:
-     `python tools/sim.py --fresh boot both click1 both click2 click2 click2 click2 click2 click2 click2 click2 click2 long2 state`
+     `python tools/sim.py --fresh boot both click1 both click2 click2 click2 click2 click2 click2 click2 click2 click2 click2 long2 state`
      must print `view=UPDATE` and `ota_active=1`.
    - Hold both buttons for 10 seconds at power-on: `python tools/sim.py boot:10600 state`
      must print `view=UPDATE`.
