@@ -4,11 +4,13 @@
  * The storage is a small key-value table in memory (see host_nvs.c). It keeps
  * the NVS rules that matter for this firmware: keys are at most 15 characters,
  * a missing key returns ESP_ERR_NVS_NOT_FOUND, and a closed handle is invalid.
+ * Blobs (byte arrays) are kept too, with a limit for all blobs together.
  */
 #ifndef _HOST_NVS_FLASH_H
 #define _HOST_NVS_FLASH_H
 
 #include <stdint.h>
+#include <stddef.h>
 #include "esp_err.h"
 
 #ifdef __cplusplus
@@ -24,6 +26,7 @@ extern "C" {
 #define ESP_ERR_NVS_INVALID_NAME        (ESP_ERR_NVS_BASE + 0x06)
 #define ESP_ERR_NVS_INVALID_HANDLE      (ESP_ERR_NVS_BASE + 0x07)
 #define ESP_ERR_NVS_KEY_TOO_LONG        (ESP_ERR_NVS_BASE + 0x09)
+#define ESP_ERR_NVS_INVALID_LENGTH      (ESP_ERR_NVS_BASE + 0x0c)
 #define ESP_ERR_NVS_NO_FREE_PAGES       (ESP_ERR_NVS_BASE + 0x0d)
 #define ESP_ERR_NVS_NEW_VERSION_FOUND   (ESP_ERR_NVS_BASE + 0x10)
 
@@ -45,6 +48,11 @@ esp_err_t nvs_commit(nvs_handle_t handle);
 
 esp_err_t nvs_set_u32(nvs_handle_t handle, const char* key, uint32_t value);
 esp_err_t nvs_get_u32(nvs_handle_t handle, const char* key, uint32_t* out_value);
+
+/* Blobs: a byte array for each key. With out_value NULL, nvs_get_blob() only writes the size. */
+esp_err_t nvs_set_blob(nvs_handle_t handle, const char* key, const void* value, size_t length);
+esp_err_t nvs_get_blob(nvs_handle_t handle, const char* key, void* out_value, size_t* length);
+esp_err_t nvs_erase_key(nvs_handle_t handle, const char* key);
 
 #ifdef __cplusplus
 }

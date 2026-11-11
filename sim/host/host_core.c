@@ -203,6 +203,7 @@ void HostState_markChanged(void) {
 /*
  * File format, one item on each line:
  *   nvs <namespace> <key> <value>
+ *   blob <namespace> <key> <hex>   (a byte array, 2 hex digits for each byte; "-" = empty)
  *   ota pending <0|1|2>      (see HostOta_setPendingStage)
  * Lines that start with '#' are comments.
  */
@@ -214,16 +215,33 @@ bool HostState_load(const char* path) {
   HostNvs_clear();
   HostOta_setPendingStage(0);
 
-  char line[160];
+  /* A blob line has 2 hex digits for each byte: large, so not on the stack */
+  static char line[2 * HOST_NVS_MAX_BLOB + 64];
+  static uint8_t data[HOST_NVS_MAX_BLOB];
   while(fgets(line, sizeof(line), file) != NULL) {
     char ns[16], key[16];
     unsigned long value;
+    int pos = 0;
 
     if(line[0] == '#')
       continue;
 
     if(sscanf(line, "nvs %15s %15s %lu", ns, key, &value) == 3) {
       HostNvs_put(ns, key, (uint32_t)value);
+    } else if(sscanf(line, "blob %15s %15s %n", ns, key, &pos) == 2 && pos > 0) {
+      uint32_t length = 0;
+      bool good = true;
+      const char* hex = &line[pos];
+      if(hex[0] != '-') {
+        while(good && hex[0] != '\0' && hex[0] != '\n' && hex[0] != '\r' && hex[0] != ' ') {
+          unsigned int byte = 0;
+          good = (length < HOST_NVS_MAX_BLOB) && hex[1] != '\0' && (sscanf(hex, "%2x", &byte) == 1);
+          data[length++] = (uint8_t)byte;
+          hex += 2;
+        }
+      }
+      if(good)
+        HostNvs_putBlob(ns, key, data, length);
     } else if(sscanf(line, "ota pending %lu", &value) == 1) {
       HostOta_setPendingStage((uint8_t)value);
     }
@@ -243,6 +261,15 @@ bool HostState_save(const char* path) {
   for(uint32_t i = 0; i < HostNvs_getEntryCount(); i++) {
     const host_nvs_entry_t* entry = HostNvs_getEntry(i);
     fprintf(file, "nvs %s %s %lu\n", entry->ns, entry->key, (unsigned long)entry->value);
+  }
+  for(uint32_t i = 0; i < HostNvs_getBlobCount(); i++) {
+    const host_nvs_blob_t* blob = HostNvs_getBlob(i);
+    fprintf(file, "blob %s %s ", blob->ns, blob->key);
+    if(blob->length == 0)
+      fputc('-', file);
+    for(uint32_t j = 0; j < blob->length; j++)
+      fprintf(file, "%02x", (unsigned)blob->data[j]);
+    fputc('\n', file);
   }
   fprintf(file, "ota pending %d\n", (int)HostOta_getPendingStage());
 
