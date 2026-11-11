@@ -59,6 +59,10 @@ This repository (`trakaismikus/stattrak`) is private until these are done:
 
 ## Shipped
 
+- **2026-11: a README for people who do not code.** A title picture, product photos from the
+  TRIDOS shop, and sections with screenshots for "Start in 5 minutes", the Screen Designer,
+  the Web Updater and the device views (pictures in `docs/images/`). The developer commands
+  are in a section that opens on a click.
 - **2026-11: one repository, and the web updater.** The web updater is in `updater/`, with
   the fixes for this firmware: "Flash complete" only after the device restarted and confirmed
   the new firmware, clear messages when an update fails, a check of the firmware file before
