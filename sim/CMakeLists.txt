@@ -86,6 +86,8 @@ set(FIRMWARE_SOURCES
 
   ${COMPONENT_DIR}/gfx/gfx.c
   ${COMPONENT_DIR}/gui/animation.c
+  ${COMPONENT_DIR}/stapp/stapp_check.c
+  ${COMPONENT_DIR}/stapp/stapp_vm.c
 )
 
 # --- Stand-ins for the hardware and the SDK
@@ -107,6 +109,7 @@ set(QUOTE_INCLUDE_DIRS
   ${MAIN_DIR}/resources
   ${COMPONENT_DIR}/gfx
   ${COMPONENT_DIR}/gui
+  ${COMPONENT_DIR}/stapp
   ${COMPONENT_DIR}/ssd1307
   ${COMPONENT_DIR}/ble_ota
 )
@@ -180,6 +183,11 @@ endif()
 if(STATTRAK_TESTS AND NOT EMSCRIPTEN)
   stattrak_add_program(test_units ${TEST_DIR}/test_units.c)
   target_compile_options(test_units PRIVATE "SHELL:-iquote ${TEST_DIR}")
+
+  # The app engine alone (components/stapp), with a fuzz test of broken packages
+  add_executable(test_stapp ${TEST_DIR}/test_stapp.c ${COMPONENT_DIR}/stapp/stapp_check.c ${COMPONENT_DIR}/stapp/stapp_vm.c)
+  target_compile_options(test_stapp PRIVATE ${COMMON_OPTIONS} ${FIRMWARE_WARNINGS} "SHELL:-iquote ${TEST_DIR}")
+  target_link_options(test_stapp PRIVATE ${COMMON_LINK_OPTIONS})
 
   # The Bluetooth update packet code, with a small stand-in for the NimBLE headers.
   add_executable(test_ble_ota ${TEST_DIR}/test_ble_ota.c ${COMPONENT_DIR}/ble_ota/ble_ota.c)

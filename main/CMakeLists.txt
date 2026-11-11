@@ -45,7 +45,7 @@ set(INC_DIRS
 
 idf_component_register(
   SRCS ${SRC_FILES}
-  PRIV_REQUIRES spi_flash nvs_flash bt app_update esp_ringbuf app_ble ble_ota gfx ssd1307 gui esp_adc
+  PRIV_REQUIRES spi_flash nvs_flash bt app_update esp_ringbuf app_ble ble_ota gfx ssd1307 gui esp_adc stapp
   INCLUDE_DIRS ${INC_DIRS})
 
 add_compile_definitions(GFX_SUPPORT_GLYPH_FONT=1)
