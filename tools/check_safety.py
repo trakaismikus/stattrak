@@ -394,6 +394,21 @@ class Checker:
         if launcher is not None:
             self.check_menu_has_settings(self.strip_comments(launcher))
 
+        # The app manager commands work only in the view "Apps: SYNC" (there the firmware is refused
+        # and the person answers the install question)
+        commands = self.read("main/ble_commands.c", "update-views")
+        if commands is not None:
+            code = self.strip_comments(commands)
+            body = self.body_text(code, "_handleApp")
+            if body is None or not re.match(r"\s*(const\s+uint8_t\s*\*\s*d\s*=\s*cmd->data\s*;\s*)?"
+                                            r"if\s*\(\s*!\s*AppSync_isActive\s*\(\s*\)\s*\)\s*"
+                                            r"return\s+BLE_COMMAND_STATUS__NOT_IN_APP_SYNC\s*;", body):
+                self.fail("update-views", "main/ble_commands.c: _handleApp() must start with "
+                          "'if(!AppSync_isActive()) return BLE_COMMAND_STATUS__NOT_IN_APP_SYNC;'.")
+            handle = self.body_text(code, "_handle")
+            if handle is None or re.search(r"case\s+BLE_COMMAND__APP_", handle):
+                self.fail("update-views", "main/ble_commands.c: the app commands are handled only in _handleApp().")
+
     def body_text(self, code, name):
         """The text between the braces of the C function `name`, or None."""
         span = self.function_body(code, name)
