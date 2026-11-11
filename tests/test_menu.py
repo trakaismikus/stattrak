@@ -2,7 +2,7 @@
 
 import unittest
 
-from helpers import SimTestCase, MAIN_VIEWS
+from helpers import SimTestCase, MAIN_VIEWS, BATTERY_LIPO_1S
 
 
 class AppMenuTest(SimTestCase):
@@ -122,11 +122,58 @@ class AppMenuTest(SimTestCase):
         self.dev.run(3300)          # 3 s after the move (the press comes 180 ms after the release)
         self.assertEqual(self.dev.view, "KILL_DEAD")
 
+    def test_a_button_held_after_a_battery_warning_keeps_the_menu(self):
+        # Sol review S1, round 2: the warning closes with a held button and the menu comes back
+        self.boot_with(voltage=3700, battery_type=BATTERY_LIPO_1S, low_bat=3, game_deaths=10)
+        self.dev.click_both()
+        self.dev.click(2)
+        self.assertEqual(self.selected(), "KILL_DEAD")
+        for _ in range(140):
+            if self.dev.view == "BATTERY_LOW":
+                break
+            self.dev.click(1)
+            self.dev.click(2)
+        self.assertEqual(self.dev.view, "BATTERY_LOW")
+        selected = self.selected()
+        self.dev.press(2)
+        self.dev.run(5000)                # Held long after the warning closed
+        state = self.dev.state()
+        self.assertEqual(state["view"], "LAUNCHER")
+        self.assertEqual(state["eeprom.game_deaths"], 10)
+        self.dev.release(2)
+        self.dev.run(3600)
+        state = self.dev.state()
+        self.assertEqual(state["view"], selected)
+        self.assertEqual(state["eeprom.game_deaths"], 10)
+
+    def test_a_fast_press_while_a_warning_comes_in_goes_back_to_the_app(self):
+        # Sol review S4, round 2: only the app menu gets the presses of its own slide-in
+        self.boot_with(voltage=3700, battery_type=BATTERY_LIPO_1S, low_bat=3)
+        for _ in range(9000):
+            if self.dev.state()["view_next"] == "BATTERY_LOW":
+                break
+            self.dev.run(10)
+        self.assertEqual(self.dev.state()["view_next"], "BATTERY_LOW")
+        self.dev.run(20)
+        self.dev.click(1, hold_ms=40)
+        self.dev.run(1500)
+        self.assertIn(self.dev.view, ("TOTAL", "BATTERY_LOW"))
+        for _ in range(3):
+            if self.dev.view == "TOTAL":
+                break
+            self.dev.long_press(2)
+        self.assertEqual(self.dev.view, "TOTAL")
+
     def test_both_buttons_while_the_menu_closes_keep_it_open(self):
         # Sol review S2: the menu closes by itself, both buttons during the close reopen it
         self.dev.boot()
         self.dev.click_both()
-        self.dev.run(3000 - 500 + 250 + 20)   # Just after the auto-open started
+        for _ in range(400):                  # Until the menu starts to close by itself
+            if self.dev.state()["view_next"] == "TOTAL":
+                break
+            self.dev.run(10)
+        self.assertEqual(self.dev.state()["view"], "LAUNCHER")
+        self.dev.run(30)
         self.dev.click_both(hold_ms=40, settle_ms=0)
         self.dev.run(1000)
         self.assertEqual(self.dev.view, "LAUNCHER")
