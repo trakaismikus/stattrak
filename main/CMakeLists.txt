@@ -7,6 +7,7 @@ set(SRC_FILES
   "app.c"
   "eeprom.c"
   "battery.c"
+  "ble_commands.c"
   "gfx_fx.c"
   
   "board/bsp_adc.c"

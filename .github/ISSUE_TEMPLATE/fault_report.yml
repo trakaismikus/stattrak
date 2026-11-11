@@ -1,0 +1,43 @@
+name: Fault report
+description: Something on the device, in the simulator or in the tools does not work correctly.
+title: "Fault: "
+labels: ["fault"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A fault that can make devices unusable: do not write the details here. Use "Report a vulnerability" on the Security page of this repository.
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where is the fault?
+      options:
+        - On my StatTrak device
+        - In the simulator
+        - In the tools (setup, check, build, design)
+        - In the documents
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Firmware version
+      description: On the device, Settings, "Version". Say also if it is the official firmware or your own.
+  - type: textarea
+    id: steps
+    attributes:
+      label: What did you do?
+      description: Step by step, so we can do the same.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect, and what did you get?
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Messages or pictures (optional)
+      description: The text that a tool printed, or a photo of the display.

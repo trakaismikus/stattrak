@@ -39,7 +39,7 @@ view_t g_batteryCriticalView = {
 };
 
 /* > Local Variables ******************************************************************************/
-uint32_t s_startTime = 0;
+static uint32_t s_startTime = 0;
 
 /* > Local Function Definitions *******************************************************************/
 

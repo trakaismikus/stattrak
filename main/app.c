@@ -20,6 +20,7 @@
 
 #include "eeprom.h"
 #include "ota.h"
+#include "ble_commands.h"
 
 #include <assert.h>
 
@@ -28,6 +29,7 @@
 
 static void _factoryReset(bool confirm);
 static void _gameReset(bool confirm);
+static void _sanitizeEntries(void);
 
 
 /* > Defines **************************************************************************************/
@@ -38,6 +40,11 @@ static void _gameReset(bool confirm);
 #define CRITICAL_BATTERY_PERIOD_MS  TIME_MIN(1)
 
 /* > Macros ***************************************************************************************/
+#define elemof(_x)      ((sizeof(_x)/sizeof((_x)[0])))
+
+// Table lookup with an index from EEPROM, falls back to the first entry if out of range
+#define TABLE_GET(_table, _idx)  ((_table)[((_idx) < elemof(_table)) ? (_idx) : 0])
+
 #define TIME_SEC(_sec)  ((_sec) * 1000UL)
 #define TIME_MIN(_min)  ((_min) * 60UL * 1000UL)
 #define TIME_H(_h)      ((_h) * 3600UL * 1000UL)
@@ -66,12 +73,27 @@ static const int8_t kLowBatThresholds[] = {
 };
 
 static const uint32_t kEntryDefaults[] = {
-  #define ENTRY(_id, _key, _default) [ENTRY_ID__ ## _id] = _default,
+  #define ENTRY(_id, _key, _default, _max) [ENTRY_ID__ ## _id] = _default,
     ENTRY_LIST
   #undef ENTRY
 };
 
-static_assert((sizeof(kEntryDefaults)/sizeof(kEntryDefaults[0])) == ENTRY_ID_COUNT, "All Entries should have a default value");
+// Largest value of each entry that this firmware can use
+static const uint32_t kEntryMaxValues[] = {
+  #define ENTRY(_id, _key, _default, _max) [ENTRY_ID__ ## _id] = _max,
+    ENTRY_LIST
+  #undef ENTRY
+};
+
+static_assert(elemof(kEntryDefaults) == ENTRY_ID_COUNT, "All Entries should have a default value");
+static_assert(elemof(kEntryMaxValues) == ENTRY_ID_COUNT, "All Entries should have a maximum value");
+
+// The tables above are read with an index from flash. The limits in ENTRY_LIST must fit them.
+static_assert(elemof(kDimTimes) == (ENTRY_MAX__DIM_SCREEN + 1), "kDimTimes must have one value for each DIM_SCREEN setting");
+static_assert(elemof(kAutoOffTimes) == (ENTRY_MAX__AUTO_OFF + 1), "kAutoOffTimes must have one value for each AUTO_OFF setting");
+static_assert(elemof(kLowBatThresholds) == (ENTRY_MAX__LOW_BAT + 1), "kLowBatThresholds must have one value for each LOW_BAT setting");
+static_assert(BRIGHTNESS_SETTING_COUNT == ENTRY_MAX__BRIGHTNESS, "The brightness setting range changed");
+static_assert(ENTRY_ID_COUNT <= 32, "EEPROM missing entry mask supports up to 32 entries");
 
 /* > Local Variables ******************************************************************************/
 
@@ -96,7 +118,13 @@ void App_init(void) {
   // Check if first boot
   if(Eeprom_read(ENTRY_ID__INIT) == 0) {
     Eeprom_writeDefaults(kEntryDefaults);
+  } else {
+    // Entries added by a firmware update get their default instead of 0
+    Eeprom_writeMissingDefaults(kEntryDefaults);
   }
+
+  // Replace stored values that this firmware version cannot use
+  _sanitizeEntries();
 
   // Read all settings and apply
   Battery_setType(Eeprom_read(ENTRY_ID__BATTERY_TYPE));
@@ -119,55 +147,63 @@ void App_update(void) {
   // Update Battery Level
   Battery_read();
 
-  // Allow battery warnings && auto off only when OTA is not active
-  if(otaState == OTA_STATE__IDLE) {
-    // Check if battery is low. Allow to show warning only once.
-    if(!s_lowBatteryShown) {
-      const int8_t lowBatThreshold = kLowBatThresholds[Eeprom_read(ENTRY_ID__LOW_BAT)];
-      if((int8_t)Battery_readLevel() <= lowBatThreshold) {
-        // Start low battery timer
-        if((now - s_lowBatteryTime) >= LOW_BATTERY_PERIOD_MS) {
-          s_lowBatteryShown = true;
-          if(AppView_get() != VIEW_ID__BATTERY_CRITICAL)
-            AppView_set(VIEW_ID__BATTERY_LOW);
-        }
-      } else {
-        // Reset low battery timer
-        s_lowBatteryTime = now;
-      }
+  // Answer the Bluetooth commands of user features
+  BleCommands_update();
+
+  // While firmware is being received, count it as activity, so auto off and dim start after it
+  if(Ota_isBusy(otaState)) {
+    App_updateActivity(now);
+  }
+
+  // Check if battery is critical. Not while firmware is being received: a device that reads
+  // "critical" by mistake (wrong battery type, bad firmware) must still be able to get a new
+  // firmware. A transfer that stops because the battery is empty does no harm.
+  if(Battery_isCritical() && !Ota_isBusy(otaState)) {
+    if((now - s_criticalBatteryTime) >= (CRITICAL_BATTERY_PERIOD_MS - TIME_SEC(11))) {
+      AppView_set(VIEW_ID__BATTERY_CRITICAL);
     }
 
+    // Start critical battery timer
+    if((now - s_criticalBatteryTime) >= CRITICAL_BATTERY_PERIOD_MS) {
+      App_requestShutdown();
+    }
+  } else {
+    // Reset critical battery timer
+    s_criticalBatteryTime = now;
+  }
 
-    // Check if battery is critical
-    if(Battery_isCritical()) {
-      if((now - s_criticalBatteryTime) >= (CRITICAL_BATTERY_PERIOD_MS - TIME_SEC(11)) &&
-        AppView_get() != VIEW_ID__BATTERY_CRITICAL) {
-        AppView_set(VIEW_ID__BATTERY_CRITICAL);
-      }
-
-      // Start critical battery timer
-      if((now - s_criticalBatteryTime) >= CRITICAL_BATTERY_PERIOD_MS) {
-        App_requestShutdown();
+  // Allow low battery warning only when OTA is not active
+  if(!Ota_isBusy(otaState) && !s_lowBatteryShown) {
+    // Check if battery is low. Allow to show warning only once.
+    const int8_t lowBatThreshold = TABLE_GET(kLowBatThresholds, Eeprom_read(ENTRY_ID__LOW_BAT));
+    if((int8_t)Battery_readLevel() <= lowBatThreshold) {
+      // Start low battery timer
+      if((now - s_lowBatteryTime) >= LOW_BATTERY_PERIOD_MS) {
+        s_lowBatteryShown = true;
+        if(!AppView_isActive(VIEW_ID__BATTERY_CRITICAL))
+          AppView_set(VIEW_ID__BATTERY_LOW);
       }
     } else {
-      // Reset critical battery timer
-      s_criticalBatteryTime = now;
+      // Reset low battery timer
+      s_lowBatteryTime = now;
     }
+  }
 
-
-    // Auto power off
-    uint32_t autoOffTime = kAutoOffTimes[Eeprom_read(ENTRY_ID__AUTO_OFF)];
-    if(autoOffTime != 0) {
-      if((now - s_lastActivityTime) >= (autoOffTime - TIME_MIN(5)) && AppView_get() != VIEW_ID__AUTO_OFF) {
-        AppView_set(VIEW_ID__AUTO_OFF);
-      } else if((now - s_lastActivityTime) > autoOffTime) {
-        App_requestShutdown();
-      }
+  // Auto power off
+  const uint32_t autoOffTime = TABLE_GET(kAutoOffTimes, Eeprom_read(ENTRY_ID__AUTO_OFF));
+  if(autoOffTime != 0) {
+    const uint32_t idleTime = now - s_lastActivityTime;
+    if(idleTime > autoOffTime) {
+      App_requestShutdown();
+    } else if(idleTime >= (autoOffTime - TIME_MIN(5)) &&
+              !AppView_isActive(VIEW_ID__AUTO_OFF) && !AppView_isActive(VIEW_ID__BATTERY_CRITICAL)) {
+      // Critical battery warning has priority over auto off warning
+      AppView_set(VIEW_ID__AUTO_OFF);
     }
   }
 
   // Dim
-  const uint32_t dimTime = kDimTimes[Eeprom_read(ENTRY_ID__DIM_SCREEN)];
+  const uint32_t dimTime = TABLE_GET(kDimTimes, Eeprom_read(ENTRY_ID__DIM_SCREEN));
   if(dimTime != 0 && (now - s_lastActivityTime) > dimTime) {
     if(s_brightness > s_brightnessDimValue) {
       s_brightness--;
@@ -288,6 +324,16 @@ void App_click(uint16_t freq) {
 }
 
 
+
+// A value in flash can come from an other firmware version, or the flash can be damaged.
+// A value that this firmware cannot use is replaced with the default value.
+static void _sanitizeEntries(void) {
+  for(uint32_t id = 0; id < ENTRY_ID_COUNT; id++) {
+    if(Eeprom_read(id) > kEntryMaxValues[id]) {
+      Eeprom_write(id, kEntryDefaults[id]);
+    }
+  }
+}
 
 static void _gameReset(bool confirm) {
 

@@ -46,8 +46,14 @@ static animation_t s_anim = {
 /* > Function Definitions *************************************************************************/
 
 void AppView_set(view_id_t viewId) {
-  // TODO: check
+  if(viewId >= VIEW_COUNT)
+    return;
+
   if(s_nextViewId != viewId) {
+    // Pending view is replaced before it became active, undo its init
+    if(s_nextViewId != s_viewId && s_viewList[s_nextViewId]->deinit)
+      s_viewList[s_nextViewId]->deinit();
+
     s_nextViewId = viewId;
 
     if(s_nextViewId != s_viewId) {
@@ -62,6 +68,14 @@ void AppView_set(view_id_t viewId) {
 
 view_id_t AppView_get(void) {
   return s_viewId;
+}
+
+view_id_t AppView_getNext(void) {
+  return s_nextViewId;
+}
+
+bool AppView_isActive(view_id_t viewId) {
+  return (s_viewId == viewId || s_nextViewId == viewId);
 }
 
 view_id_t AppView_getPrevious(void) {

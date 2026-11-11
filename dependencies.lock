@@ -27,15 +27,8 @@ dependencies:
     source:
       type: idf
     version: 5.4.0
-  nimble_peripheral_utils:
-    dependencies: []
-    source:
-      path: /Users/janis_zaharans/Development/esp/esp-idf/examples/bluetooth/nimble/common/nimble_peripheral_utils
-      type: local
-    version: '*'
 direct_dependencies:
 - espressif/button
-- nimble_peripheral_utils
-manifest_hash: 1f8c7c60470fed7fed17c1e1510fc10f54cb9c652d15283c2f5ea573e1cc1b5b
+manifest_hash: 9e49d3ef73df3ef0ca2dd125081fbacd741bb8cce06fb1b3abcc0ee428ba7c99
 target: esp32c2
 version: 2.0.0

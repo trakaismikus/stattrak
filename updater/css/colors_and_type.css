@@ -1,0 +1,268 @@
+/* =====================================================================
+   StatTrak Design System — Colors & Type
+   Brand font on this page: Barlow Condensed (free, SIL Open Font License).
+   Supplementary: JetBrains Mono for mono text.
+   All font files are local (../fonts/): the page loads no file from an other site.
+   ===================================================================== */
+
+/* Barlow Condensed. A weight that is not here uses the nearest one. */
+@font-face { font-family: 'Barlow Condensed'; src: url('../fonts/BarlowCondensed-400.woff2')  format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Barlow Condensed'; src: url('../fonts/BarlowCondensed-500.woff2')  format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Barlow Condensed'; src: url('../fonts/BarlowCondensed-700.woff2')  format('woff2'); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Barlow Condensed'; src: url('../fonts/BarlowCondensed-800.woff2')  format('woff2'); font-weight: 800; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Barlow Condensed'; src: url('../fonts/BarlowCondensed-800i.woff2') format('woff2'); font-weight: 800; font-style: italic; font-display: swap; }
+@font-face { font-family: 'Barlow Condensed'; src: url('../fonts/BarlowCondensed-900i.woff2') format('woff2'); font-weight: 900; font-style: italic; font-display: swap; }
+
+/* JetBrains Mono, weights 400 to 700 in one file */
+@font-face { font-family: 'JetBrains Mono'; src: url('../fonts/JetBrainsMono.woff2') format('woff2'); font-weight: 400 700; font-style: normal; font-display: swap; }
+
+:root {
+  /* ------------------------------------------------------------------
+     PRIMITIVES — raw brand colors
+     Device: matte black. CS2 accent: orange. HUD counter: pure white.
+     ------------------------------------------------------------------ */
+  --st-orange-500: #FF7A1F;     /* CS2/StatTrak LED orange — primary accent */
+  --st-orange-400: #FF9B4F;     /* hover / lift */
+  --st-orange-600: #D45E10;     /* pressed / deep */
+  --st-orange-100: #FFE2CC;     /* tint / badges */
+  --st-orange-dim: #5A1F08;     /* unlit dot / maroon background on LED matrix */
+
+  --st-navy-900:   #0C0F1A;     /* deepest ink — near-black HUD bg */
+  --st-navy-800:   #15192C;     /* CS2 navy panel */
+  --st-navy-700:   #1E2340;     /* raised panel */
+  --st-navy-600:   #2A2F4A;     /* stroke / divider on navy */
+
+  --st-black:      #000000;     /* true black — the display glass */
+  --st-ink-950:    #0A0A0B;     /* enclosure matte */
+  --st-ink-900:    #141416;     /* raised enclosure */
+  --st-ink-800:    #1F1F23;     /* card on black */
+  --st-ink-700:    #2A2A30;     /* stroke on black */
+  --st-ink-600:    #3A3A42;     /* muted stroke */
+  --st-ink-500:    #55555E;     /* low-emphasis text on black */
+  --st-ink-400:    #7A7A85;     /* secondary text on black */
+  --st-ink-300:    #A6A6B0;     /* tertiary on black */
+  --st-ink-200:    #CFCFD6;     /* low contrast on dark */
+  --st-ink-100:    #EDEDEF;     /* body text on black */
+  --st-white:      #FFFFFF;
+
+  --st-paper-50:   #F6F4EE;     /* warm off-white — kraft/printed sheet */
+  --st-paper-100:  #EEEADE;     /* kraft lighter */
+  --st-paper-200:  #D8D2BF;     /* kraft stroke */
+
+  /* display / LED dot-matrix
+     The physical hit-counter uses a WHITE dot-matrix OLED.
+     The CS2 weapon-skin rendition uses an ORANGE LED.
+     Default tokens are white (device truth); use --st-led-on-orange
+     for CS2-skin-themed marketing surfaces. */
+  --st-led-on:          #FFFFFF;                       /* physical device: white */
+  --st-led-off:         rgba(255,255,255,0.06);        /* unlit dot — faint grey */
+  --st-led-glow:        rgba(255,255,255,0.22);
+  --st-led-on-orange:   #FF7A1F;                       /* CS2 skin variant */
+  --st-led-off-orange:  rgba(255,122,31,0.10);
+  --st-led-glow-orange: rgba(255,122,31,0.35);
+  --st-screen-bg:       #0A0A0A;                       /* slightly warm near-black */
+
+  /* semantic status */
+  --st-kill-red:    #E23434;    /* hit confirmed / destructive */
+  --st-kill-red-dim:#7A1A1A;
+  --st-success:     #6FCF5E;    /* mission success green (rare) */
+  --st-warning:     #F4C430;    /* warning yellow */
+  --st-info:        #4AA3DF;
+
+  /* ------------------------------------------------------------------
+     SEMANTIC — use these in product code
+     ------------------------------------------------------------------ */
+  --bg:              var(--st-ink-950);
+  --bg-elevated:     var(--st-ink-900);
+  --bg-card:         var(--st-ink-800);
+  --bg-inverse:      var(--st-paper-50);
+  --bg-screen:       var(--st-screen-bg);       /* LED display glass */
+  --bg-accent:       var(--st-orange-500);
+
+  --fg1:             var(--st-ink-100);         /* body */
+  --fg2:             var(--st-ink-300);         /* secondary */
+  --fg3:             var(--st-ink-400);         /* tertiary */
+  --fg-muted:        var(--st-ink-500);
+  --fg-on-accent:    var(--st-ink-950);         /* black on orange */
+  --fg-on-paper:     var(--st-ink-950);
+  --fg-led:          var(--st-led-on);
+
+  --stroke-1:        var(--st-ink-700);         /* 1px divider */
+  --stroke-2:        var(--st-ink-600);         /* stronger */
+  --stroke-accent:   var(--st-orange-500);
+  --stroke-kill:     var(--st-kill-red);
+
+  --accent:          var(--st-orange-500);
+  --accent-hover:    var(--st-orange-400);
+  --accent-pressed:  var(--st-orange-600);
+
+  /* ------------------------------------------------------------------
+     TYPE — family tokens
+     ------------------------------------------------------------------ */
+  --font-display:    'Barlow Condensed', Impact, sans-serif;
+  --font-stencil:    'Barlow Condensed', Impact, sans-serif; /* condensed italic for caps */
+  --font-body:       'Barlow Condensed', ui-sans-serif, system-ui, sans-serif;
+  --font-mono:       'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --font-dot:        'JetBrains Mono', monospace;  /* LED digits (no pixel font on this page) */
+
+  /* weight scale */
+  --fw-regular: 400;
+  --fw-medium:  500;
+  --fw-semibold:600;
+  --fw-bold:    700;
+  --fw-black:   800;
+
+  /* type scale (rem, 16px base) */
+  --text-2xs:  0.6875rem;  /* 11 */
+  --text-xs:   0.75rem;    /* 12 */
+  --text-sm:   0.875rem;   /* 14 */
+  --text-base: 1rem;       /* 16 */
+  --text-md:   1.125rem;   /* 18 */
+  --text-lg:   1.375rem;   /* 22 */
+  --text-xl:   1.75rem;    /* 28 */
+  --text-2xl:  2.25rem;    /* 36 */
+  --text-3xl:  3rem;       /* 48 */
+  --text-4xl:  4rem;       /* 64 */
+  --text-display: 6rem;    /* 96 */
+
+  --lh-tight:  1.05;
+  --lh-snug:   1.2;
+  --lh-normal: 1.45;
+  --lh-loose:  1.65;
+
+  --tracking-tight:  -0.01em;
+  --tracking-normal: 0;
+  --tracking-wide:   0.04em;
+  --tracking-caps:   0.12em;  /* uppercase eyebrows */
+  --tracking-led:    0.08em;
+
+  /* ------------------------------------------------------------------
+     SPACING — 4px base grid
+     ------------------------------------------------------------------ */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+
+  /* ------------------------------------------------------------------
+     RADII — hardware is mostly straight edges + slight softening
+     ------------------------------------------------------------------ */
+  --r-0:    0;
+  --r-xs:   2px;
+  --r-sm:   4px;          /* buttons, inputs */
+  --r-md:   6px;          /* cards */
+  --r-lg:   10px;         /* panels */
+  --r-xl:   16px;         /* device enclosure */
+  --r-pill: 999px;
+
+  /* ------------------------------------------------------------------
+     SHADOW / ELEVATION
+     The physical device has matte plastic — no glossy bloom.
+     Use soft ambient + a tight contact shadow.
+     ------------------------------------------------------------------ */
+  --shadow-flat:   none;
+  --shadow-1:      0 1px 0 rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-2:      0 2px 8px rgba(0,0,0,0.45);
+  --shadow-3:      0 8px 24px rgba(0,0,0,0.55);
+  --shadow-press:  inset 0 2px 0 rgba(0,0,0,0.45);
+  --shadow-led:    0 0 10px rgba(255,255,255,0.20), 0 0 2px rgba(255,255,255,0.6);
+  --shadow-led-orange: 0 0 10px rgba(255,122,31,0.45), 0 0 2px rgba(255,180,100,0.9);
+  --shadow-bezel:  inset 0 1px 0 rgba(255,255,255,0.04), inset 0 -1px 0 rgba(0,0,0,0.6);
+
+  /* inner shadow that makes a recessed "screen well" */
+  --shadow-well:   inset 0 2px 6px rgba(0,0,0,0.9),
+                   inset 0 0 0 1px rgba(255,255,255,0.03);
+
+  /* ------------------------------------------------------------------
+     MOTION — mechanical / tactile feel
+     Short, snappy. No bouncy overshoot. No floaty entrances.
+     ------------------------------------------------------------------ */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out:      cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in:       cubic-bezier(0.7, 0, 1, 0.4);
+  --dur-instant:   80ms;     /* button press feedback */
+  --dur-fast:      140ms;    /* hover swap */
+  --dur-med:       220ms;    /* panel slide */
+  --dur-slow:      400ms;
+
+  /* ------------------------------------------------------------------
+     LAYOUT
+     ------------------------------------------------------------------ */
+  --page-max:     1200px;
+  --content-max:  960px;
+  --gutter:       var(--space-6);
+}
+
+/* ---------------------------------------------------------------------
+   BASE — body defaults pull from semantic tokens
+   --------------------------------------------------------------------- */
+html, body {
+  background: var(--bg);
+  color: var(--fg1);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--lh-normal);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------------------------------------------------------------------
+   SEMANTIC TYPE — use these classes or these variable shapes
+   --------------------------------------------------------------------- */
+.t-display,
+h1.display {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: var(--text-display);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tracking-tight);
+  font-style: italic;
+  text-transform: uppercase;
+}
+
+.t-h1 { font-family: var(--font-stencil); font-weight: 900; font-style: italic; font-size: var(--text-3xl); line-height: var(--lh-tight); letter-spacing: var(--tracking-tight); text-transform: uppercase; }
+.t-h2 { font-family: var(--font-stencil); font-weight: 800; font-style: italic; font-size: var(--text-2xl); line-height: var(--lh-tight); letter-spacing: var(--tracking-tight); text-transform: uppercase; }
+.t-h3 { font-family: var(--font-stencil); font-weight: 800; font-size: var(--text-xl);  line-height: var(--lh-snug);  letter-spacing: 0.01em; text-transform: uppercase; }
+.t-h4 { font-family: var(--font-body);    font-weight: 700; font-size: var(--text-lg);  line-height: var(--lh-snug); }
+
+.t-eyebrow {
+  font-family: var(--font-body);
+  font-weight: var(--fw-bold);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.t-body  { font-family: var(--font-body); font-size: var(--text-base); line-height: var(--lh-normal); color: var(--fg1); }
+.t-body-sm { font-family: var(--font-body); font-size: var(--text-sm); line-height: var(--lh-normal); color: var(--fg2); }
+.t-caption { font-family: var(--font-body); font-size: var(--text-xs); line-height: var(--lh-snug); color: var(--fg3); letter-spacing: var(--tracking-wide); }
+.t-mono  { font-family: var(--font-mono); font-size: var(--text-sm); letter-spacing: var(--tracking-wide); }
+
+/* LED display digits — always uppercase on a near-black well */
+.t-led {
+  font-family: var(--font-dot);
+  font-size: 4rem;
+  letter-spacing: var(--tracking-led);
+  color: var(--fg-led);
+  text-shadow: var(--shadow-led);
+  background: var(--bg-screen);
+  font-variant-numeric: tabular-nums;
+}
+
+/* wordmark stencil — used for "StatTrak™" inline text */
+.t-wordmark {
+  font-family: var(--font-stencil);
+  font-weight: 900;
+  font-style: italic;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}

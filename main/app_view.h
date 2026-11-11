@@ -75,6 +75,8 @@ void      AppView_show(void);
 bool      AppView_eventHandler(uint16_t event);
 void      AppView_set(view_id_t viewId);
 view_id_t AppView_get(void);
+view_id_t AppView_getNext(void);
+bool      AppView_isActive(view_id_t viewId); // Current or pending view
 view_id_t AppView_getPrevious(void);
 
 #endif // _APP_VIEW_H

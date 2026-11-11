@@ -1,0 +1,8 @@
+# All text files have LF line ends in the working folder, also on Windows.
+# The ESP-IDF build tools and the shell scripts need that.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.bin binary
+*.woff2 binary
