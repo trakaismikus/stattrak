@@ -18,6 +18,7 @@
 
 /* > Defines **************************************************************************************/
 #define APP_SYNC_QUESTION_MS    30000   // No answer to "INSTALL <NAME>?" in this time = no
+#define APP_SYNC_DATA_MS        10000   // No data for this time while receiving = the transfer stopped
 
 /* > Enumerations *********************************************************************************/
 // Install state (the STATUS command sends it). Values are stable: the web page uses them.

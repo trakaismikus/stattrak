@@ -150,6 +150,34 @@ class AppTestCase(SimTestCase):
             self.assertEqual(self.dev.state()["view"], "UPDATE")
 
 
+class StoppedTransferTest(AppTestCase):
+    """A page that stops in the middle of a transfer (closed, out of range) must not block the device."""
+
+    def begin(self):
+        self.dev.open_app_sync()
+        package = build()
+        status, _ = self.cmd(0x0113, struct.pack("<IHI", struct.unpack_from("<I", package, 8)[0], len(package),
+                                                 zlib.crc32(package) & 0xFFFFFFFF))
+        self.assertEqual(status, 0)
+        self.assertEqual(self.cmd(0x0116)[1][0], 1)   # Receiving
+
+    def test_the_transfer_ends_after_10_seconds_without_data(self):
+        self.begin()
+        self.dev.run(9000)
+        self.assertEqual(self.cmd(0x0116)[1][0], 1)
+        self.dev.run(1500)
+        self.assertEqual(self.cmd(0x0116)[1][0], 0)   # Idle: a new install can start
+        self.leave_sync()                              # And the view can be left again
+
+    def test_hold_button_1_stops_the_transfer(self):
+        self.begin()
+        self.dev.long_press(1)
+        state = self.dev.state()
+        self.assertEqual(state["view"], "APP_SYNC")
+        self.assertEqual(self.cmd(0x0116)[1][0], 0)
+        self.leave_sync()
+
+
 class BuiltinAppsTest(AppTestCase):
 
     def test_a_device_without_apps_has_the_three_builtin_apps(self):

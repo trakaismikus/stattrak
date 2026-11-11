@@ -52,6 +52,7 @@ static uint32_t     s_size = 0;
 static uint32_t     s_crc = 0;
 static uint32_t     s_received = 0;     // Bytes in the buffer = the next expected offset
 static uint32_t     s_questionStart = 0;
+static uint32_t     s_lastDataMs = 0;     // A transfer that stops (page closed, out of range) ends after APP_SYNC_DATA_MS
 static stapp_info_t s_info;
 static char         s_name[STAPP_MAX_NAME + 1];
 static uint8_t      s_cancel = 0;
@@ -88,6 +89,7 @@ app_sync_result_t AppSync_begin(uint32_t id, uint32_t size, uint32_t crc) {
   s_size = size;
   s_crc = crc;
   s_received = 0;
+  s_lastDataMs = Time_getMillis();
   s_state = APP_SYNC_STATE__RECEIVING;
   return APP_SYNC_OK;
 }
@@ -108,6 +110,7 @@ app_sync_result_t AppSync_data(uint16_t offset, const uint8_t* data, uint8_t len
   uint8_t* buffer = Apps_getWorkBuffer();
   memcpy(&buffer[s_received], data, count);
   s_received += count;
+  s_lastDataMs = Time_getMillis();
 
   if(expected)
     *expected = (uint16_t)s_received;
@@ -153,6 +156,10 @@ app_sync_result_t AppSync_end(stapp_result_t* reason, uint16_t* expected) {
 void AppSync_update(uint32_t now) {
   if(s_state == APP_SYNC_STATE__WAITING && (now - s_questionStart) >= APP_SYNC_QUESTION_MS)
     s_state = APP_SYNC_STATE__TIMEOUT;
+
+  // The page stopped sending: wait for a new install
+  if(s_state == APP_SYNC_STATE__RECEIVING && (now - s_lastDataMs) >= APP_SYNC_DATA_MS)
+    _reset();
 }
 
 /* > Local Function Definitions *******************************************************************/
@@ -203,7 +210,9 @@ static bool _eventHandler(uint16_t event) {
     case EVENT__LONG_PRESS_1:
       if(s_state == APP_SYNC_STATE__WAITING)
         _answer(false);
-      else if(s_state != APP_SYNC_STATE__RECEIVING)
+      else if(s_state == APP_SYNC_STATE__RECEIVING)
+        _reset();   // Stop this transfer; the page must start again with BEGIN
+      else
         AppView_set(AppView_getPrevious());
       return true;
 

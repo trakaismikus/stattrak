@@ -284,7 +284,10 @@ display (any command that changes apps answers 11 until the person answers), 12 
 
 Install: BEGIN, DATA from offset 0 in order, END, then STATUS until 3, 4 or 5. Data is kept in
 RAM until the person holds button 2 ("INSTALL <NAME>?"); then the package is written to flash
-once. Button 1 or 30 s without an answer = refused.
+once. Button 1 or 30 s without an answer = refused. While it receives, 10 s without DATA or a
+hold of button 1 stops the transfer (STATUS 0 again); the page then starts with BEGIN.
+
+An answer has no length field: a name (NAME) ends at its first 0 byte.
 
 ## 7. StatTrak Script (`.sts`)
 
