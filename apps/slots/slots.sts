@@ -1,0 +1,278 @@
+# SLOTS: a slot machine.
+#   Press a button to spin (1 credit). The reels stop one by one.
+#   3 the same: you win (777 = 50, BAR = 20, others = 10), with confetti and a song.
+#   2 the same: 2 credits back.
+#   No credits: hold button 2 for 30 new credits.
+
+app "SLOTS"
+version 1
+description "A slot machine: press a button to spin. Three the same wins, with confetti and a song on the buzzer."
+picture icon cherries "SLOTS"
+permission sound
+
+setting luck "LUCK" "NORMAL" "LUCKY" "ALWAYS"
+
+saved credits = 30
+
+const IDLE = 0
+const SPIN = 1
+const DONE = 2
+
+const SEVEN = 0
+const BAR = 3
+const STEP = 22          # pixels from one symbol to the next on a reel
+const SHOW_MS = 3500     # length of the confetti
+
+var state = 0
+var spin_at = 0
+var f0 = 0               # the symbol where each reel stops
+var f1 = 1
+var f2 = 2
+var stopped = 0          # how many reels stopped
+var pay = 0
+var win_at = -100000     # time() of the last big win
+var seed = 0
+var song = 99            # the note of the song that plays next (99 = no song)
+
+bitmap seven {
+  "##############"
+  "##############"
+  "...........###"
+  "..........###."
+  ".........###.."
+  "........###..."
+  ".......###...."
+  "......###....."
+  ".....###......"
+  ".....###......"
+  "....###......."
+  "....###......."
+  "....###......."
+  "....###......."
+}
+bitmap cherry {
+  "..........##.."
+  "........##.#.."
+  "......##...#.."
+  ".....#.....#.."
+  "....#......#.."
+  "...#......#..."
+  "..###....###.."
+  ".#####..#####."
+  "##.###.##.####"
+  "######.#######"
+  "######.#######"
+  ".####...#####."
+  "..##.....###.."
+  ".............."
+}
+bitmap bell {
+  "......##......"
+  ".....####....."
+  "....######...."
+  "...########..."
+  "...##.#####..."
+  "...##.#####..."
+  "..###.######.."
+  "..##########.."
+  "..##########.."
+  ".############."
+  "##############"
+  "##############"
+  "......##......"
+  ".....####....."
+}
+bitmap bar {
+  ".............."
+  "##############"
+  "##############"
+  "#............#"
+  "#.##...#..##.#"
+  "#.#.#.#.#.#.##"
+  "#.##..###.##.#"
+  "#.#.#.#.#.#.##"
+  "#.##..#.#.#.##"
+  "#............#"
+  "##############"
+  "##############"
+  ".............."
+  ".............."
+}
+bitmap star {
+  "......##......"
+  "......##......"
+  ".....####....."
+  ".....####....."
+  "##############"
+  ".############."
+  "..##########.."
+  "...########..."
+  "...########..."
+  "..####..####.."
+  "..###....###.."
+  ".##........##."
+  "##..........##"
+  ".............."
+}
+bitmap gem {
+  ".............."
+  ".............."
+  "..##########.."
+  ".##..#..#..##."
+  "##..#....#..##"
+  "##############"
+  ".#...#..#...#."
+  "..#...##...#.."
+  "...#..##..#..."
+  "....#.##.#...."
+  ".....####....."
+  "......##......"
+  ".............."
+  ".............."
+}
+
+func spin() {
+  if state == SPIN { return }
+  if credits <= 0 { click(300); return }
+  credits -= 1
+  state = SPIN
+  spin_at = time()
+  stopped = 0
+  pay = 0
+  song = 99
+  var chance = 12
+  if setting(luck) == 1 { chance = 45 }
+  if setting(luck) == 2 { chance = 100 }
+  if random(100) < chance {
+    var s = 1 + random(5)
+    if random(4) == 0 { s = SEVEN }
+    f0 = s; f1 = s; f2 = s
+  } else {
+    f0 = random(6); f1 = random(6); f2 = random(6)
+    if f0 == f1 && f1 == f2 { f2 = (f2 + 1) % 6 }
+  }
+  click(900)
+}
+
+on press1 { spin() }
+on press2 { spin() }
+
+on long2 {
+  if state != SPIN && credits < 30 {
+    credits = 30
+    save()
+    tone(1200, 120)
+  }
+}
+
+# The time when reel r stops
+func stop_at(r) { return spin_at + 1200 + 500 * r }
+
+func symbol(x, y, s) {
+  if s == 0 { bitmap(x, y, seven, on) }
+  if s == 1 { bitmap(x, y, cherry, on) }
+  if s == 2 { bitmap(x, y, bell, on) }
+  if s == 3 { bitmap(x, y, bar, on) }
+  if s == 4 { bitmap(x, y, star, on) }
+  if s == 5 { bitmap(x, y, gem, on) }
+}
+
+# One reel. It slows down at the end (the distance left = time left squared).
+func reel(x, f, r, now) {
+  var rest = 0
+  if state == SPIN { rest = max(0, stop_at(r) - now) }
+  var dist = rest * rest / 6000
+  var j = dist / STEP - 1
+  if dist == 0 { j = 0 }      # stopped: only the symbol in the middle shows
+  var last = dist / STEP + 2
+  if dist == 0 { last = 0 }
+  while j <= last {
+    symbol(x + 5, 9 + STEP * j - dist, (f + j + 6) % 6)
+    j += 1
+  }
+  rect(x, 0, 24, 32, on)
+}
+
+func note(i) {
+  if i == 0 || i == 1 { return 784 }
+  if i == 2 { return 1047 }
+  if i == 4 { return 988 }
+  if i == 5 { return 1047 }
+  if i == 6 || i == 7 { return 1319 }
+  if i == 8 { return 1568 }
+  return 0
+}
+
+on tick {
+  var now = time()
+  if state == SPIN {
+    while stopped < 3 && now >= stop_at(stopped) {
+      stopped += 1
+      click(600)
+    }
+    if stopped == 3 {
+      state = DONE
+      if f0 == f1 && f1 == f2 {
+        pay = 10
+        if f0 == SEVEN { pay = 50 }
+        if f0 == BAR { pay = 20 }
+        win_at = now
+        seed = random(65535)
+        song = 0
+      } else if f0 == f1 || f1 == f2 || f0 == f2 {
+        pay = 2
+        tone(1500, 80)
+      }
+      credits += pay
+      save()
+    }
+  }
+  # The song: one note for each tick
+  if song < 10 {
+    var freq = note(song)
+    if song == 8 { tone(freq, 450) } else if freq > 0 { tone(freq, 90) }
+    song += 1
+  }
+}
+
+# Confetti that rains over the whole screen (each piece falls, then starts again at the top)
+func confetti(now) {
+  var t = now - win_at
+  var wiggle = t / 180
+  var i = 0
+  var h = seed
+  while i < 32 {
+    h = h * 1103515245 + 12345
+    var y = ((h & 63) + (18 + ((h >> 8) & 31)) * t / 1000) % 40 - 4
+    var shape = (h >> 24) & 3
+    fill(((h >> 16) & 127) + ((wiggle + i) & 2) / 2, y, 1 + (shape & 1), 1 + (shape >> 1 & 1), invert)
+    i += 1
+  }
+}
+
+on draw {
+  var now = time()
+  reel(1, f0, 0, now)
+  reel(27, f1, 1, now)
+  reel(53, f2, 2, now)
+
+  text(103, 1, "CREDITS", small, on, center)
+  num(103, 9, credits, 0, text, on, center)
+  var party = now - win_at < SHOW_MS
+  if state == SPIN { text(103, 22, "GOOD LUCK", small, on, center) }
+  if state != SPIN && credits == 0 && !party {
+    text(103, 19, "HOLD 2", small, on, center)
+    text(103, 25, "FOR +30", small, on, center)
+  } else if state == DONE && pay > 0 {
+    text(103, 20, "WIN", caps, on, right)
+    num(106, 20, pay, 0, caps, on, left)
+  } else if state != SPIN {
+    text(103, 19, "PRESS", small, on, center)
+    text(103, 25, "TO SPIN", small, on, center)
+  }
+
+  if party {
+    if (now / 200) % 2 { invert(79, 18, 49, 10) }
+    confetti(now)
+  }
+}

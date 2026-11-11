@@ -151,6 +151,12 @@ void Buzzer_click(uint16_t freq) {
   s_lastFreq = freq;
 }
 
+void Buzzer_tone(uint16_t freq, uint16_t ms) {
+  (void)ms;
+  s_clickCount++;   // The tests count a note like a click
+  s_lastFreq = freq;
+}
+
 void Buzzer_beep(uint16_t freq, uint8_t duty) {
   (void)duty;
   s_lastFreq = freq;

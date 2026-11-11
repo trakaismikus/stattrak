@@ -397,6 +397,12 @@ static int32_t _sys(void* ctx, uint8_t sysId, const int32_t* a, bool drawing) {
         App_click((uint16_t)a[0]);   // Follows the Sound setting
       return 0;
 
+    case STAPP_SYS__TONE:
+      if((s_info.permissions & STAPP_PERM_SOUND) && !drawing && a[0] >= 200 && a[0] <= 4000 &&
+         a[1] >= 10 && a[1] <= 1000)
+        App_tone((uint16_t)a[0], (uint16_t)a[1]);   // Follows the Sound setting
+      return 0;
+
     case STAPP_SYS__BATTERY:
       if(Eeprom_read(ENTRY_ID__BATTERY_TYPE) <= BATTERY_TYPE__USB)
         return -1;

@@ -72,14 +72,18 @@ void Buzzer_off(void) {
 
 
 void Buzzer_click(uint16_t freq) {
+  Buzzer_tone(freq, 10);
+}
+
+
+void Buzzer_tone(uint16_t freq, uint16_t ms) {
   Buzzer_beep(freq, 128);
 
   if(s_buzzerTimer != NULL) {
-    // Start buzzer timer
-    // xTimerChangePeriod(s_buzzerTimer, pdMS_TO_TICKS(ms), 0);
-    xTimerStart(s_buzzerTimer, 0);
+    // Starts the off timer with this length (a click is 10 ms; a new note replaces the last one)
+    xTimerChangePeriod(s_buzzerTimer, pdMS_TO_TICKS(ms), 0);
   } else {
-    vTaskDelay(pdMS_TO_TICKS(10));
+    vTaskDelay(pdMS_TO_TICKS(ms));
     Buzzer_off();
   }
 }

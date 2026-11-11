@@ -441,6 +441,9 @@ TEST(engine_sys_table) {
   CHECK_EQ(Stapp_sysArgCount(200), -1);
   CHECK_EQ(Stapp_sysPermission(STAPP_SYS__ADD_COUNTER), STAPP_PERM_COUNTERS);
   CHECK_EQ(Stapp_sysPermission(STAPP_SYS__CLICK), STAPP_PERM_SOUND);
+  CHECK_EQ(Stapp_sysPermission(STAPP_SYS__TONE), STAPP_PERM_SOUND);
+  CHECK_EQ(Stapp_sysArgCount(STAPP_SYS__TONE), 2);
+  CHECK_EQ(Stapp_sysArgCount(26), -1);
   CHECK_EQ(Stapp_sysPermission(STAPP_SYS__COUNTER), 0);
   CHECK(strcmp(Stapp_resultText(STAPP_ERR_CRC), "bad crc") == 0);
   CHECK(strcmp(Stapp_resultText((stapp_result_t)99), "unknown") == 0);

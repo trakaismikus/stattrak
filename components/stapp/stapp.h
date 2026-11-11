@@ -84,6 +84,7 @@ typedef enum stapp_sys_e {
   STAPP_SYS__RANDOM = 22,
   STAPP_SYS__SAVE = 23,
   STAPP_SYS__REDRAW = 24,
+  STAPP_SYS__TONE = 25,
 } stapp_sys_t;
 
 // Result of Stapp_check() and Stapp_run(). Values are stable: the web page shows them.

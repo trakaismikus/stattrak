@@ -4,7 +4,7 @@
 #   Hold button 2: forget the best time.
 
 app "REACTION"
-version 1
+version 2
 description "A reaction game: wait for GO, then press a button as fast as you can. It keeps your best time."
 picture icon lightning "REACTION"
 permission sound
@@ -71,12 +71,16 @@ on long2 {
   }
 }
 
-on draw {
+# GO comes in a tick (each 100 ms): a click in draw does nothing. The time counts from here.
+on tick {
   if state == WAIT && time() >= go_at {
     state = GO
     go_at = time()
     click(2000)
   }
+}
+
+on draw {
 
   if state == READY {
     text(64, 5, "PRESS TO START", caps, on, center)

@@ -1,0 +1,262 @@
+# RUNNER: an endless runner game.
+#   Press a button to jump. Jump over the crates, the posts and the low drones.
+#   Do not jump under a high drone. The game gets faster. The best score is kept.
+#   A press comes to the app about 0.2 s after you push the button: jump a little early.
+
+app "RUNNER"
+version 1
+description "An endless runner: press a button to jump over crates, posts and drones. The game gets faster. It keeps your best score."
+picture icon runner "RUNNER"
+permission sound
+
+setting start_speed "SPEED" "NORMAL" "FAST"
+
+saved best = 0
+
+const READY = 0
+const RUN = 1
+const OVER = 2
+
+const GROUND = 29       # the ground line; the runner stands on it
+const RUN_X = 10        # left edge of the runner
+const JUMP_MS = 640     # time in the air
+const JUMP_H = 17       # height of a jump in pixels
+
+const CRATE = 1
+const POST = 2
+const DRONE_LOW = 3
+const DRONE_HIGH = 4
+
+var state = 0
+var last = 0            # time() of the last draw
+var start = 0           # time() of the start of this run
+var dist = 0            # distance run, in 1/1000 pixel
+var jump_at = -10000    # time() of the last jump
+var over_at = 0
+var next_w = 0          # world x (pixels) of the next obstacle
+var w1 = 0
+var t1 = 0
+var w2 = 0
+var t2 = 0
+var w3 = 0
+var t3 = 0
+var sound = 0           # 1 = the crash sound plays at the next tick
+var milestone = 0       # score / 100 of the last "100 points" sound
+
+bitmap run_a {
+  "..######.."
+  ".########."
+  ".##.##.##."
+  ".########."
+  "..######.."
+  "...####..."
+  ".########."
+  "#.######.#"
+  "..######.."
+  "..##..##.."
+  ".##....##."
+  "##......#."
+}
+bitmap run_b {
+  "..######.."
+  ".########."
+  ".##.##.##."
+  ".########."
+  "..######.."
+  "...####..."
+  ".########."
+  "#.######.#"
+  "..######.."
+  "...####..."
+  "...#..#..."
+  "..##..##.."
+}
+bitmap crate {
+  "########"
+  "#.#..#.#"
+  "##....##"
+  "#.#..#.#"
+  "#..##..#"
+  "#.#..#.#"
+  "##....##"
+  "########"
+}
+bitmap post {
+  "..##.."
+  "..##.."
+  ".####."
+  ".####."
+  ".#..#."
+  ".####."
+  "######"
+  "#.##.#"
+  "######"
+  "#.##.#"
+  "######"
+  "#.##.#"
+  "######"
+}
+bitmap drone_a {
+  "###.....###"
+  "..#.....#.."
+  "..#######.."
+  ".##.###.##."
+  "..#######.."
+  "...#...#..."
+}
+bitmap drone_b {
+  ".###...###."
+  "..#.....#.."
+  "..#######.."
+  ".##.###.##."
+  "..#######.."
+  "...#...#..."
+}
+
+func score() { return dist / 10000 }
+
+func reset() {
+  state = RUN
+  start = time()
+  last = start
+  dist = 0
+  jump_at = -10000
+  next_w = 150
+  t1 = 0
+  t2 = 0
+  t3 = 0
+  milestone = 0
+}
+
+func press() {
+  var now = time()
+  if state == READY { reset(); return }
+  if state == OVER {
+    if now - over_at > 700 { reset() }
+    return
+  }
+  if now - jump_at >= JUMP_MS {
+    jump_at = now
+    click(1400)
+  }
+}
+
+on press1 { press() }
+on press2 { press() }
+
+# Height of the runner over the ground, in pixels
+func height(now) {
+  var t = now - jump_at
+  if t < 0 || t >= JUMP_MS { return 0 }
+  return 4 * JUMP_H * t * (JUMP_MS - t) / (JUMP_MS * JUMP_MS)
+}
+
+# A new obstacle in a free place (x < -16 or no obstacle)
+func spawn(kind) {
+  var view = dist / 1000
+  if t1 == 0 || w1 - view < -16 { w1 = next_w; t1 = kind; return }
+  if t2 == 0 || w2 - view < -16 { w2 = next_w; t2 = kind; return }
+  if t3 == 0 || w3 - view < -16 { w3 = next_w; t3 = kind; return }
+}
+
+func speed(now) {
+  var base = 70
+  if setting(start_speed) == 1 { base = 100 }
+  return min(140, base + (now - start) / 1500)
+}
+
+# Draws one obstacle and gives 1 if it hits the runner
+func obstacle(w, kind, h, now) {
+  if kind == 0 { return 0 }
+  var x = w - dist / 1000
+  if x < -16 || x > 130 { return 0 }
+  var y = GROUND - 8
+  var ow = 8
+  var oh = 8
+  if kind == CRATE { bitmap(x, y, crate, on) }
+  if kind == POST {
+    y = GROUND - 13; ow = 6; oh = 13
+    bitmap(x, y, post, on)
+  }
+  if kind >= DRONE_LOW {
+    y = GROUND - 9
+    if kind == DRONE_HIGH { y = 4 }
+    ow = 11; oh = 6
+    if (now / 120) % 2 { bitmap(x, y, drone_a, on) } else { bitmap(x, y, drone_b, on) }
+  }
+  # The boxes are 1 pixel smaller than the pictures on each side (the tip of a post: 2 pixels)
+  var top = GROUND - 12 - h + 1
+  var bottom = GROUND - h
+  var tip = 1 + (kind == POST)
+  return x + 1 < RUN_X + 9 && x + ow - 1 > RUN_X + 1 && y + tip < bottom && y + oh - 1 > top
+}
+
+on draw {
+  var now = time()
+  var h = 0
+
+  if state == RUN {
+    var dt = min(now - last, 50)
+    last = now
+    dist += speed(now) * dt
+    h = height(now)
+    # A new obstacle when the last one is far enough
+    if next_w - dist / 1000 < 140 {
+      var r = random(10)
+      var kind = CRATE
+      if r >= 4 { kind = POST }
+      if r >= 6 { kind = DRONE_LOW }
+      if r >= 8 && score() > 150 { kind = DRONE_HIGH }
+      spawn(kind)
+      next_w += speed(now) * 95 / 100 + 24 + random(80)
+    }
+  }
+
+  # Ground: a line and small stones that go by
+  hline(0, GROUND, 128, on)
+  var shift = (dist / 1000) % 136
+  var k = 0
+  while k < 8 {
+    var sx = (k * 17 - shift + 136) % 136 - 4
+    pixel(sx, GROUND + 2, on)
+    pixel(sx + 9, GROUND + 1, on)
+    k += 1
+  }
+
+  var hit = obstacle(w1, t1, h, now) | obstacle(w2, t2, h, now) | obstacle(w3, t3, h, now)
+
+  if state == OVER || h > 0 || ((dist / 6000) % 2) == 0 {
+    bitmap(RUN_X, GROUND - 12 - h, run_a, on)
+  } else {
+    bitmap(RUN_X, GROUND - 12 - h, run_b, on)
+  }
+
+  if state == RUN && hit {
+    state = OVER
+    over_at = now
+    sound = 1
+    if score() > best { best = score(); save() }
+  }
+
+  num(127, 1, score(), 5, small, on, right)
+  if best > 0 {
+    text(78, 1, "HI", small, on, right)
+    num(80, 1, best, 5, small, on, left)
+  }
+  if state == READY { text(64, 9, "PRESS TO JUMP", caps, on, center) }
+  if state == OVER {
+    fill(30, 6, 68, 11, off)
+    text(64, 8, "GAME OVER", caps, on, center)
+  }
+}
+
+on tick {
+  if sound == 1 {
+    sound = 0
+    tone(220, 300)
+  }
+  if state == RUN && score() / 100 > milestone {
+    milestone = score() / 100
+    tone(1800, 60)
+  }
+}

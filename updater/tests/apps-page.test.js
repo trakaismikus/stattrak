@@ -103,7 +103,7 @@ test("connect: the apps of the device in menu order, SETTINGS last, the storage 
   assert.deepEqual(await texts(page, "#appsList .tag"), ["Built-in", "Built-in", "Built-in", "Installed · 1.1 KB", "Always last"]);
   assert.match(await texts(page, ".status .store span").then((t) => t[0]), /^1\.1 KB \/ 24 KB$/);
   // Installed apps are not in the catalog; the others are, with their permissions
-  assert.deepEqual(await texts(page, ".cat .row__name"), ["HEADSHOT %", "REACTION"]);
+  assert.deepEqual(await texts(page, ".cat .row__name"), ["HEADSHOT %", "REACTION", "RUNNER", "SLOTS", "WALLPAPER"]);
   assert.match(await page.evaluate(`${catRow("HEADSHOT %")}.textContent`), /Changes your kill counts/);
   // Built-in apps have no delete button; only apps with known settings have a gear
   assert.equal(await page.evaluate(`!!${inRow("KILLS", '[data-act="del"]')}`), false);

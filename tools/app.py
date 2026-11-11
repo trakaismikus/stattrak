@@ -129,6 +129,7 @@ SYSCALLS = {
     22: ("random", ("n",), 0, False),
     23: ("save", (), 0, False),
     24: ("redraw", (), 0, False),
+    25: ("tone", ("freq", "ms"), PERM_SOUND, False),
 }
 SYS_BY_NAME = {value[0]: key for key, value in SYSCALLS.items()}
 SYS_TEXT = SYS_BY_NAME["text"]
@@ -142,6 +143,7 @@ ARG_RANGES = {
     ("num", "digits"): (0, 10), ("bignum", "digits"): (0, 10), ("bignum", "scale"): (2, 4),
     ("bignum", "c"): (0, 2), ("bitmap", "c"): (0, 2), ("counter", "id"): (0, 3),
     ("add_counter", "id"): (0, 3), ("add_counter", "delta"): (-10, 10), ("click", "freq"): (200, 4000),
+    ("tone", "freq"): (200, 4000), ("tone", "ms"): (10, 1000),
     ("random", "n"): (1, 65535),
 }
 
@@ -1894,6 +1896,10 @@ class Machine:
         if name == "click":
             if 200 <= args[0] <= 4000:
                 self.clicks.append((self.now, args[0]))
+            return 0
+        if name == "tone":
+            if 200 <= args[0] <= 4000 and 10 <= args[1] <= 1000:
+                self.clicks.append((self.now, args[0]))   # a note is listed with the clicks
             return 0
         if name == "battery":
             return self.battery

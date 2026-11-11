@@ -20,7 +20,7 @@ typedef struct sys_def_s {
 } sys_def_t;
 
 /* > Local Variables ******************************************************************************/
-#define SYS_TABLE_SIZE  25
+#define SYS_TABLE_SIZE  26
 
 static const sys_def_t kSys[SYS_TABLE_SIZE] = {
   [STAPP_SYS__PIXEL]       = { 3, 0 },
@@ -44,6 +44,7 @@ static const sys_def_t kSys[SYS_TABLE_SIZE] = {
   [STAPP_SYS__RANDOM]      = { 1, 0 },
   [STAPP_SYS__SAVE]        = { 0, 0 },
   [STAPP_SYS__REDRAW]      = { 0, 0 },
+  [STAPP_SYS__TONE]        = { 2, STAPP_PERM_SOUND },
 };
 
 /* > Function Definitions *************************************************************************/

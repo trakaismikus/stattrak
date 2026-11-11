@@ -151,7 +151,7 @@ class ExampleApps(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             catalog = app.build_catalog(os.path.join(REPO_ROOT, "apps"), folder)
             names = [entry["name"] for entry in catalog["apps"]]
-            self.assertEqual(names, ["HEADSHOT %", "REACTION", "ROUND TIMER"])
+            self.assertEqual(names, ["HEADSHOT %", "REACTION", "ROUND TIMER", "RUNNER", "SLOTS", "WALLPAPER"])
             for entry in catalog["apps"]:
                 with open(os.path.join(folder, entry["file"]), "rb") as handle:
                     data = handle.read()

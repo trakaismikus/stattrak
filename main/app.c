@@ -342,6 +342,12 @@ void App_click(uint16_t freq) {
   }
 }
 
+void App_tone(uint16_t freq, uint16_t ms) {
+  if(Eeprom_read(ENTRY_ID__SOUND) > 0) {
+    Buzzer_tone(freq, ms);
+  }
+}
+
 
 
 // A value in flash can come from an other firmware version, or the flash can be damaged.

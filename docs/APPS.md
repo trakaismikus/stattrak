@@ -201,6 +201,7 @@ The arguments are pushed left to right. Each call pushes one result (0 if nothin
 | 22 | `random(n)` | 0 .. n-1 (n 1..65535) |
 | 23 | `save()` | save the saved variables now (the firmware also saves at close; at most once in 30 s) |
 | 24 | `redraw()` | nothing (the screen is drawn every 10 ms); kept for later |
+| 25 | `tone(freq, ms)` | permission "sound". One note: 200..4000 Hz for 10..1000 ms. It does not wait; a new note or click replaces the note that plays. Follows the Sound setting |
 
 Drawing calls work only in the draw handler. In other handlers they do nothing.
 
@@ -223,7 +224,7 @@ must match it):
 
 Where calls work: drawing calls only in `draw`. `add_counter` only in `press1`, `press2`,
 `long1`, `long2` (in other handlers it does nothing and gives 0), at most 4 times in one event
-(more calls only give the value). `click` does nothing in `draw`.
+(more calls only give the value). `click` and `tone` do nothing in `draw`.
 Each `draw` may draw at most about 8 full screens of pixels; more = app error `too many steps`.
 
 ### Events
@@ -421,11 +422,18 @@ the firmware):
 | `list` | 15 x 13 | |
 | `lightning` | 11 x 17 | |
 | `trophy` | 15 x 15 | |
+| `runner` | 13 x 16 | |
+| `cherries` | 15 x 14 | |
 
 ## 8. Write an app
 
 1. Make the folder `apps/<name>/` and the script `apps/<name>/<name>.sts` (section 7). The
-   examples: `apps/round-timer/`, `apps/headshot/`, `apps/reaction/`.
+   examples: `apps/round-timer/`, `apps/headshot/`, `apps/reaction/`, and the sample apps to try
+   on a device: `apps/runner/` (a jump game), `apps/slots/` (a slot machine with confetti and a
+   song made with `tone`), `apps/wallpaper/` (looks like KILLS, the digits are set with the
+   buttons). `tests/test_sample_apps.py` runs them in the simulator.
+   An app gets a short press about 0.2 s after the button goes down (the firmware waits to see
+   if it becomes a double press). Fast games must allow for this.
 2. Compile and check it:
 
    ```

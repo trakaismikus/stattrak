@@ -187,6 +187,7 @@ void App_updateActivity(uint32_t time);
 uint32_t App_getLastActivityTime(void);
 
 void App_click(uint16_t ferq);
+void App_tone(uint16_t freq, uint16_t ms);   // One note of an app (10 .. 1000 ms)
 
 void App_requestShutdown(void);
 

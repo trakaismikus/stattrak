@@ -39,7 +39,7 @@ OP = {
 SYS = {
     "pixel": 0, "hline": 1, "vline": 2, "rect": 3, "fill": 4, "rrect": 5, "text": 6, "num": 7,
     "bignum": 8, "bitmap": 9, "invert": 10, "counter": 16, "add_counter": 17, "setting": 18,
-    "time": 19, "click": 20, "battery": 21, "random": 22, "save": 23, "redraw": 24,
+    "time": 19, "click": 20, "battery": 21, "random": 22, "save": 23, "redraw": 24, "tone": 25,
 }
 
 

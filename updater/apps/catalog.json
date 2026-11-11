@@ -18,8 +18,8 @@
     {
       "id": "62e49bbb",
       "name": "REACTION",
-      "version": 1,
-      "size": 1181,
+      "version": 2,
+      "size": 1182,
       "permissions": [
         "sound"
       ],
@@ -57,6 +57,73 @@
           "values": [
             "ON",
             "OFF"
+          ],
+          "default": 0
+        }
+      ]
+    },
+    {
+      "id": "09d34cb8",
+      "name": "RUNNER",
+      "version": 1,
+      "size": 1793,
+      "permissions": [
+        "sound"
+      ],
+      "description": "An endless runner: press a button to jump over crates, posts and drones. The game gets faster. It keeps your best score.",
+      "file": "runner.stapp",
+      "picture": "AAAAAAAAAAAAAAAAAADg8LDwsPDgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAIBDz9/3///TwECBAAAAAAAP7+EhL+7AB+/oCA/n4A/v4MGP7+AP7+DBj+/gD+/pKSgoIA/v4SEv7sAAAAAAAAAAAAAAAAAAAAAAAAAAAACAwGAwEAAAABAw4IAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "settings": [
+        {
+          "name": "SPEED",
+          "values": [
+            "NORMAL",
+            "FAST"
+          ],
+          "default": 0
+        }
+      ]
+    },
+    {
+      "id": "3f20f760",
+      "name": "SLOTS",
+      "version": 1,
+      "size": 2026,
+      "permissions": [
+        "sound"
+      ],
+      "description": "A slot machine: press a button to spin. Three the same wins, with confetti and a song on the buzzer.",
+      "file": "slots.stapp",
+      "picture": "AAAAAAAAAAAAAAAAAAAAAAAAAACAgEBAIOAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwOCw+PTigQDA4LD49+DAAAAAAABc3pKS9mQA/v6AgICAAHz+goL+fAACAv7+AgIAXN6SkvZkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAwcHBwMBAAEDBwcHAwEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "settings": [
+        {
+          "name": "LUCK",
+          "values": [
+            "NORMAL",
+            "LUCKY",
+            "ALWAYS"
+          ],
+          "default": 0
+        }
+      ]
+    },
+    {
+      "id": "91507ac3",
+      "name": "WALLPAPER",
+      "version": 1,
+      "size": 991,
+      "permissions": [
+        "sound"
+      ],
+      "description": "Looks like the big KILLS counter, but shows your own number. Hold 1: pick a digit. Hold 2: change it.",
+      "file": "wallpaper.stapp",
+      "picture": "AAAAAAAAgEBAAPgAQECAAAAAAAAAAAAAAADAAIBAQABAQMBAQADAAAAAAADAAAAAAADAQEBAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEBAQ1hEQEAAAkwAAEBAR1hAQEAAAAAAAAOcBAgTkAOSkp6TkAOcEBAQEAOcEBAQEAOWlpaXnAOCgoKDgAOCgoKDgAOCgoKAgAOCgoKDgAAAAAAAAAQIEBAA/AAQEAgEAAAAAAAAAAAAAAQIBAgEAAwAAAAMAAwICAgIAAwICAgIAAwAAAAAAAwAAAAMAAwAAAAAAAwICAgIAAwABAgIA",
+      "settings": [
+        {
+          "name": "BATTERY",
+          "values": [
+            "HIDE",
+            "SHOW"
           ],
           "default": 0
         }
