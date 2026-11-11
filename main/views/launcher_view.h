@@ -25,7 +25,8 @@ void      Launcher_onBothButtons(void);
 // Each loop (app.c): opens the selected app after LAUNCHER_SELECT_MS without a press
 void      Launcher_update(uint32_t now);
 
-// The view of the selected app (for the simulator and the tests)
+// The view and the app id of the selected app (for the simulator and the tests)
 view_id_t Launcher_getSelectedView(void);
+uint32_t  Launcher_getSelectedAppId(void);
 
 #endif // _LAUNCHER_VIEW_H

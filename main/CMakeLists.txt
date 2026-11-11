@@ -5,6 +5,7 @@ set(SRC_FILES
   "system.c"
   "app_view.c"
   "app.c"
+  "apps.c"
   "eeprom.c"
   "battery.c"
   "ble_commands.c"
@@ -20,6 +21,9 @@ set(SRC_FILES
   "resources/img.c"
   "resources/app_icons.c"
 
+  "views/app_host_view.c"
+  "views/app_settings_view.c"
+  "views/app_sync_view.c"
   "views/ask_view.c"
   "views/intro_view.c"
   "views/launcher_view.c"

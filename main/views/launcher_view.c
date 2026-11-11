@@ -10,7 +10,12 @@
  * Screen: title picture at (24, 2), arrows at the left and the right edge, a bar in segments at
  * the bottom (one segment for each app, the selected one is filled).
  *
- * SETTINGS must stay in kApps: it is the way to the firmware update.
+ * The apps come from main/apps.c each time the menu opens: the built-in apps and the installed
+ * apps in the saved order, without the hidden ones. Hold button 2: the settings of the selected
+ * installed app (if it has settings).
+ *
+ * SETTINGS is always added as the last app in _buildMenu(), in code and not from flash: it is
+ * the way to the firmware update. tools/check_safety.py checks this.
  **************************************************************************************************/
 
 /* > Includes *************************************************************************************/
@@ -22,6 +27,9 @@
 #include "gfx.h"
 #include "font_glyph.h"
 #include "app_icons.h"
+#include "apps.h"
+#include "app_host_view.h"
+#include "app_settings_view.h"
 #include "time.h"
 
 /* > Defines **************************************************************************************/
@@ -40,23 +48,18 @@
 #define PAGER_WIDTH       116
 #define PAGER_GAP         3
 
-/* > Type definitions *****************************************************************************/
-typedef void (*cover_draw_t)(int16_t x, int16_t y);
-
-typedef struct launcher_app_s {
-  view_id_t view;
-  cover_draw_t drawCover;
-} launcher_app_t;
-
 /* > Local Function Declarations ******************************************************************/
 static void _init(void);
 static void _draw(void);
 static bool _eventHandler(uint16_t event);
 
+static void _buildMenu(void);
 static void _move(int8_t step);
 static void _openSelected(void);
+static void _openSettings(void);
 static int8_t _indexOf(view_id_t view);
 static int8_t _wrap(int16_t index);
+static void _drawCover(const apps_item_t* item, int16_t x, int16_t y);
 static void _drawIcon(int16_t x, int16_t y, const app_icon_t* icon);
 static void _drawIconText(int16_t x, int16_t y, const app_icon_t* icon, const char* text);
 static void _drawArrows(void);
@@ -77,16 +80,12 @@ view_t g_launcherView = {
   .eventHandler = _eventHandler,
 };
 
-// The apps of the menu, in menu order. SETTINGS is the last one and must stay.
-static const launcher_app_t kApps[] = {
-  { VIEW_ID__TOTAL,     _coverKills    },
-  { VIEW_ID__KILL_DEAD, _coverKillDead },
-  { VIEW_ID__STATS,     _coverStats    },
-  { VIEW_ID__SETTINGS,  _coverSettings },
-};
-#define APP_COUNT   ((int8_t)(sizeof(kApps) / sizeof(kApps[0])))
+// The apps of the menu, in menu order (_buildMenu). SETTINGS is the last one.
+static apps_item_t s_items[APPS_MENU_MAX];
+static int8_t   s_count = 0;
+#define APP_COUNT   (s_count)
 
-static int8_t   s_selected = 0;       // Index in kApps
+static int8_t   s_selected = 0;       // Index in s_items
 static int16_t  s_slideX = 0;         // Offset of the selected picture, goes to 0 while it slides
 static int16_t  s_slideFrom = 0;
 static uint32_t s_lastInputMs = 0;    // The selected app opens LAUNCHER_SELECT_MS after this
@@ -114,6 +113,7 @@ void Launcher_onBothButtons(void) {
   }
 
   // Open the menu with the current app selected (the first app for a view that is not in the menu)
+  _buildMenu();
   const int8_t index = _indexOf(next);
   s_selected = (index >= 0) ? index : 0;
   AppView_setFrom(VIEW_ID__LAUNCHER, APP_VIEW_FROM__BOTTOM, OPEN_MS);
@@ -128,12 +128,18 @@ void Launcher_update(uint32_t now) {
 }
 
 view_id_t Launcher_getSelectedView(void) {
-  return kApps[_wrap(s_selected)].view;
+  return (s_count > 0) ? s_items[_wrap(s_selected)].view : VIEW_ID__TOTAL;
+}
+
+uint32_t Launcher_getSelectedAppId(void) {
+  return (s_count > 0) ? s_items[_wrap(s_selected)].id : APPS_ID__KILLS;
 }
 
 /* > Local Function Definitions *******************************************************************/
 
 static void _init(void) {
+  if(s_count == 0)
+    _buildMenu();
   Animation_stop(&s_slide);
   s_slideX = 0;
   s_selected = _wrap(s_selected);
@@ -142,12 +148,35 @@ static void _init(void) {
 }
 
 static bool _eventHandler(uint16_t event) {
+  const uint32_t now = Time_getMillis();
+
   switch(event) {
     case EVENT__PRESS_1: _move(-1); return true;
     case EVENT__PRESS_2: _move(+1); return true;
+    case EVENT__LONG_PRESS_2: _openSettings(); return true;
+    case EVENT__LONG_PRESS_1:
+    case EVENT__LONG_HOLD_1:
+    case EVENT__LONG_HOLD_2: return true;
+
+    // A held button: the selected app does not open while the person holds it
+    case EVENT__RAW_PRESS_1:
+    case EVENT__RAW_PRESS_2:
+    case EVENT__RAW_RELEASE_1:
+    case EVENT__RAW_RELEASE_2:
+      if((int32_t)(now - s_lastInputMs) > 0)
+        s_lastInputMs = now;
+      break;
+
     default: break;
   }
   return false;
+}
+
+// The menu: the shown apps of apps.c, then SETTINGS
+static void _buildMenu(void) {
+  s_count = (int8_t)Apps_getMenu(s_items, APPS_MENU_MAX - 1);
+  // SETTINGS is always the last app: the way to "Firmware: UPDATE". Never remove or move this line.
+  s_items[s_count++] = (apps_item_t){ VIEW_ID__SETTINGS, APPS_ID__NONE };
 }
 
 static void _draw(void) {
@@ -156,7 +185,7 @@ static void _draw(void) {
     const int16_t x = COVER_X + s_slideX + i * PAGE_WIDTH;
     if(x >= SCREEN_W || x + COVER_W <= 0)
       continue;
-    kApps[_wrap(s_selected + i)].drawCover(x, COVER_Y);
+    _drawCover(&s_items[_wrap(s_selected + i)], x, COVER_Y);
   }
 
   _drawArrows();
@@ -178,18 +207,48 @@ static void _move(int8_t step) {
 }
 
 static void _openSelected(void) {
-  AppView_setFrom(kApps[_wrap(s_selected)].view, APP_VIEW_FROM__TOP, CLOSE_MS);
+  if(s_count == 0)
+    _buildMenu();
+  const apps_item_t* item = &s_items[_wrap(s_selected)];
+  if(item->view == VIEW_ID__APP_HOST)
+    AppHost_setApp(item->id);
+  AppView_setFrom(item->view, APP_VIEW_FROM__TOP, CLOSE_MS);
 }
 
+// Hold button 2: the settings of the selected installed app. Nothing for an app without settings.
+static void _openSettings(void) {
+  if(s_count == 0 || AppView_getNext() != VIEW_ID__LAUNCHER)
+    return;
+  const apps_item_t* item = &s_items[_wrap(s_selected)];
+  if(item->view != VIEW_ID__APP_HOST || Apps_getSettingCount(item->id) == 0)
+    return;
+  if(AppSettings_setApp(item->id)) {
+    App_click(1200);
+    AppView_set(VIEW_ID__APP_SETTINGS);
+  }
+}
+
+// The menu index of a view. An installed app (in the app host or in its settings) is found by
+// its id, a built-in app by its view.
 static int8_t _indexOf(view_id_t view) {
+  uint32_t id = APPS_ID__NONE;
+  if(view == VIEW_ID__APP_HOST) {
+    id = AppHost_getAppId();
+  } else if(view == VIEW_ID__APP_SETTINGS) {
+    id = AppSettings_getAppId();
+    view = VIEW_ID__APP_HOST;
+  }
+
   for(int8_t i = 0; i < APP_COUNT; i++) {
-    if(kApps[i].view == view)
+    if(s_items[i].view == view && (view != VIEW_ID__APP_HOST || s_items[i].id == id))
       return i;
   }
   return -1;
 }
 
 static int8_t _wrap(int16_t index) {
+  if(APP_COUNT <= 0)
+    return 0;
   index %= APP_COUNT;
   if(index < 0)
     index += APP_COUNT;
@@ -197,6 +256,24 @@ static int8_t _wrap(int16_t index) {
 }
 
 // --- Drawing
+
+static void _drawCover(const apps_item_t* item, int16_t x, int16_t y) {
+  switch(item->view) {
+    case VIEW_ID__TOTAL:     _coverKills(x, y); break;
+    case VIEW_ID__KILL_DEAD: _coverKillDead(x, y); break;
+    case VIEW_ID__STATS:     _coverStats(x, y); break;
+    case VIEW_ID__SETTINGS:  _coverSettings(x, y); break;
+    case VIEW_ID__APP_HOST: {
+      // The title picture of an installed app (80 x 24, from the package)
+      const uint8_t* picture = Apps_getPicture(item->id);
+      if(picture != NULL)
+        Gfx_drawBitmapRaw(x, y, picture, COVER_W, COVER_H, 1, GFX_ROTATION__0);
+      else
+        Gfx_drawRoundRect(x, y, COVER_W, COVER_H, 0, 1);
+    } break;
+    default: break;
+  }
+}
 
 static void _drawIcon(int16_t x, int16_t y, const app_icon_t* icon) {
   Gfx_drawBitmapRaw(x, y, icon->data, icon->width, icon->height, 1, GFX_ROTATION__0);
