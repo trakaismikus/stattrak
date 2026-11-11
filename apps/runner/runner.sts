@@ -42,6 +42,7 @@ var w3 = 0
 var t3 = 0
 var sound = 0           # 1 = the crash sound plays at the next tick
 var milestone = 0       # score / 100 of the last "100 points" sound
+var last_h = 0          # the height of the runner in the last draw of the run (kept at GAME OVER)
 
 bitmap run_a {
   "..######.."
@@ -126,6 +127,7 @@ func reset() {
   t2 = 0
   t3 = 0
   milestone = 0
+  last_h = 0
 }
 
 func press() {
@@ -193,13 +195,14 @@ func obstacle(w, kind, h, now) {
 
 on draw {
   var now = time()
-  var h = 0
+  var h = last_h
 
   if state == RUN {
     var dt = min(now - last, 50)
     last = now
     dist += speed(now) * dt
     h = height(now)
+    last_h = h
     # A new obstacle when the last one is far enough
     if next_w - dist / 1000 < 140 {
       var r = random(10)
@@ -253,7 +256,7 @@ on draw {
 on tick {
   if sound == 1 {
     sound = 0
-    tone(220, 300)
+    tone(250, 300)
   }
   if state == RUN && score() / 100 > milestone {
     milestone = score() / 100

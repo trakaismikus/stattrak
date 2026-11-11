@@ -2,7 +2,7 @@
 #   Press a button to spin (1 credit). The reels stop one by one.
 #   3 the same: you win (777 = 50, BAR = 20, others = 10), with confetti and a song.
 #   2 the same: 2 credits back.
-#   No credits: hold button 2 for 30 new credits.
+#   Fewer than 30 credits: hold button 2 for 30 credits.
 
 app "SLOTS"
 version 1

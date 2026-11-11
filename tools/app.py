@@ -1894,11 +1894,11 @@ class Machine:
         if name == "time":
             return self.now
         if name == "click":
-            if 200 <= args[0] <= 4000:
+            if not drawing and 200 <= args[0] <= 4000:   # the firmware plays no sound in draw
                 self.clicks.append((self.now, args[0]))
             return 0
         if name == "tone":
-            if 200 <= args[0] <= 4000 and 10 <= args[1] <= 1000:
+            if not drawing and 200 <= args[0] <= 4000 and 10 <= args[1] <= 1000:
                 self.clicks.append((self.now, args[0]))   # a note is listed with the clicks
             return 0
         if name == "battery":

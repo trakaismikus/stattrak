@@ -433,6 +433,13 @@ class Compiler(unittest.TestCase):
         machine.run("press1")
         self.assertEqual(machine.globals[:4], [-3, -1, 0, 0x7FFFFFFF])
 
+    def test_no_sound_in_draw(self):
+        # As in the firmware: click and tone do nothing in draw (they work in the other handlers)
+        machine = app.Machine(compile_text('app "S"\npermission sound\non draw { click(1000); tone(500, 100) }\n'
+                                           'on tick { tone(700, 100) }\n')["package"])
+        machine.wait(100)
+        self.assertEqual(machine.clicks, [(10100, 700)])
+
     def test_runtime_errors(self):
         machine = app.Machine(compile_text('app "L"\non press1 { while 1 { } }\n')["package"])
         self.assertEqual(machine.run("press1"), "too many steps")

@@ -81,7 +81,8 @@ void Buzzer_tone(uint16_t freq, uint16_t ms) {
 
   if(s_buzzerTimer != NULL) {
     // Starts the off timer with this length (a click is 10 ms; a new note replaces the last one)
-    xTimerChangePeriod(s_buzzerTimer, pdMS_TO_TICKS(ms), 0);
+    if(xTimerChangePeriod(s_buzzerTimer, pdMS_TO_TICKS(ms), 0) != pdPASS)
+      Buzzer_off();   // No off timer: no sound, never a sound that does not stop
   } else {
     vTaskDelay(pdMS_TO_TICKS(ms));
     Buzzer_off();
