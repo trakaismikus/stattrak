@@ -2,9 +2,9 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "stattrak-web",
+      "name": "stattrak-updater",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["--yes", "http-server", ".", "-p", "8765", "-c-1", "-s"],
+      "runtimeArgs": ["--yes", "http-server", "updater", "-p", "8765", "-c-1"],
       "port": 8765
     }
   ]

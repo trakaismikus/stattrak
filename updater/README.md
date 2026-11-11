@@ -14,7 +14,8 @@ through all steps:
 1. **Pair.** The device shows its update screen. The page reads the firmware version and the device ID.
 2. **Select a file.** The page refuses a file that is not a StatTrak firmware (wrong chip, a
    bootloader, an other project, too large). It also tells if the file is one of the official
-   releases of `janiszah/stattrak-fw`: it compares the SHA-256 of the file with the releases on GitHub.
+   releases: it compares the SHA-256 of the file with the release files on GitHub (the repository
+   is set at the top of `js/main.js`).
 3. **Transfer.** First the page confirms a firmware of an earlier transfer that still waits on
    the device. Thus a "yes" after the transfer can only come from the new firmware. Then the file goes to the device in sectors of 4096 bytes, each with a checksum.
    A sector that arrives damaged is sent again, 3 times at most. If the transfer stops, the page
@@ -52,21 +53,25 @@ its display for each confirmation command, also when no new firmware waits.
 | `js/ble.js` | The Bluetooth code: connect, commands, firmware transfer |
 | `js/firmware.js` | Checks of the firmware file |
 | `js/main.js` | The steps of the page |
-| `tests/fake-device.js` | A stand-in for the device and for Web Bluetooth. Its packet code is a port of the firmware code |
+| `tests/fake-device.js` | A stand-in for the device and for Web Bluetooth. Its packet code is a port of the firmware code in `../components/ble_ota/` |
 | `tests/ble.test.js` | Tests of `js/ble.js` and `js/firmware.js` in Node.js |
 | `tests/page.test.js` | Tests of the full page in a headless Chrome. They click the buttons as a user does |
+| `tests/files.test.js` | Tests of the fonts, of files from other sites, and that the Bluetooth numbers of the page are the numbers of the firmware |
 
 ## Run it on your computer
 
 ```
-npx --yes http-server . -p 8765 -c-1
+npx --yes http-server updater -p 8765 -c-1
 ```
+
+(Run it in the main folder of the repository.)
 
 Then open `http://localhost:8765`.
 
 ## Tests
 
 ```
+cd updater
 node --test "tests/*.test.js"
 ```
 
@@ -80,8 +85,8 @@ device before the page is published.
 
 ## Publish
 
-The page is a folder of static files. Vercel publishes it (project `stattrak-web`):
+The page is a folder of static files. Vercel publishes the folder `updater/` of this repository:
 
 - A push to `main` goes to the public address `https://stattrak.tridos.design`.
 - A push to an other branch gets a preview address, which only the team can open.
-- `.vercelignore` keeps the tests and the CI files out of the published files.
+- `.vercelignore` keeps the tests out of the published files.

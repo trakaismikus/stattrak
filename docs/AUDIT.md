@@ -31,7 +31,7 @@ the chip.
 | Other bugs | 12 (8 fixed, 4 open) |
 | Robustness and code quality notes | 9 (2 fixed, 7 open) |
 | Things to decide before the code is public | 3 |
-| Web update tool (section E) | 12 (3 must be fixed before it is used with this firmware) |
+| Web update tool (section E) | 12 (11 fixed; open: the page is not at its public address) |
 | Review of the `dev` branch (section F) | 1 change not taken, 2 notes |
 
 The update design is good: the old firmware stays in flash, and a new firmware is kept only
@@ -164,22 +164,34 @@ other firmware version, (2) what happens after the accept, and (3) the Bluetooth
    StatTrak are not part of it. This is not legal advice.
 2. **Other people's material.** Check the origin and license of the fonts in
    `main/resources/` (for example the "Nightverb" font) and of the picture
-   `sim/web/StatTrakv3.jpg`. The web update tool uses the font "TT Lakes Neue" (TypeType,
-   a paid font): its files must not go into a public repository without a license for that.
-   The Screen Designer in this repository uses the free font "Barlow Condensed" (SIL Open Font
-   License) in its place. It is the closest free match: condensed, square shapes, real italics
-   in the heavy weights.
+   `sim/web/StatTrakv3.jpg`. The first design of the web update tool used a paid font: such
+   files must not go into a public repository or onto a public page without a license for
+   that. The Screen Designer and the web updater in this repository use the free font
+   "Barlow Condensed" (SIL Open Font License): condensed, square shapes, real italics in the
+   heavy weights.
 3. **The name.** "StatTrak" is a name that Valve uses in Counter-Strike, and the web
    simulator shows "StatTrak(TM)". Ask a lawyer before the public release.
 
 No password, key or token was found in the source code or in the git history. The commit
-history has the e-mail addresses of the author. They become public with the repository.
+history of the development repository has the e-mail addresses of the author. The public
+repository starts with a new history, thus these addresses are not in it.
 
-## E. Web update tool (repository `stattrak-web`, branch `design-refresh`)
+## E. Web update tool (now in the folder `updater/`)
 
-The web page that sends the firmware over Bluetooth (`main.html`, `js/ble.js`, `js/main.js`),
-at commit `c13cfd2`. Checked by reading the code and against the packet code of this branch.
-Not run against a device.
+The web page that sends the firmware over Bluetooth. The audit was made in its own repository
+(`stattrak-web`, branch `design-refresh`, commit `c13cfd2`: `main.html`, `js/ble.js`,
+`js/main.js`), by reading the code and against the packet code of this branch. The file names
+and line numbers in the table are from that commit.
+
+**Status, 11 November 2026:** W1 to W7 and W9 to W12 are fixed, with tests
+(`updater/tests/`), and the page is in this repository (`updater/README.md`). W8 is open: the
+page is not at its public address. Not run against a device.
+
+One fix is different from the proposal in the table. W3 said "send accept at each connect".
+Firmware 1.0.1 shows "Accepted" on its display for each accept command, also when no firmware
+waits, and it then has no automatic power-off until its update screen is closed. The page
+sends the accept after its own transfer, for a transfer that it has a mark of (the page was
+closed or loaded again), when the user clicks a button, and one time before each transfer.
 
 **The data format is correct for this firmware.** The page sends each sector as 4096 bytes
 (filled with zeros) plus the CRC of the firmware bytes, with sector numbers from 0. That is

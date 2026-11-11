@@ -1,5 +1,5 @@
 {
-  "name": "stattrak-web",
+  "name": "stattrak-updater",
   "private": true,
   "description": "StatTrak firmware updater: a web page that sends firmware to the device over Bluetooth",
   "scripts": {

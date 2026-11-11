@@ -190,7 +190,7 @@ console.log("total kills", numbers.getUint32(0, true), "total deaths", numbers.g
 A web page must come from `https://` or from `localhost`, and `requestDevice()` must start
 from a click. iPhones and Firefox do not have Web Bluetooth.
 
-This example follows the code of the web updater. It was not run against a device for this
+This example follows the code of the web updater (`updater/js/ble.js`). It was not run against a device for this
 document: test it with your device.
 
 ## Commands

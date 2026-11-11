@@ -21,16 +21,24 @@ simulator cannot test.
    directly, before the normal views start. Option: go back to the other firmware slot.
 3. **Restart when the firmware hangs (C1).** Switch on `CONFIG_ESP_TASK_WDT_PANIC` and feed
    the watchdog from the main loop. Check the two `while(1);` loops after power-off first (B12).
-4. **Web update tool (AUDIT, section E).** Before it is used with this firmware: no
-   "success" message without an accept (W1, W2), accept at each connect (W3), publish the page
-   at `https://stattrak.tridos.design` (W8). Then: check the firmware file before the transfer
-   (W4), and use the free font of the Screen Designer if the page becomes public (W12).
-5. **Test this branch on real devices.** The update fixes of the `dev` branch, the Bluetooth
-   user commands and the firmware build with the setup tool on Windows and macOS were not
-   run on hardware.
-6. **Before the public release:** check the firmware fonts and the picture (AUDIT, section D),
-   put the final repository address into `README.md`, and say in `docs/SAFETY.md` if a wired
-   rescue is possible for users.
+4. **Test this branch on real devices.** The update fixes of the `dev` branch, the Bluetooth
+   user commands, the web updater (`updater/`) and the firmware build with the setup tool on
+   Windows and macOS were not run on hardware. The test lists are in the pull request.
+
+### Before this repository becomes public
+
+This repository (`trakaismikus/stattrak`) is private until these are done:
+
+1. The test on real devices (item 4 above), and the pull request with this work is merged.
+2. The public address of the web updater works: the DNS record for
+   `stattrak.tridos.design`.
+3. The official firmware files are in the "Releases" of this repository. Then change
+   `GH_OWNER` and `GH_REPO` in `updater/js/main.js` and the link at the top of
+   `updater/index.html` from `janiszah/stattrak-fw` to this repository, and put a note into
+   the old release repository.
+4. Check the firmware fonts and the picture (AUDIT, section D), and the use of the name
+   "StatTrak".
+5. Say in `docs/SAFETY.md` if a wired rescue is possible for users.
 
 ## Backlog
 
@@ -51,6 +59,13 @@ simulator cannot test.
 
 ## Shipped
 
+- **2026-11: one repository, and the web updater.** The web updater is in `updater/`, with
+  the fixes for this firmware: "Flash complete" only after the device restarted and confirmed
+  the new firmware, clear messages when an update fails, a check of the firmware file before
+  the transfer, a damaged sector is sent again, free fonts, no files from other sites. Tests
+  with a stand-in device, also of the full page in headless Chrome. The page and the firmware
+  are checked to use the same Bluetooth numbers. The repository address is
+  `github.com/trakaismikus/stattrak`.
 - **2026-11: Screen Designer and license.** A page to draw StatTrak screens pixel for pixel
   with the firmware fonts (`tools/designer/index.html`): more than one screen, notes, undo and
   redo, save and open, and "Send to AI" (a text with the exact design data). Its drawing code

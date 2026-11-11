@@ -263,7 +263,9 @@ class DesignerFilesTest(unittest.TestCase):
             self.assertTrue(os.path.isfile(os.path.join(DESIGNER_DIR, *name.split("/"))), name)
         for name in ("OFL-BarlowCondensed.txt", "OFL-JetBrainsMono.txt"):
             self.assertTrue(os.path.isfile(os.path.join(DESIGNER_DIR, "fonts", name)), name)
-        self.assertNotIn("TTLakes", page, "the paid font must not be in this repository")
+        other = [name for name in os.listdir(os.path.join(DESIGNER_DIR, "fonts"))
+                 if not name.endswith((".woff2", ".txt"))]
+        self.assertEqual(other, [], "only the free fonts and their license texts belong in this folder")
 
     def test_no_dialogs_that_stop_the_page(self):
         page = self.read("index.html")

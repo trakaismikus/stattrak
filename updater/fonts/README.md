@@ -9,6 +9,3 @@ files). The font files are in this folder, thus the page loads no file from an o
 | JetBrains Mono | Numbers, file names, the console | `JetBrainsMono.woff2` (weights 400 to 700 in one file) |
 
 The fonts are declared with `@font-face` at the top of `../css/colors_and_type.css`.
-
-The first design used TT Lakes Neue Compressed, a paid font. It is not in this folder any
-more: a public page sends its font files to each visitor, and that needs a web license.

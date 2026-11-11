@@ -1,10 +1,10 @@
 /* A stand-in for a StatTrak device, and for the Web Bluetooth API of the browser.
  *
  * The tests use it in place of a real device. It runs in Node.js and in a browser.
- * The packet code is a line-by-line port of the firmware (repository `stattrak`):
- *   components/ble_ota/ble_ota.c   _writeCommand, _writeFw, _writeCustom, _notify
- *   components/ble_ota/ota.c       the update task, _customCallback
- *   main/main.c                    restart after a good transfer, "Verifying…" at the start
+ * The packet code is a line-by-line port of the firmware in this repository:
+ *   ../components/ble_ota/ble_ota.c   _writeCommand, _writeFw, _writeCustom, _notify
+ *   ../components/ble_ota/ota.c       the update task, _customCallback
+ *   ../main/main.c                    restart after a good transfer, "Verifying…" at the start
  * `legacy: true` gives the packet code of firmware 1.0.1 (no check of the sector CRC,
  * and the "accept" command changes the display also when no firmware waits).
  *

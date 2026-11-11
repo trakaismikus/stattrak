@@ -4,7 +4,7 @@
  * The device does the full check of a firmware (all data, checksum) after the
  * transfer, and it refuses a bad file. The checks here find a wrong file in a
  * second, not after some minutes of transfer.
- * The same rules are in `tools/build.py --check-file` of the firmware repository.
+ * The same rules are in `tools/build.py --check-file` of this repository.
  */
 
 const FirmwareFile = (() => {

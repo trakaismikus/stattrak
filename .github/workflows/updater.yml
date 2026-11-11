@@ -1,0 +1,41 @@
+name: Web updater
+
+# Runs when files of the web updater change, for pull requests that are ready for review
+# (not for drafts) and for the main branch. About 1 to 2 minutes of runner time for one run.
+# The firmware checks are in ci.yml: they do not run for a change in updater/ only.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths: ['updater/**', '.github/workflows/updater.yml']
+  push:
+    branches: [main]
+    paths: ['updater/**', '.github/workflows/updater.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: updater-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Web updater tests
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: updater
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      # The page tests use the Chrome of the runner. A missing Chrome must not pass as "skipped".
+      - name: Chrome is there
+        run: google-chrome --version
+      - name: Tests
+        run: node --test "tests/*.test.js"

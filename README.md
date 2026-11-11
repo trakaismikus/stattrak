@@ -32,7 +32,7 @@ Open your AI coding tool in an empty folder and paste this text:
 I have a StatTrak kill counter and I want to change its firmware. Help me, step by step.
 
 1. Download the firmware project to this computer:
-   git clone https://github.com/janiszah/stattrak.git
+   git clone https://github.com/trakaismikus/stattrak.git
 2. Open the folder "stattrak" and read the file AGENTS.md completely. Follow it.
    Start with section 1 "Start here".
 3. Ask me before you install anything on my computer. Tell me what it is and how large it is.
@@ -152,8 +152,13 @@ designs/       screen design files
 sim/           simulator: the firmware on a computer (headless, window, web)
 tests/         tests: full firmware in the simulator, and unit tests
 tools/         setup.py, check.py, check_safety.py, sim.py, design.py, build.py
+updater/       the web updater: the page that sends a firmware file to the device
 docs/          SAFETY.md, BLUETOOTH.md, DESIGNS.md, AUDIT.md, ROADMAP.md
 ```
+
+## Who made it
+
+The firmware is by Janis Zaharans. The StatTrak kill counter is a product of TRIDOS.DESIGN x JZ.
 
 ## License
 
@@ -164,8 +169,9 @@ source code under the same license.
 
 Not under this license: the names and logos of TRIDOS and StatTrak, and the product
 pictures. Other people's parts keep their own licenses: ESP-IDF and its components
-(Apache-2.0), the fonts of the Screen Designer in `tools/designer/fonts/` (SIL Open Font
-License, the texts are in that folder).
+(Apache-2.0), the fonts of the Screen Designer and of the web updater in
+`tools/designer/fonts/` and `updater/fonts/` (SIL Open Font License, the texts are in these
+folders).
 
 ## Documents
 
@@ -175,5 +181,6 @@ License, the texts are in that folder).
 - [docs/DESIGNS.md](docs/DESIGNS.md): screen design files
 - [docs/BLUETOOTH.md](docs/BLUETOOTH.md): Bluetooth for your own features
 - [sim/README.md](sim/README.md): the simulator
+- [updater/README.md](updater/README.md): the web updater
 - [docs/AUDIT.md](docs/AUDIT.md): code audit, November 2026
 - [docs/ROADMAP.md](docs/ROADMAP.md): planned work

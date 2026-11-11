@@ -342,6 +342,7 @@ sim/                     simulator (host/ = stand-ins for hardware, headless/, s
 tests/                   tests (Python: full firmware in the simulator, unit/: C unit tests)
 tools/                   setup.py, check.py, check_safety.py, sim.py, design.py, build.py
 tools/designer/          the Screen Designer (a web page) and the firmware fonts for it
+updater/                 the web updater: the page that sends a firmware file to the device (updater/README.md)
 docs/                    SAFETY.md, BLUETOOTH.md, DESIGNS.md, AUDIT.md, ROADMAP.md
 CONTRIBUTING.md          how to share a feature with all users
 ```
@@ -453,6 +454,12 @@ python tools/check.py --fast   # faster, while you work (run the full check at t
   make them pass without a very good reason, and tell the user.
 - `tests/unit/test_ble_ota.c` sends update data exactly as the web updater does. If it fails,
   the web updater cannot update a device with this firmware.
+- `updater/tests/`: the tests of the web updater. `python tools/check.py` does not run them.
+  After a change in `updater/`, run `node --test "tests/*.test.js"` in the folder `updater`
+  (Node.js 22 or later, and Chrome for the page tests). They use a stand-in device
+  (`updater/tests/fake-device.js`), which is a port of `components/ble_ota/`. The two sides
+  must agree: do not change one without the other, and see section 3 before you change
+  `components/ble_ota/` at all.
 - `tests/test_design.py` compares the design tools with the firmware draw functions.
 - `tests/test_designer.py` compares the Screen Designer with `tools/design.py` (needs Node.js;
   it is skipped without it).
