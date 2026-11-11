@@ -65,7 +65,8 @@ This repository (`trakaismikus/stattrak`) is private until these are done:
   the transfer, a damaged sector is sent again, free fonts, no files from other sites. Tests
   with a stand-in device, also of the full page in headless Chrome. The page and the firmware
   are checked to use the same Bluetooth numbers. The repository address is
-  `github.com/trakaismikus/stattrak`.
+  `github.com/trakaismikus/stattrak`. The firmware version is 1.1.0, and the number is in
+  the file `version.txt` now (before, it came from git tags).
 - **2026-11: Screen Designer and license.** A page to draw StatTrak screens pixel for pixel
   with the firmware fonts (`tools/designer/index.html`): more than one screen, notes, undo and
   redo, save and open, and "Send to AI" (a text with the exact design data). Its drawing code

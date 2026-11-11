@@ -36,24 +36,9 @@ set(HOST_DIR      ${CMAKE_CURRENT_SOURCE_DIR}/host)
 set(TEST_DIR      ${ROOT_DIR}/tests/unit)
 
 
-# --- Firmware version from git tags (the same rule as the firmware build)
-execute_process(
-    COMMAND git describe --tags --dirty --always
-    WORKING_DIRECTORY ${ROOT_DIR}
-    OUTPUT_VARIABLE GIT_DESCRIBE_VERSION
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-    ERROR_QUIET
-)
-
-set(PROJECT_VER "0.0.0")
-if(GIT_DESCRIBE_VERSION)
-  string(REGEX REPLACE
-      "^v?([0-9]+\\.[0-9]+\\.[0-9]+).*$"
-      "\\1"
-      PROJECT_VER
-      "${GIT_DESCRIBE_VERSION}"
-  )
-endif()
+# --- Firmware version from version.txt (the same file as the firmware build)
+file(STRINGS ${ROOT_DIR}/version.txt PROJECT_VER LIMIT_COUNT 1)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${ROOT_DIR}/version.txt)
 message(STATUS "Project version: ${PROJECT_VER}")
 
 

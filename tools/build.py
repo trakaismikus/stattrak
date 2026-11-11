@@ -187,6 +187,13 @@ def step_result(build_type):
         log("build/stattrak.bin is not usable: %s." % error)
         return False
 
+    with open(os.path.join(ROOT, "version.txt"), "r", encoding="utf-8") as handle:
+        wanted = handle.read().strip()
+    if info["version"] != wanted:
+        log("build/stattrak.bin has the version %r, but version.txt says %r." % (info["version"], wanted))
+        log("Delete the folder build/ and build again.")
+        return False
+
     out_dir = os.path.join(ROOT, "out")
     os.makedirs(out_dir, exist_ok=True)
     safe_version = "".join(char if (char.isalnum() or char in ".-_") else "_" for char in info["version"]) or "unknown"
