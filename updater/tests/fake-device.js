@@ -891,14 +891,25 @@
     this.display = screen;
   };
 
-  /* The buttons (app_sync_view.c _eventHandler). button: 1 or 2.
-     buttonDown(): EVENT__RAW_PRESS: a hold that starts while the question shows can answer it.
+  /* The buttons (app_sync_view.c _eventHandler, main/views/hold_button.c). button: 1 or 2.
+     The buttons on the display answer a hold that starts while the screen shows; a new screen
+     (an other install state, or "NOT INSTALLED") forgets the holds that started before.
+     buttonDown(): EVENT__RAW_PRESS.
      buttonUp(): EVENT__RAW_RELEASE.
      longPress(): EVENT__LONG_PRESS (700 ms after the press, the button is still down).
-     press(): a short press (down, up, then EVENT__PRESS). */
+     press(): a short press (down, up, then EVENT__PRESS): it does nothing. */
+  P._checkScreen = function () {
+    const shown = this.syncState * 2 + (this.syncFailed ? 1 : 0);
+    if (shown !== this.syncShown) {
+      this.syncShown = shown;
+      this.syncHolding = [false, false];
+    }
+  };
+
   P.buttonDown = function (button) {
     if (this.screen !== "appsync") return;
-    if (this.syncState === SYNC_WAITING) this.syncHolding[button - 1] = true;
+    this._checkScreen();
+    this.syncHolding[button - 1] = true;
   };
 
   P.buttonUp = function (button) {
@@ -908,12 +919,25 @@
 
   P.longPress = function (button) {
     if (this.screen !== "appsync") return;
+    this._checkScreen();
+    if (!this.syncHolding[button - 1]) return;
     if (button === 2) {
-      if (this.syncState === SYNC_WAITING && this.syncHolding[1]) this._syncAnswer(true);
+      if (this.syncState === SYNC_WAITING) {
+        this._syncAnswer(true);
+      } else if (this.syncState === SYNC_INSTALLED) {
+        // OPEN: the app opens, Bluetooth goes off with this view
+        this.openedApp = this.syncId;
+        this.events.push("app opened " + this.syncName);
+        this._closeAppSync("app");
+      }
       return;
     }
     if (this.syncState === SYNC_WAITING) {
-      if (this.syncHolding[0]) this._syncAnswer(false);
+      this._syncAnswer(false);
+    } else if (this.syncState === SYNC_INSTALLED) {
+      this.syncState = SYNC_IDLE;   // SYNC MORE: wait for the next app
+      this.events.push("sync more");
+      this._syncDisplay();
     } else if (this.syncState === SYNC_RECEIVING) {
       // Stop this transfer; the page must start again with BEGIN
       this._syncReset();
@@ -928,25 +952,7 @@
   P.press = function (button) {
     if (this.screen !== "appsync") return;
     this.buttonDown(button);
-    this.buttonUp(button);
-    if (button === 1) {
-      if (this.syncState === SYNC_INSTALLED) {
-        this.syncState = SYNC_IDLE;   // SYNC MORE: wait for the next app
-        this.events.push("sync more");
-      }
-      this.syncFailed = false;
-      this._syncDisplay();
-    } else {
-      this.syncFailed = false;
-      if (this.syncState === SYNC_INSTALLED) {
-        // OPEN: the app opens, Bluetooth goes off with this view
-        this.openedApp = this.syncId;
-        this.events.push("app opened " + this.syncName);
-        this._closeAppSync("app");
-        return;
-      }
-      this._syncDisplay();
-    }
+    this.buttonUp(button);   // The buttons on the display answer a hold only
   };
 
   /* Hold button 2 (down while the question shows, then the long press): "yes" */
@@ -956,9 +962,9 @@
     this.buttonUp(2);
   };
 
-  /* Hold button 1: "no" to the question; while the data comes: stop the transfer */
+  /* Hold button 1: "no" to the question; while the data comes: stop the transfer; after the
+     install: SYNC MORE; else BACK */
   P.holdButton1 = function () {
-    if (this.syncState !== SYNC_WAITING && this.syncState !== SYNC_RECEIVING) return;
     this.buttonDown(1);
     this.longPress(1);
     this.buttonUp(1);

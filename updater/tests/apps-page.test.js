@@ -195,7 +195,7 @@ test("install from the catalog: the question on the device first, then the trans
   assert.equal(await page.evaluate(`${row("REACTION")}.classList.contains("row--new")`), true);
   // What the device shows now, and what the buttons do
   assert.match(await page.evaluate(`document.getElementById("donepanel").textContent`),
-    /Installed.*On StatTrak: SYNC MORE \(button 1\) or OPEN \(button 2\)\. OPEN closes this connection\./);
+    /Installed.*On StatTrak: hold button 1 = SYNC MORE, hold button 2 = OPEN\. OPEN closes this connection\./);
   assert.equal(await page.evaluate(`document.querySelector("#donepanel img").alt`), "StatTrak screen: APP INSTALLED, SYNC MORE, OPEN");
   assert.equal(await device(page, "display"), "APP INSTALLED");
   assert.equal(await page.evaluate(`!!${catRow("REACTION")}`), false);
@@ -212,7 +212,7 @@ test("OPEN on the device after the install: a calm message, not 'Connection lost
   // A change in the page (here: the order) does not change it
   await click(page, inRow("KILLS", '[data-act="down"]'));
   await page.waitFor(`window.__device.appNames()[0] === "KILLS + DEAD"`);
-  await device(page, "press(2)");
+  await device(page, "holdButton2()");
   await page.waitFor(has("#appsMain .banner--info"));
   assert.match(await mainText(page), /REACTION is installed.*The connection ended\. OPEN on StatTrak opens the app and closes the connection\./);
   assert.equal(await page.evaluate(`!!document.querySelector("#appsMain .banner--error")`), false);
@@ -227,7 +227,7 @@ test("SYNC MORE on the device: the next install works; a lost connection later i
   await asking(page);
   await device(page, "holdButton2()");
   await page.waitFor(has("#donepanel"));
-  await device(page, "press(1)");
+  await device(page, "holdButton1()");
   assert.equal(await device(page, "syncState"), 0);
   // The page sees it (STATUS): the device does not show APP INSTALLED any more
   await page.waitFor(`AppsTab.state.opened === null`);
@@ -235,7 +235,7 @@ test("SYNC MORE on the device: the next install works; a lost connection later i
   await asking(page);
   await device(page, "holdButton2()");
   await page.waitFor(row("ROUND TIMER"));
-  await device(page, "press(1)");
+  await device(page, "holdButton1()");
   await page.waitFor(`AppsTab.state.opened === null`);
   await device(page, "loseConnection()");
   await page.waitFor(has("#appsMain .banner--error"));

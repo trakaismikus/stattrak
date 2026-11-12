@@ -64,8 +64,9 @@ An install goes in this order (`docs/APPS.md` section 6):
 2. After the "yes" the page sends the package and shows the progress. The device checks it and
    writes it to flash. A hold of button 1 on the device, or 10 seconds without data, stops the
    transfer ("The transfer stopped on StatTrak").
-3. "Installed": the device shows APP INSTALLED with SYNC MORE (button 1: wait for the next app)
-   and OPEN (button 2: the app opens). OPEN turns Bluetooth off, so the page loses the
+3. "Installed": the device shows APP INSTALLED with SYNC MORE (hold button 1: wait for the next
+   app) and OPEN (hold button 2: the app opens). All buttons on the display answer a hold
+   (0.7 s; the button fills while it is held), never a short press.OPEN turns Bluetooth off, so the page loses the
    connection: it then shows a calm message ("<NAME> is installed. The connection ended."), not
    "Connection lost". The page watches for this 60 seconds after the install (each STATUS keeps
    the device awake); after that a lost connection is "Connection lost" again.

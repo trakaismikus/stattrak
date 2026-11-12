@@ -95,8 +95,10 @@ class BatteryTest(SimTestCase):
         self.assertEqual(self.dev.view, "TOTAL")
         self.dev.run(3000)
         self.assertEqual(self.dev.view, "BATTERY_LOW")
-        self.dev.click(1)
+        self.dev.click(1)                  # A short press does not dismiss it: DISMISS needs a hold
         self.dev.run(500)
+        self.assertEqual(self.dev.view, "BATTERY_LOW")
+        self.dev.long_press(1)
         state = self.dev.state()
         self.assertEqual(state["view"], "TOTAL")
         self.assertEqual(state["eeprom.total_kills"], 0)

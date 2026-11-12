@@ -162,8 +162,8 @@ const AppPictures = (() => {
       fwTitle(b, (128 - 13 * 6) / 2, 1, 13, "APP INSTALLED");
       fwCenter(b, 64, 11, String(arg), "5x5");
       // Each button over its round button: button 1 is the left one, button 2 the right one
-      fwSmallButton(b, 4, 40, "SYNC MORE", 0);
-      fwSmallButton(b, 128 - 4 - 22, 22, "OPEN", 0);
+      fwSmallButton(b, 4, 40, "SYNC MORE", fill && fill.no);
+      fwSmallButton(b, 128 - 4 - 22, 22, "OPEN", fill && fill.yes);
       return b;
     }
     fwTitle(b, (128 - 8 * 6) / 2, 1, 8, "APP SYNC");
@@ -181,11 +181,11 @@ const AppPictures = (() => {
       fwSmallButton(b, 128 - 4 - 22, 22, "YES", fill && fill.yes);
     } else if (kind === "refused") {
       fwCenter(b, 64, 12, "REFUSED", "5x5");
-      fwButton(b, 12, 20, 42, 11, "BACK", false);
+      fwSmallButton(b, 4, 22, "BACK", fill && fill.no);
     } else {
       if (kind === "notinstalled") fwCenter(b, 64, 12, "NOT INSTALLED", "5x5");
       else text(b, (128 - 7 * 6) / 2, 12, "Waiting" + ".".repeat(arg === undefined ? 3 : arg & 3), "5x5", 1);
-      fwButton(b, 12, 20, 42, 11, "BACK", false);
+      fwSmallButton(b, 4, 22, "BACK", fill && fill.no);
     }
     return b;
   }

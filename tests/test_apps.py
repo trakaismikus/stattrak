@@ -109,8 +109,11 @@ class AppTestCase(SimTestCase):
         return str(self.dev.state()["apps_menu"]).split(",")
 
     def leave_sync(self):
-        """Long press 1 in the app sync view: back to the settings."""
+        """Hold 1 in the app sync view: back to the settings. After an install, the first hold of
+        button 1 is SYNC MORE (the screen "Waiting..."), the second one BACK."""
         self.dev.long_press(1)
+        if self.dev.view == "APP_SYNC":
+            self.dev.long_press(1)
         self.assertEqual(self.dev.view, "SETTINGS")
 
     def open_app(self, app_id):
@@ -371,14 +374,19 @@ class InstallTest(AppTestCase):
         self.assert_installed(counter_app())
         frame = "\n".join(self.dev.frame())
         self.assertEqual(self.dev.view, "APP_SYNC")
-        # SYNC MORE (button 1): back to "Waiting", Bluetooth stays on
+        # A short press does nothing: the buttons on the display answer a hold
         self.dev.click(1, settle_ms=600)
+        self.dev.click(2, settle_ms=600)
+        self.assertEqual(self.cmd(APP_CMD_STATUS)[1], bytes([INSTALLED]))
+        self.assertEqual(self.dev.view, "APP_SYNC")
+        # SYNC MORE (hold 1): back to "Waiting", Bluetooth stays on
+        self.dev.long_press(1)
         self.assertEqual(self.cmd(APP_CMD_STATUS)[1], bytes([IDLE]))
         self.assertEqual(self.dev.view, "APP_SYNC")
         self.assertNotEqual("\n".join(self.dev.frame()), frame)
         # The next install, then OPEN (button 2): the app runs and Bluetooth is off
         self.assert_installed(counter_app(app_id=0x2000, name="SECOND"), open_sync=False)
-        self.dev.click(2, settle_ms=800)
+        self.dev.long_press(2, settle_ms=800)
         state = self.dev.state()
         self.assertEqual(state["view"], "APP_HOST")
         self.assertEqual(state["app_running"], 0x2000)

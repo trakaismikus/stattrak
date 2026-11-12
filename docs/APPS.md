@@ -298,8 +298,8 @@ the question shows answers it (hold button 2 = yes, hold button 1 = no); the but
 the left while it is held. While it receives, 10 s without DATA or a hold of button 1 stops the
 transfer (STATUS 0 again, the display shows "NOT INSTALLED"); the page then starts with BEGIN.
 
-After the install the display shows "APP INSTALLED", the name, SYNC MORE (press button 1: wait
-for the next app) and OPEN (press button 2: the app opens, and Bluetooth goes off, so the page
+After the install the display shows "APP INSTALLED", the name, SYNC MORE (hold button 1: wait
+for the next app) and OPEN (hold button 2: the app opens, and Bluetooth goes off, so the page
 loses the connection). A new BEGIN also works without SYNC MORE.
 
 The Bluetooth name is at most 8 characters: the advertising packet (31 bytes) also holds the

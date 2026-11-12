@@ -68,9 +68,9 @@ class UpdateViewTest(SimTestCase):
                 self.assertEqual(state["view"], "BATTERY_LOW")
                 self.assertEqual(state["ota_active"], 0, "Bluetooth stays on in normal operation")
 
-                # The update mode must work after that
-                self.dev.click(1)
-                self.dev.run(800)
+                # The update mode must work after that (DISMISS: a hold)
+                self.dev.long_press(1)
+                self.dev.run(300)
                 self.assertEqual(self.dev.view, "SETTINGS")
                 self.dev.long_press(2)
                 state = self.dev.state()
@@ -215,7 +215,10 @@ class NewFirmwareTest(SimTestCase):
         self.assertTrue(self.dev.ota_accept())
         self.dev.run(200)
         self.assertEqual(self.dev.state()["ota_state"], OTA_ACCEPTED)
-        self.dev.click(1)  # OK
+        self.dev.click(1)                  # A short press does not leave: OK needs a hold
+        self.dev.run(500)
+        self.assertEqual(self.dev.view, "FW_ACCEPT")
+        self.dev.long_press(1)             # OK
         self.dev.run(500)
         state = self.dev.state()
         self.assertEqual(state["view"], "TOTAL")

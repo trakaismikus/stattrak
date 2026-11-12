@@ -14,6 +14,7 @@
 #include "time.h"
 
 #include "ota.h"
+#include "hold_button.h"
 
 /* > Local Function Declarations ******************************************************************/
 static bool _eventHandler(uint16_t event);
@@ -43,12 +44,13 @@ view_t g_updateView = {
 
 
 /* > Local Variables ******************************************************************************/
-static uint8_t s_cancel = 0;
+static hold_buttons_t s_hold;    // CANCEL fills while button 1 is held (main/views/hold_button.h)
 
 /* > Local Function Definitions *******************************************************************/
 
 static void _init(void) {
   Ota_init();
+  HoldButtons_reset(&s_hold);
 }
 
 static void _deinit(void) {
@@ -56,6 +58,7 @@ static void _deinit(void) {
 }
 
 static bool _eventHandler(uint16_t event) {
+  HoldButtons_event(&s_hold, event);
 
   switch(event) {
     
@@ -72,15 +75,7 @@ static bool _eventHandler(uint16_t event) {
     case EVENT__LONG_PRESS_2:
       return true;
 
-    case EVENT__RAW_PRESS_1:
-      s_cancel = 1;
-      break;
-    
-    case EVENT__RAW_RELEASE_1:
-      s_cancel = 0;
-      break;
-
-    default: break;
+default: break;
   }
 
   return false;
@@ -120,7 +115,7 @@ static void _draw(void) {
     Gfx_invertRect(14, 22, progress, 7);
     Gfx_drawRoundRect(13, 21, Gfx_getWidth() - 26, 9, 3, 1);
   } else {
-    GUI_DRAW_BTN(12, 20, 42, 11, "CANCEL", s_cancel == 1);
+    HoldButton_draw(HOLD_BUTTON_MARGIN, 30, "CANCEL", HoldButtons_fill(&s_hold, 0));
   }
 
 }
