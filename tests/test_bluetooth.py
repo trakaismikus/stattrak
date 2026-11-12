@@ -23,8 +23,9 @@ class UserCommandTest(SimTestCase):
 
     def open_update_view(self):
         """Bluetooth is on in the update view."""
-        self.open_setting("FW_UPDATE")
-        self.dev.long_press(2)
+        self.open_setting("BLUETOOTH")
+        self.dev.long_press(2)   # The Bluetooth view
+        self.dev.long_press(1)   # UPDATE
         self.assertEqual(self.dev.view, "UPDATE")
 
     def test_get_counters(self):

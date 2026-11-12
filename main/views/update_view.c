@@ -99,7 +99,7 @@ static void _draw(void) {
     state = OTA_STATE__ERROR;
   
   // Gfx_drawStringAligned(Gfx_getWidth()/2, 2, "FW UPDATE", &font5x5, 1, 0, GFX_ALIGN__CENTER, GFX_ROTATION__0);
-  GUI_DRAW_TITLE((Gfx_getWidth() - (15 * font5x5.x_advance))/2, 1, 15, "FIRMWARE UPDATE");
+  GUI_DRAW_TITLE_THIN(Gfx_getWidth() / 2, 1, "FIRMWARE UPDATE");   // Plain: few lit pixels at the radio start
 
   if(state == OTA_STATE__IDLE) {
     snprintf(str, sizeof(str), "Waiting%.*s", (int)((Time_getMillis() >> 9) & 3), "...");

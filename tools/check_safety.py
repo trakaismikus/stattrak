@@ -130,7 +130,7 @@ RULES = [
     ("update-views",
      "The update view and the accept view must start the Bluetooth update service, and nothing there or "
      "in the start code can refuse new firmware. 'Both buttons' must open the app menu, and the app menu "
-     "must always end with SETTINGS (the way to 'Firmware: UPDATE'): _buildMenu() in launcher_view.c adds it "
+     "must always end with SETTINGS (the way to 'Bluetooth: ENABLE' > UPDATE): _buildMenu() in launcher_view.c adds it "
      "in code, never from flash.",
      "Without Bluetooth in these views the phone cannot send or accept firmware. Ota_setUpdateAllowed(false) "
      "is for views of user features only: in the update path it makes the device refuse each new firmware."),
@@ -372,16 +372,25 @@ class Checker:
         app = self.read("main/app.c", "update-views")
         if app is not None:
             code = self.strip_comments(app)
-            if not re.search(r"case\s+SETTING_ID__FW_UPDATE\s*:\s*AppView_set\s*\(\s*VIEW_ID__UPDATE\s*\)", code):
-                self.fail("update-views", "main/app.c: the setting 'Firmware: UPDATE' must open the update view.")
+            if not re.search(r"case\s+SETTING_ID__BLUETOOTH\s*:\s*AppView_set\s*\(\s*VIEW_ID__BLUETOOTH\s*\)", code):
+                self.fail("update-views", "main/app.c: the setting 'Bluetooth: ENABLE' must open the Bluetooth view "
+                          "(VIEW_ID__BLUETOOTH), the way to the update view.")
 
         header = self.read("main/app.h", "update-views")
-        if header is not None and not re.search(r"SETTING\(\s*FW_UPDATE\s*,", header):
-            self.fail("update-views", "main/app.h: the setting FW_UPDATE is not in SETTING_LIST.")
+        if header is not None and not re.search(r"SETTING\(\s*BLUETOOTH\s*,", header):
+            self.fail("update-views", "main/app.h: the setting BLUETOOTH is not in SETTING_LIST.")
+
+        # The Bluetooth view: a hold of button 1 opens the update view
+        chooser = self.read("main/views/bluetooth_view.c", "update-views")
+        if chooser is not None:
+            hold1 = re.search(r"case\s+EVENT__LONG_PRESS_1\s*:(.*?)\breturn\b", self.strip_comments(chooser), flags=re.S)
+            if not hold1 or not re.search(r"AppView_set\s*\(\s*VIEW_ID__UPDATE\s*\)", hold1.group(1)):
+                self.fail("update-views", "main/views/bluetooth_view.c: a hold of button 1 (EVENT__LONG_PRESS_1) "
+                          "must open the update view (AppView_set(VIEW_ID__UPDATE)).")
 
         view_list = self.read("main/app_view.h", "update-views")
         if view_list is not None:
-            for view in ("UPDATE", "FW_ACCEPT"):
+            for view in ("UPDATE", "FW_ACCEPT", "BLUETOOTH"):
                 if not re.search(r"VIEW\(\s*%s\s*," % view, view_list):
                     self.fail("update-views", "main/app_view.h: the view %s is not in VIEW_LIST." % view)
 
@@ -443,7 +452,7 @@ class Checker:
         if not re.match(r"s_items\s*\[\s*s_count\s*\+\+\s*\]\s*=\s*\(\s*apps_item_t\s*\)\s*\{\s*VIEW_ID__SETTINGS\b", last) or \
                 re.search(r"\b(return|goto)\b", body):
             self.fail("update-views", "%s: _buildMenu() must end with the line that adds VIEW_ID__SETTINGS, with no "
-                      "condition and no return before it. SETTINGS is the way to 'Firmware: UPDATE'." % where)
+                      "condition and no return before it. SETTINGS is the way to the firmware update." % where)
         if not re.search(r"\bApps_getMenu\s*\(\s*s_items\s*,\s*APPS_MENU_MAX\s*-\s*1\s*\)", body):
             self.fail("update-views", "%s: _buildMenu() must leave one place for SETTINGS: "
                       "Apps_getMenu(s_items, APPS_MENU_MAX - 1)." % where)

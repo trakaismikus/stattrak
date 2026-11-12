@@ -34,6 +34,11 @@ Gfx_drawVLine(x - 2, y, font5x5.height, 1);  \
 Gfx_drawVLine(x + (len * font5x5.x_advance), y, font5x5.height, 1);  \
 } while(0)
 
+// A title in plain letters (few lit pixels), centred on x: the Bluetooth screens. The current of
+// the display adds to the current peak of the radio start (docs/BLUETOOTH.md, "Radio start").
+#define GUI_DRAW_TITLE_THIN(cx, y, str) \
+  Gfx_drawStringAligned(cx, y, str, &font5x5, 1, 0, GFX_ALIGN__CENTER, GFX_ROTATION__0)
+
 
 /* > Definitions **********************************************************************************/
 // VIEW(_id, _name)
@@ -48,6 +53,7 @@ Gfx_drawVLine(x + (len * font5x5.x_advance), y, font5x5.height, 1);  \
   VIEW(APP_HOST, appHost) \
   VIEW(APP_SETTINGS, appSettings) \
   VIEW(APP_SYNC, appSync) \
+  VIEW(BLUETOOTH, bluetooth) \
   VIEW(ASK, ask) \
   VIEW(UPDATE, update) \
   VIEW(FW_ACCEPT, fwAccept) \

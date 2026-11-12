@@ -75,6 +75,7 @@ static bool _canOpenSync(view_id_t view) {
     case VIEW_ID__LAUNCHER:
     case VIEW_ID__APP_HOST:
     case VIEW_ID__APP_SETTINGS:
+    case VIEW_ID__BLUETOOTH:
     case VIEW_ID__APP_SYNC:
       return true;
     default:
@@ -91,7 +92,7 @@ static const char* _statusText(uint8_t status) {
   switch(status) {
     case BLE_COMMAND_STATUS__UNKNOWN:         return "this firmware has no app commands";
     case BLE_COMMAND_STATUS__ERROR:           return "the device did not accept the data";
-    case BLE_COMMAND_STATUS__NOT_IN_APP_SYNC: return "the device left Apps: SYNC";
+    case BLE_COMMAND_STATUS__NOT_IN_APP_SYNC: return "the device left the app sync";
     case BLE_COMMAND_STATUS__NO_SPACE:        return "not enough space on the device: delete an app first";
     case BLE_COMMAND_STATUS__TOO_LARGE:       return "the app is too large";
     case BLE_COMMAND_STATUS__TOO_MANY:        return "too many apps on the device: delete an app first";
@@ -198,7 +199,7 @@ bool SimApps_start(const uint8_t* package, uint32_t size, bool open) {
   s_startMs = Host_nowMs();
   s_lastStatusMs = 0;
   s_state = SIM_APPS__OPENING;
-  snprintf(s_text, sizeof(s_text), "Opening Apps: SYNC...");
+  snprintf(s_text, sizeof(s_text), "Opening the app sync...");
 
   // Old answers of an install that stopped must not count for this one
   uint16_t cmd;
@@ -223,7 +224,7 @@ void SimApps_update(void) {
           _fail("Not installed: the device is busy (update, warning or power-off). Try again.");
           return;
         }
-        AppView_set(VIEW_ID__APP_SYNC);   // As the Settings row "Apps: SYNC" does
+        AppView_set(VIEW_ID__APP_SYNC);   // As Settings > "Bluetooth: ENABLE" > APPS does
         return;
       }
       if(view == VIEW_ID__APP_SYNC && HostOta_isActive()) {

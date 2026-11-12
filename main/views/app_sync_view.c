@@ -312,7 +312,7 @@ static void _draw(void) {
   _checkScreen();
 
   if(s_state == APP_SYNC_STATE__INSTALLED) {
-    GUI_DRAW_TITLE((SCREEN_W - 13 * font5x5.x_advance) / 2, 1, 13, "APP INSTALLED");
+    GUI_DRAW_TITLE_THIN(SCREEN_W / 2, 1, "APP INSTALLED");
     Gfx_drawStringAligned(SCREEN_W / 2, 11, s_name, &font5x5, 1, 0, GFX_ALIGN__CENTER, GFX_ROTATION__0);
     // Each button over its round button: button 1 is the left one, button 2 the right one
     HoldButton_draw(HOLD_BUTTON_MARGIN, 40, "SYNC MORE", HoldButtons_fill(&s_hold, 0));
@@ -320,7 +320,7 @@ static void _draw(void) {
     return;
   }
 
-  GUI_DRAW_TITLE((SCREEN_W - 8 * font5x5.x_advance) / 2, 1, 8, "APP SYNC");
+  GUI_DRAW_TITLE_THIN(SCREEN_W / 2, 1, "APP SYNC");   // Plain: few lit pixels at the radio start
 
   switch(s_state) {
     case APP_SYNC_STATE__RECEIVING: {

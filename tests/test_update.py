@@ -16,8 +16,9 @@ OTA_IDLE, OTA_STARTED, OTA_WRITING, OTA_FINISHED, OTA_ACCEPTED, OTA_ERROR = rang
 class UpdateViewTest(SimTestCase):
 
     def open_update_view(self):
-        self.open_setting("FW_UPDATE")
-        self.dev.long_press(2)
+        self.open_setting("BLUETOOTH")
+        self.dev.long_press(2)   # The Bluetooth view
+        self.dev.long_press(1)   # UPDATE
         self.assertEqual(self.dev.view, "UPDATE")
 
     def test_update_mode_from_the_settings(self):
@@ -31,10 +32,10 @@ class UpdateViewTest(SimTestCase):
     def test_cancel_goes_back_and_switches_bluetooth_off(self):
         self.dev.boot()
         self.open_update_view()
-        self.dev.long_press(1)  # CANCEL
+        self.dev.long_press(1)  # CANCEL: back to the Bluetooth view
         self.dev.run(500)
         state = self.dev.state()
-        self.assertEqual(state["view"], "SETTINGS")
+        self.assertEqual(state["view"], "BLUETOOTH")
         self.assertEqual(state["ota_active"], 0)
 
     def test_update_mode_can_be_opened_again(self):
@@ -43,7 +44,7 @@ class UpdateViewTest(SimTestCase):
             self.open_update_view()
             self.dev.long_press(1)
             self.dev.run(500)
-            self.assertEqual(self.dev.view, "SETTINGS")
+            self.assertEqual(self.dev.view, "BLUETOOTH")
         state = self.dev.state()
         self.assertEqual(state["ota_init_calls"], 3)
         self.assertEqual(state["ota_deinit_calls"], 3)
@@ -54,16 +55,17 @@ class UpdateViewTest(SimTestCase):
         # takes 0.3 s. If the warning comes in this time, the update view is never shown, and
         # Bluetooth must not stay on.
         self.boot_with(voltage=3700, battery_type=BATTERY_LIPO_1S, low_bat=3)
-        self.open_setting("FW_UPDATE")
+        self.open_setting("BLUETOOTH")
         for offset in (50, 150, 250):
             with self.subTest(offset=offset):
                 self.dev.power_cut()
                 self.dev.boot(voltage=3700)
                 self._setting_idx = 0
-                self.open_setting("FW_UPDATE")
+                self.open_setting("BLUETOOTH")
+                self.dev.long_press(2)   # The Bluetooth view
                 now = self.dev.state()["t"]
                 self.dev.run(60000 - 710 - offset - now)  # The long press event comes 710 ms after the press
-                self.dev.long_press(2, hold_ms=900, settle_ms=1500)
+                self.dev.long_press(1, hold_ms=900, settle_ms=1500)   # UPDATE
                 state = self.dev.state()
                 self.assertEqual(state["view"], "BATTERY_LOW")
                 self.assertEqual(state["ota_active"], 0, "Bluetooth stays on in normal operation")
@@ -71,8 +73,8 @@ class UpdateViewTest(SimTestCase):
                 # The update mode must work after that (DISMISS: a hold)
                 self.dev.long_press(1)
                 self.dev.run(300)
-                self.assertEqual(self.dev.view, "SETTINGS")
-                self.dev.long_press(2)
+                self.assertEqual(self.dev.view, "BLUETOOTH")
+                self.dev.long_press(1)   # UPDATE
                 state = self.dev.state()
                 self.assertEqual(state["view"], "UPDATE")
                 self.assertEqual(state["ota_active"], 1)
@@ -157,10 +159,10 @@ class UpdateViewTest(SimTestCase):
         self.open_update_view()
         self.dev.command("ota state %d 0" % OTA_ERROR)
         self.dev.run(1000)
-        self.dev.long_press(1)  # CANCEL
+        self.dev.long_press(1)  # CANCEL: back to the Bluetooth view
         self.dev.run(500)
         state = self.dev.state()
-        self.assertEqual(state["view"], "SETTINGS")
+        self.assertEqual(state["view"], "BLUETOOTH")
         self.assertEqual(state["ota_active"], 0)
 
     def test_accept_without_a_new_firmware_changes_nothing(self):
@@ -183,8 +185,9 @@ class NewFirmwareTest(SimTestCase):
     def update_firmware(self):
         """Do a full transfer. The device is off after it, with a new firmware in flash."""
         self.dev.boot()
-        self.open_setting("FW_UPDATE")
-        self.dev.long_press(2)
+        self.open_setting("BLUETOOTH")
+        self.dev.long_press(2)   # The Bluetooth view
+        self.dev.long_press(1)   # UPDATE
         self.dev.ota_transfer(2000)
         self.dev.run(10000)
         self.assert_powered_off("reset")
