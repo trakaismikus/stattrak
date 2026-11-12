@@ -31,6 +31,7 @@
 #include "ota.h"
 #include "app_ble_name.h"
 #include "hold_button.h"
+#include "diag.h"
 #include "esp_log.h"
 
 /* > Defines **************************************************************************************/
@@ -219,6 +220,7 @@ static void _init(void) {
   Apps_getDeviceName(name);
   AppBle_setNextName(name);
 
+  Diag_btStart();   // TEST FIRMWARE ONLY
   Ota_init();
   // Ota_init() can return before AppBle_init() used the name (Bluetooth on already, no memory):
   // forget it here too, so that the next Bluetooth start (the update view) is "StatTrak"

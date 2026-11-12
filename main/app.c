@@ -25,6 +25,7 @@
 #include "eeprom.h"
 #include "ota.h"
 #include "ble_commands.h"
+#include "diag.h"
 
 #include <assert.h>
 
@@ -144,11 +145,15 @@ void App_init(void) {
   Ssd1307_setBrightness(s_brightness);
 
   s_lowBatteryShown = false;
+
+  Diag_init();   // TEST FIRMWARE ONLY
 }
 
 
 void App_update(void) {
   uint32_t now = Time_getMillis();
+
+  Diag_update(now);   // TEST FIRMWARE ONLY
   uint8_t otaState = Ota_getState();
 
   // Update Battery Level

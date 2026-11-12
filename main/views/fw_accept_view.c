@@ -15,6 +15,7 @@
 
 #include "ota.h"
 #include "hold_button.h"
+#include "diag.h"
 
 /* > Local Function Declarations ******************************************************************/
 static bool _eventHandler(uint16_t event);
@@ -49,6 +50,7 @@ static hold_buttons_t s_hold;    // OK: a hold of either button (main/views/hold
 /* > Local Function Definitions *******************************************************************/
 
 static void _init(void) {
+  Diag_btStart();   // TEST FIRMWARE ONLY
   Ota_init();
   HoldButtons_reset(&s_hold);
 }

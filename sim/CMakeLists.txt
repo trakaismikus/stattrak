@@ -74,6 +74,7 @@ set(FIRMWARE_SOURCES
   ${MAIN_DIR}/views/battery_low_view.c
   ${MAIN_DIR}/views/fw_accept_view.c
   ${MAIN_DIR}/views/hold_button.c
+  ${MAIN_DIR}/diag.c
   ${MAIN_DIR}/views/intro_view.c
   ${MAIN_DIR}/views/kill_dead_view.c
   ${MAIN_DIR}/views/launcher_view.c

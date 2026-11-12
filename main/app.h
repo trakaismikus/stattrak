@@ -123,7 +123,10 @@ typedef enum entry_id_enum {
   SETTING(FW_UPDATE,    Firmware,     "Firmware",   0, false,  SETTING_STR_VALUES("UPDATE")) \
   SETTING(FACTORY_RESET, Factory,     "Factory",    0, false,  SETTING_STR_VALUES("RESET")) \
   SETTING(VERSION,      Version,      "Version",    0, false,  SETTING_STR_VALUES(s_fwVersion)) \
-  SETTING(SERIAL,       Serial,       "Serial",     0, false,  SETTING_STR_VALUES(s_serialNumber))
+  SETTING(SERIAL,       Serial,       "Serial",     0, false,  SETTING_STR_VALUES(s_serialNumber)) \
+  SETTING(DIAG_NOW,     DiagNow,      "Mem",        0, false,  SETTING_STR_VALUES(g_diagNow)) \
+  SETTING(DIAG_OK,      DiagOk,       "BT ok",      0, false,  SETTING_STR_VALUES(g_diagOk)) \
+  SETTING(DIAG_FAIL,    DiagFail,     "BT off",     0, false,  SETTING_STR_VALUES(g_diagFail))
 
 
 typedef enum setting_id_enum {

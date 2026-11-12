@@ -14,6 +14,7 @@
 #include "battery.h"
 #include "settings_view.h"
 #include "time.h"
+#include "diag.h"   // TEST FIRMWARE ONLY
 
 #include <stdio.h>
 #include <string.h>
@@ -298,6 +299,7 @@ static bool _eventHandler(uint16_t event) {
 
 
 static void _draw(void) {
+  Diag_refresh();   // TEST FIRMWARE ONLY: the free RAM now
   int32_t offset;
   uint32_t animOffset = (uint32_t)(s_animValue.offset >> 8);
   int32_t idx = animOffset;
