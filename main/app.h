@@ -125,8 +125,8 @@ typedef enum entry_id_enum {
   SETTING(VERSION,      Version,      "Version",    0, false,  SETTING_STR_VALUES(s_fwVersion)) \
   SETTING(SERIAL,       Serial,       "Serial",     0, false,  SETTING_STR_VALUES(s_serialNumber)) \
   SETTING(DIAG_NOW,     DiagNow,      "Mem",        0, false,  SETTING_STR_VALUES(g_diagNow)) \
-  SETTING(DIAG_OK,      DiagOk,       "BT ok",      0, false,  SETTING_STR_VALUES(g_diagOk)) \
-  SETTING(DIAG_FAIL,    DiagFail,     "BT off",     0, false,  SETTING_STR_VALUES(g_diagFail))
+  SETTING(DIAG_OK,      DiagOk,       "Ok",         0, false,  SETTING_STR_VALUES(g_diagOk)) \
+  SETTING(DIAG_FAIL,    DiagFail,     "Off",        0, false,  SETTING_STR_VALUES(g_diagFail))
 
 
 typedef enum setting_id_enum {
