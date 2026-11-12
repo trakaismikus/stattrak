@@ -230,16 +230,21 @@ func obstacle(w, kind, top) {
   var y = 17
   var bw = 6              # the box: 1 pixel in from each side of the picture
   var bh = 12
-  if kind == TOGETHER { bw = 9; bh = 11 }
+  if kind == TOGETHER { bw = 5; bh = 11 }   # the tall part; the short part is tested next
   if kind == MID { bw = 4; bh = 11 }
   if kind == SMALL_A { y = 22; bw = 3; bh = 6 }
   if kind == SMALL_B { y = 23; bw = 3; bh = 5 }
   cactus(x, y, kind + 2)
   x += 1
   y += 1
-  if x < RUN_X + 14 && x + bw > RUN_X + 7 && y < top + 4 && y + bh > top { return 1 }      # head
-  if x < RUN_X + 11 && x + bw > RUN_X + 0 && y < top + 12 && y + bh > top + 5 { return 1 } # body
-  return x < RUN_X + 8 && x + bw > RUN_X + 2 && y < top + 17 && y + bh > top + 12          # legs
+  while kind != 0 {
+    if x < RUN_X + 14 && x + bw > RUN_X + 7 && y < top + 4 && y + bh > top { return 1 }      # head
+    if x < RUN_X + 11 && x + bw > RUN_X + 0 && y < top + 12 && y + bh > top + 5 { return 1 } # body
+    if x < RUN_X + 8 && x + bw > RUN_X + 2 && y < top + 17 && y + bh > top + 12 { return 1 } # legs
+    kind = 0
+    if bw == 5 && bh == 11 { x += 5; y = 24; bw = 4; bh = 5; kind = 1 }   # TOGETHER: its short part
+  }
+  return 0
 }
 
 # The legs (rows 14 to 16 of the character). step 0: standing, 1 and 2: running
