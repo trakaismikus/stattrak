@@ -305,9 +305,12 @@ void App_updateSetting(uint8_t id, uint32_t value) {
       AppView_set(VIEW_ID__ASK);
       break;
 
-    // The way to the firmware update (and to the app sync): tools/check_safety.py checks it
-    case SETTING_ID__BLUETOOTH:
-      AppView_set(VIEW_ID__BLUETOOTH);
+    case SETTING_ID__FW_UPDATE:
+      AppView_set(VIEW_ID__UPDATE);
+      break;
+
+    case SETTING_ID__APP_SYNC:
+      AppView_set(VIEW_ID__APP_SYNC);
       break;
 
     default: break;

@@ -47,7 +47,7 @@ class AppMenuTest(SimTestCase):
         self.assertEqual(self.selected(), "STATS")
 
     def test_settings_is_three_presses_away(self):
-        # The way to "Bluetooth: ENABLE" (firmware update): both, button 1, both
+        # The way to "Firmware: UPDATE": both, button 1, both
         self.dev.boot()
         self.dev.click_both()
         self.dev.click(1)

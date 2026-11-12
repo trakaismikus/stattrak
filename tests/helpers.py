@@ -12,7 +12,7 @@ from stattrak_sim import Device  # noqa: E402
 # SHOW_BATTERY and LOW_BAT are hidden when the battery type is NONE or USB.
 SETTINGS_WITH_BATTERY = [
     "GAME_RESET", "COUNTER", "BATTERY_TYPE", "AUTO_OFF", "SHOW_BATTERY", "LOW_BAT",
-    "BRIGHTNESS", "DIM_SCREEN", "DIM_LEVEL", "SOUND", "BLUETOOTH", "FACTORY_RESET",
+    "BRIGHTNESS", "DIM_SCREEN", "DIM_LEVEL", "SOUND", "APP_SYNC", "FW_UPDATE", "FACTORY_RESET",
     "VERSION", "SERIAL",
 ]
 SETTINGS_NO_BATTERY = [name for name in SETTINGS_WITH_BATTERY if name not in ("SHOW_BATTERY", "LOW_BAT")]

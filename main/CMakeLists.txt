@@ -36,7 +36,6 @@ set(SRC_FILES
   "views/fw_accept_view.c"
   "views/msg_view.c"
   "views/hold_button.c"
-  "views/bluetooth_view.c"
   "views/auto_off_view.c"
   "views/battery_low_view.c"
   "views/battery_critical_view.c"

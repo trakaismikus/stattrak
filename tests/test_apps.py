@@ -109,14 +109,11 @@ class AppTestCase(SimTestCase):
         return str(self.dev.state()["apps_menu"]).split(",")
 
     def leave_sync(self):
-        """Hold 1 in the app sync view: back to the Bluetooth view, then a press: back to the settings.
-        After an install, the first hold of button 1 is SYNC MORE (the screen "Waiting..."), the
-        second one BACK."""
+        """Hold 1 in the app sync view: back to the settings. After an install, the first hold of
+        button 1 is SYNC MORE (the screen "Waiting..."), the second one BACK."""
         self.dev.long_press(1)
         if self.dev.view == "APP_SYNC":
             self.dev.long_press(1)
-        self.assertEqual(self.dev.view, "BLUETOOTH")
-        self.dev.click(1, settle_ms=700)   # A press after a hold counts about 0.5 s after the release
         self.assertEqual(self.dev.view, "SETTINGS")
 
     def open_app(self, app_id):
@@ -132,7 +129,7 @@ class AppTestCase(SimTestCase):
         self.dev.run(300)
 
     def open_update_view_from_menu(self, transfer=True):
-        """The way to the firmware update: menu, SETTINGS, the row "Bluetooth", hold 2, hold 1 (UPDATE).
+        """The way to the firmware update: menu, SETTINGS, the row "Firmware", hold button 2.
         Then a phone starts to send a firmware (the update view must take it)."""
         self.dev.click_both()
         self.assertEqual(self.dev.view, "LAUNCHER")
@@ -147,10 +144,8 @@ class AppTestCase(SimTestCase):
             self.dev.click(2, settle_ms=200)   # The last row (it does not wrap)
         self.dev.click(1, settle_ms=200)       # Serial -> Version
         self.dev.click(1, settle_ms=200)       # Version -> Factory
-        self.dev.click(1, settle_ms=200)       # Factory -> Bluetooth
+        self.dev.click(1, settle_ms=200)       # Factory -> Firmware
         self.dev.long_press(2)
-        self.assertEqual(self.dev.view, "BLUETOOTH")
-        self.dev.long_press(1)                 # UPDATE
         self.assertEqual(self.dev.view, "UPDATE")
         self.assertEqual(self.dev.state()["ota_update_allowed"], 1)
         if transfer:
@@ -400,7 +395,7 @@ class InstallTest(AppTestCase):
     def test_a_long_back_does_not_open_apps_sync_again(self):
         self.dev.open_app_sync()
         self.dev.long_press(1, hold_ms=1300)   # BACK, and the first repeat of the hold
-        self.assertEqual(self.dev.view, "BLUETOOTH")   # Not UPDATE: the hold started on the app sync
+        self.assertEqual(self.dev.view, "SETTINGS")
         self.assertEqual(self.dev.state()["ota_active"], 0)
 
     def test_the_name_must_be_the_name_of_the_question(self):
@@ -555,7 +550,8 @@ class DeviceNameTest(AppTestCase):
         self.dev.open_app_sync()
         self.assertEqual(self.name_cmd(b"MIKUS")[0], OK)
         self.leave_sync()
-        self.dev.click(2, settle_ms=200)   # "Factory" is the row after "Bluetooth"
+        self.dev.click(2, settle_ms=200)   # "Firmware"
+        self.dev.click(2, settle_ms=200)   # "Factory"
         self.dev.long_press(2)
         self.assertEqual(self.dev.view, "ASK")
         self.dev.long_press(2)             # Yes
@@ -658,8 +654,7 @@ class ManageTest(AppTestCase):
     def test_long_press_1_leaves_app_sync(self):
         self.dev.open_app_sync()
         self.dev.long_press(1)
-        self.assertEqual(self.dev.view, "BLUETOOTH")
-        self.assertEqual(self.dev.state()["ota_active"], 0)
+        self.assertEqual(self.dev.view, "SETTINGS")
 
 
 class DeviceSettingsTest(AppTestCase):
@@ -841,7 +836,8 @@ class SafetyTest(AppTestCase):
     def test_a_factory_reset_removes_the_apps(self):
         self.assert_installed(counter_app())
         self.leave_sync()
-        self.dev.click(2, settle_ms=200)   # "Factory" is the row after "Bluetooth"
+        self.dev.click(2, settle_ms=200)   # "Firmware" is the row after "Apps"
+        self.dev.click(2, settle_ms=200)   # then "Factory"
         self.dev.long_press(2)
         self.assertEqual(self.dev.view, "ASK")
         self.dev.long_press(2)             # Yes

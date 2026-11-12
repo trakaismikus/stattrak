@@ -161,12 +161,8 @@ class SafetyCheckTest(unittest.TestCase):
         self.edit("main/views/update_view.c", "  Ota_init();", "")
         self.assert_fails("update-views")
 
-    def test_bluetooth_setting_removed(self):
-        self.edit("main/app.c", "      AppView_set(VIEW_ID__BLUETOOTH);", "      AppView_set(VIEW_ID__TOTAL);")
-        self.assert_fails("update-views")
-
-    def test_bluetooth_view_without_the_way_to_the_update(self):
-        self.edit("main/views/bluetooth_view.c", "        AppView_set(VIEW_ID__UPDATE);", "        AppView_set(VIEW_ID__TOTAL);")
+    def test_update_setting_removed(self):
+        self.edit("main/app.c", "      AppView_set(VIEW_ID__UPDATE);", "      AppView_set(VIEW_ID__TOTAL);")
         self.assert_fails("update-views")
 
     def test_settings_removed_from_the_app_menu(self):

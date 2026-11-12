@@ -38,7 +38,7 @@ CLICK_SETTLE_MS = 300
 # there for the battery types NONE and USB.
 SETTING_ROWS = [
     "GAME_RESET", "COUNTER", "BATTERY_TYPE", "AUTO_OFF", "SHOW_BATTERY", "LOW_BAT",
-    "BRIGHTNESS", "DIM_SCREEN", "DIM_LEVEL", "SOUND", "BLUETOOTH", "FACTORY_RESET",
+    "BRIGHTNESS", "DIM_SCREEN", "DIM_LEVEL", "SOUND", "APP_SYNC", "FW_UPDATE", "FACTORY_RESET",
     "VERSION", "SERIAL",
 ]
 
@@ -348,14 +348,8 @@ class Device:
     # --- Apps (docs/APPS.md): the app manager of the web updater ---------------------------------
 
     def open_app_sync(self):
-        """Open Settings > "Bluetooth: ENABLE" > APPS with the buttons, as a person does. The device must
-        be on."""
+        """Open Settings > "Apps: SYNC" with the buttons, as a person does. The device must be on."""
         if self.view == "APP_SYNC":
-            return self
-        if self.view == "BLUETOOTH":
-            self.long_press(2)
-            if self.view != "APP_SYNC":
-                raise SimError("could not open the app sync (view %s)" % self.view)
             return self
         if self.view != "SETTINGS":
             self.click_both()
@@ -366,19 +360,16 @@ class Device:
             self.click_both()
         if self.view != "SETTINGS":
             raise SimError("could not open the settings (view %s)" % self.view)
-        # Move the cursor to "Bluetooth" (up from the first row goes to the last row, so no "to the top")
-        target = SETTING_ROWS.index("BLUETOOTH")
+        # Move the cursor to "Apps" (up from the first row goes to the last row, so no "to the top")
+        target = SETTING_ROWS.index("APP_SYNC")
         for _ in range(2 * len(SETTING_ROWS)):
             row = self.state()["settings_row"]
             if row == target:
                 break
             self.click(2 if row < target else 1, settle_ms=200)
-        self.long_press(2)                 # "Bluetooth: ENABLE": the Bluetooth view
-        if self.view != "BLUETOOTH":
-            raise SimError("could not open Bluetooth: ENABLE (view %s)" % self.view)
-        self.long_press(2)                 # APPS
+        self.long_press(2)
         if self.view != "APP_SYNC":
-            raise SimError("could not open the app sync (view %s)" % self.view)
+            raise SimError("could not open Apps: SYNC (view %s)" % self.view)
         return self
 
     def ble_commands(self, commands, wait_ms=20):
