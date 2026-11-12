@@ -66,7 +66,9 @@ An install goes in this order (`docs/APPS.md` section 6):
    transfer ("The transfer stopped on StatTrak").
 3. "Installed": the device shows APP INSTALLED with SYNC MORE (button 1: wait for the next app)
    and OPEN (button 2: the app opens). OPEN turns Bluetooth off, so the page loses the
-   connection: it then shows a calm message ("StatTrak opened <NAME>"), not "Connection lost".
+   connection: it then shows a calm message ("<NAME> is installed. The connection ended."), not
+   "Connection lost". The page watches for this 60 seconds after the install (each STATUS keeps
+   the device awake); after that a lost connection is "Connection lost" again.
 
 A package of format 2 (an app with `down1` / `down2`, e.g. RUNNER) needs a firmware that reads
 format 2 (INFO). For an older firmware the page says "Update the firmware first" and sends
