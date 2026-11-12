@@ -24,11 +24,15 @@ const AppsTab = (() => {
     values: {},             // id -> setting values
     del: null,              // id of the app with the delete question
     hint: null,             // id of the app that shows "One app must stay shown."
-    inst: null,             // { key, phase: transfer | confirm, pct }
+    inst: null,             // { key, phase: start | ask | transfer, pct }
     err: null,              // { key, text } under a catalog row
     fileErr: null,          // text of the file error
     fileItem: null,         // an app from a file, shown under "Add apps"
     fresh: null,            // id of the app that was just installed
+    opened: null,           // { id, name }: the device shows APP INSTALLED (OPEN there closes the connection)
+    devName: null,          // DEVICE_NAME { custom, name }, null = a firmware without it
+    nameDraft: "",          // the text in the name field
+    nameMsg: null,          // { kind: ok | err, text } under the name field
     catalog: null,          // [item]
     known: {},              // idHex -> { picture, settings } of catalog and file apps
   };
@@ -60,6 +64,7 @@ const AppsTab = (() => {
   const perms = (list) => list.map((p) => `<span class="perm">${icon(p in P ? p : "alert", 14)}${esc(PERMISSION_TEXT[p] || p)}</span>`).join("");
 
   let toastTimer = 0;
+  let watchTimer = 0;       // watchOpened()
   function toast(message) {
     let t = $(".apps-toast");
     if (!t) {
@@ -120,7 +125,7 @@ const AppsTab = (() => {
   /* ---- views --------------------------------------------------------------------------- */
 
   const banner = (kind, title, body, extra) =>
-    `<div class="banner banner--${kind}" role="alert"><span class="banner__icon">${icon("alert", 20)}</span><div><div class="banner__title">${esc(title)}</div>` +
+    `<div class="banner banner--${kind}" role="alert"><span class="banner__icon">${icon(kind === "info" ? "check" : "alert", 20)}</span><div><div class="banner__title">${esc(title)}</div>` +
     (body ? `<div class="banner__body">${esc(body)}</div>` : "") + `</div>${extra || ""}</div>`;
 
   const device = (screen, alt, pressTwo) =>
@@ -164,6 +169,12 @@ const AppsTab = (() => {
       (app.builtin ? '<span class="ph"></span>' : `<button class="icon-btn icon-btn--danger" type="button" data-act="del" aria-label="Delete ${n}">${icon("trash")}</button>`) +
       "</div></div>";
     if (A.hint === app.id) h += '<div class="hint">One app must stay shown.</div>';
+    if (A.fresh === app.id && A.opened && A.opened.id === app.id) {
+      h += '<div class="row__panel" id="donepanel"><div class="inst">' +
+        device(AppPictures.screen("installed", app.name), "StatTrak screen: APP INSTALLED, SYNC MORE, OPEN") +
+        `<div class="inst__text"><div class="inst__big inst__big--ok">${icon("check", 20)} Installed</div>` +
+        '<div class="inst__hint">On StatTrak: SYNC MORE (button 1) or OPEN (button 2). OPEN closes this connection.</div></div></div></div>';
+    }
     if (edit && settings) {
       const values = A.values[app.id];
       h += '<div class="row__panel">' + settings.map((s, k) =>
@@ -197,10 +208,14 @@ const AppsTab = (() => {
       `<div class="row__info"><div class="row__name">${esc(item.name)}</div>${item.desc ? `<div class="row__desc">${esc(item.desc)}</div>` : ""}` +
       `<div class="row__meta"><span class="tag">${kb(item.size)}</span>${perms(item.permissions)}</div></div>` +
       `<div class="row__acts">${act}</div></div>`;
-    if (inst && A.inst.phase === "confirm") {
+    if (inst && A.inst.phase === "start") {
+      h += '<div class="row__panel" id="instpanel"><div class="inst__line"><span>Asking StatTrak…</span></div></div>';
+    }
+    if (inst && A.inst.phase === "ask") {
       h += '<div class="row__panel" id="instpanel"><div class="inst">' +
         device(AppPictures.screen("question", item.name), `StatTrak screen: INSTALL ${item.name}?`, true) +
-        '<div class="inst__text"><div class="inst__big"><span class="dot dot--wait"></span> Hold button 2 on StatTrak</div></div></div></div>';
+        '<div class="inst__text"><div class="inst__big"><span class="dot dot--wait"></span> Answer on StatTrak</div>' +
+        '<div class="inst__hint">Hold button 2 = yes, hold button 1 = no.</div></div></div></div>';
     }
     if (inst && A.inst.phase === "transfer") {
       const pct = Math.round(A.inst.pct);
@@ -226,7 +241,23 @@ const AppsTab = (() => {
         '<button class="btn btn--ghost btn--sm banner__more" type="button" data-act="file">Pick another file</button></div>' +
         `<button class="icon-btn banner__close" type="button" data-act="dismiss" aria-label="Close">${icon("x")}</button></div>` : "") +
       `<div class="list">${items.map(vCat).join("")}</div></section>`;
-    return h;
+    return h + vName();
+  }
+
+  /* The Bluetooth name of StatTrak in "Apps: SYNC" (DEVICE_NAME) */
+  function vName() {
+    if (!A.devName) return "";
+    const now = A.devName, off = busy() ? " disabled" : "";
+    return '<section><div class="sec-head"><h2 class="h2">Bluetooth name</h2></div><div class="row namebox"><div class="row__panel">' +
+      `<div class="name__now">StatTrak shows the name <strong>${esc(now.name)}</strong> in Apps: SYNC${now.custom ? "" : " (the standard name)"}.</div>` +
+      '<form class="name__form" data-form="name" novalidate><label class="name__label" for="appsName">New name</label>' +
+      `<input class="name__input" id="appsName" type="text" maxlength="${StatTrakApps.NAME_MAX}" autocomplete="off" spellcheck="false" ` +
+      `value="${esc(A.nameDraft)}" aria-describedby="appsNameMsg appsNameHelp"${A.nameMsg && A.nameMsg.kind === "err" ? ' aria-invalid="true"' : ""}${off}>` +
+      `<button class="btn btn--primary btn--sm" type="submit" data-act="name-save"${off}>Save</button>` +
+      (now.custom ? `<button class="btn btn--ghost btn--sm" type="button" data-act="name-reset"${off}>Back to StatTrak</button>` : "") + "</form>" +
+      `<div class="name__msg${A.nameMsg ? " name__msg--" + A.nameMsg.kind : ""}" id="appsNameMsg" role="status">${A.nameMsg ? esc(A.nameMsg.text) : ""}</div>` +
+      '<div class="row__desc" id="appsNameHelp">1 to 8 characters. A phone or computer finds StatTrak by this name. The firmware update always uses "StatTrak".</div>' +
+      "</div></div></section>";
   }
 
   function vOldFw() {
@@ -313,12 +344,18 @@ const AppsTab = (() => {
     A.banner = newBanner;
     A.inst = null;
     A.edit = A.del = A.hint = A.fresh = A.err = null;
+    A.opened = A.devName = A.nameMsg = null;
+    A.nameDraft = "";
+    clearTimeout(watchTimer);
     A.fileErr = null;
     A.fileItem = null;
     A.values = {};
   }
 
   const LOST = { kind: "error", title: "Connection lost", body: "Turn on Apps: SYNC again, then connect." };
+  // The person pressed OPEN after an install: StatTrak opened the app and turned Bluetooth off
+  const OPENED = (name) => ({ kind: "info", title: `StatTrak opened ${name}`,
+    body: "OPEN closes the connection. For more apps, open Apps: SYNC on StatTrak again, then connect." });
   const NOT_IN_SYNC = { kind: "warn", title: "StatTrak is not in Apps: SYNC", body: "Open Apps: SYNC on StatTrak, then connect." };
 
   async function connect() {
@@ -328,7 +365,8 @@ const AppsTab = (() => {
     render();
     let ota;
     try {
-      ota = await BleOta.create();
+      // Also a StatTrak with an other Bluetooth name (DEVICE_NAME): by its service UUID
+      ota = await StatTrakApps.pair();
     } catch (error) {
       log("pairing failed: " + error.message, "warn");
       A.conn = "off";
@@ -351,6 +389,8 @@ const AppsTab = (() => {
       if (ota !== A.ota) return;
       await refresh();
       if (ota !== A.ota) return;
+      A.devName = await A.apps.deviceName();
+      if (ota !== A.ota) return;
       A.conn = "on";
       log(`connected, firmware ${A.fw}, ${A.list.length} apps, ${A.info.free} bytes free`, "ok");
     } catch (error) {
@@ -364,9 +404,36 @@ const AppsTab = (() => {
 
   function onDisconnected(event) {
     if (event.target !== A.ota) return;
-    log("disconnected", "warn");
-    disconnect(LOST);
+    const opened = A.opened && !busy() ? A.opened : null;
+    log(opened ? "disconnected: StatTrak opened " + opened.name : "disconnected", opened ? "ok" : "warn");
+    disconnect(opened ? OPENED(opened.name) : LOST);
     render();
+  }
+
+  /* After an install the device shows APP INSTALLED: OPEN there opens the app and closes the
+     connection (a calm message, not "Connection lost"). STATUS tells when the person pressed
+     SYNC MORE (or an other install began): then a lost connection is lost again. */
+  const OPEN_WATCH_MS = 1000;
+  function watchOpened() {
+    clearTimeout(watchTimer);
+    const apps = A.apps;
+    if (!A.opened || !apps) return;
+    watchTimer = setTimeout(async () => {
+      if (apps !== A.apps || !A.opened) return;
+      if (!busy()) {
+        try {
+          const state = await apps.status();
+          if (apps !== A.apps) return;
+          if (state !== StatTrakApps.STATE__INSTALLED) {
+            A.opened = null;
+            return;
+          }
+        } catch (_) {
+          return;   // The connection is lost: onDisconnected() shows it
+        }
+      }
+      watchOpened();
+    }, OPEN_WATCH_MS);
   }
 
   function onConnectFailed(event) {
@@ -492,11 +559,13 @@ const AppsTab = (() => {
     [StatTrakApps.STATUS__BAD_CRC]: "The data was damaged. Try again.",
     [StatTrakApps.STATUS__ERROR]: "StatTrak refused the app.",
   };
+  const NEWER_FORMAT = "Update the firmware first: this app needs a newer StatTrak firmware.";
 
   async function startInstall(item) {
     if (busy() || !A.apps) return;
     A.err = null;
     A.fresh = null;
+    A.opened = null;
     A.fileErr = null;
     A.edit = A.del = A.hint = null;
     if (roomFor(item)) return render();
@@ -516,25 +585,35 @@ const AppsTab = (() => {
       }
     }
 
-    A.inst = { key: item.key, phase: "transfer", pct: 0 };
+    // First the device asks "INSTALL <NAME>?", after "yes" the data goes
+    A.inst = { key: item.key, phase: "start", pct: 0 };
     log(`install ${item.name} (${bytes.length} bytes)`);
     render();
     reveal("#instpanel");
     let result;
     try {
       result = await A.apps.install(bytes, (fraction) => {
-        if (!A.inst || A.inst.phase !== "transfer") return;
+        if (!A.inst) return;
         A.inst.pct = fraction * 100;
+        if (A.inst.phase !== "transfer") {
+          A.inst.phase = "transfer";
+          return render();
+        }
         renderProgress();
       }, () => {
         if (!A.inst) return;
-        A.inst.phase = "confirm";
+        A.inst.phase = "ask";
         render();
         reveal("#instpanel");
       });
     } catch (error) {
       if (!A.inst) return;   // the connection was lost: the connect view is there
       A.inst = null;
+      if (error.kind === "file") {
+        A.err = { key: item.key, text: error.problem === "newer format" ? NEWER_FORMAT : "The app file is damaged." };
+        log("install not sent: " + error.message, "warn");
+        return render();
+      }
       if (error.kind === "status" && (error.status in INSTALL_TEXT || error.status === StatTrakApps.STATUS__BAD_PACKAGE)) {
         A.err = { key: item.key, text: error.status === StatTrakApps.STATUS__BAD_PACKAGE ? `StatTrak refused the app (${error.reason}).` : INSTALL_TEXT[error.status] };
         log("install refused: status " + error.status, "warn");
@@ -547,7 +626,7 @@ const AppsTab = (() => {
     A.inst = null;
     if (result !== "installed") {
       log("install " + result, "warn");
-      A.err = { key: item.key, text: "Declined on StatTrak or timed out." };
+      A.err = { key: item.key, text: result === "stopped" ? "The transfer stopped on StatTrak. Try again." : "Declined on StatTrak or timed out." };
       render();
       return reveal(`.cat[data-key="${item.key}"]`);
     }
@@ -558,6 +637,8 @@ const AppsTab = (() => {
     }
     A.known[hex(item.id)] = { picture: item.picture, settings: item.settings };
     A.fresh = item.id;
+    A.opened = { id: item.id, name: item.name };
+    watchOpened();
     if (A.fileItem && A.fileItem.key === item.key) A.fileItem = null;
     log(item.name + " installed", "ok");
     render();
@@ -570,7 +651,7 @@ const AppsTab = (() => {
     "not an app": (name) => `${name} is not a .stapp file.`,
     "too large": (name) => `${name} is larger than 4 KB.`,
     "damaged": (name) => `${name} is damaged.`,
-    "newer format": (name) => `${name} needs newer firmware.`,
+    "newer format": (name) => `${name} needs a newer firmware. Update the firmware first.`,
   };
 
   async function onFile(file) {
@@ -585,7 +666,7 @@ const AppsTab = (() => {
       bytes = new Uint8Array(await file.arrayBuffer());
       const info = StappFile.inspect(bytes);
       if (!info.ok) problem = info.problem;
-      else if (A.info && info.engine > A.info.engine) problem = "newer format";
+      else if (A.info && (info.engine > A.info.engine || info.format > A.info.format)) problem = "newer format";
       else {
         const item = {
           key: "file-" + info.idHex, id: info.id, name: info.name, desc: file.name, size: info.size,
@@ -602,6 +683,46 @@ const AppsTab = (() => {
     reveal("#appsView .banner--error");
   }
 
+  /* The Bluetooth name: "" = back to "StatTrak" */
+  async function saveName(name, reset) {
+    if (busy() || !A.apps) return;
+    const problem = name === "" && !reset ? "Type a name first." : StatTrakApps.nameProblem(name);
+    if (problem) {
+      A.nameMsg = { kind: "err", text: problem };
+      render();
+      const input = $("#appsName");
+      if (input) input.focus();
+      return;
+    }
+    try {
+      A.devName = await A.apps.setDeviceName(name);
+    } catch (error) {
+      if (error.kind === "status") {
+        A.nameMsg = { kind: "err", text: "StatTrak refused the name." };
+        return render();
+      }
+      A.nameMsg = null;
+      return fail(error);
+    }
+    log("Bluetooth name: " + A.devName.name, "ok");
+    A.nameDraft = "";
+    A.nameMsg = { kind: "ok", text: "StatTrak uses the new name the next time you open Apps: SYNC." };
+    render();
+  }
+
+  // While the person types: the problem of the name at once (no new render: the field keeps the focus)
+  function onNameInput(input) {
+    A.nameDraft = input.value;
+    const problem = StatTrakApps.nameProblem(input.value);
+    A.nameMsg = problem ? { kind: "err", text: problem } : null;
+    const msg = $("#appsNameMsg");
+    if (msg) {
+      msg.textContent = problem;
+      msg.className = "name__msg" + (problem ? " name__msg--err" : "");
+    }
+    if (problem) input.setAttribute("aria-invalid", "true"); else input.removeAttribute("aria-invalid");
+  }
+
   /* ---- events -------------------------------------------------------------------------- */
 
   function onClick(event) {
@@ -616,6 +737,7 @@ const AppsTab = (() => {
     if (act === "disconnect") { disconnect(null); return render(); }
     if (act === "file") { A.fileErr = null; return $("#appsFile").click(); }
     if (act === "dismiss") { A.err = null; A.fileErr = null; if (A.fileItem && !busy()) A.fileItem = null; return render(); }
+    if (act === "name-reset") return saveName("", true);
     if (act === "install" && cat) {
       const item = (A.catalog || []).concat(A.fileItem ? [A.fileItem] : []).find((i) => i.key === cat.dataset.key);
       if (item) startInstall(item);
@@ -678,6 +800,14 @@ const AppsTab = (() => {
     const main = $("#appsMain");
     if (!main) return;
     main.addEventListener("click", onClick);
+    main.addEventListener("submit", (event) => {
+      if (!event.target.matches('[data-form="name"]')) return;
+      event.preventDefault();
+      A.fresh = null;
+      const input = $("#appsName");
+      saveName(input ? input.value : "");
+    });
+    main.addEventListener("input", (event) => { if (event.target.id === "appsName") onNameInput(event.target); });
     main.addEventListener("keydown", onKeyDown);
     main.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("pointermove", onPointerMove);

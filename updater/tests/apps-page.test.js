@@ -94,6 +94,9 @@ async function connect(page) {
   await page.waitFor(has("#appsList"));
 }
 
+/* The page shows the question of the device ("Answer on StatTrak") */
+const asking = (page, timeoutMs) => page.waitFor(`/Answer on StatTrak/.test((document.querySelector("#instpanel .inst__big") || {}).textContent)`, timeoutMs || 20000);
+
 test("connect: the apps of the device in menu order, SETTINGS last, the storage and the catalog", { skip: SKIP }, async (t) => {
   const page = await open(t, { install: ["ROUND TIMER"], hiddenApps: [2] });
   assert.match(await mainText(page), /Apps: SYNC.*hold button 2/);
@@ -104,6 +107,9 @@ test("connect: the apps of the device in menu order, SETTINGS last, the storage 
   assert.match(await texts(page, ".status .store span").then((t) => t[0]), /^1\.1 KB \/ 24 KB$/);
   // Installed apps are not in the catalog; the others are, with their permissions
   assert.deepEqual(await texts(page, ".cat .row__name"), ["HEADSHOT %", "REACTION", "RUNNER", "SLOTS", "WALLPAPER"]);
+  // The Bluetooth name of the device
+  assert.match(await page.evaluate(`document.querySelector(".namebox").textContent`), /StatTrak shows the name StatTrak in Apps: SYNC \(the standard name\)/);
+  assert.equal(await page.evaluate(`!!document.querySelector('[data-act="name-reset"]')`), false);
   assert.match(await page.evaluate(`${catRow("HEADSHOT %")}.textContent`), /Changes your kill counts/);
   // Built-in apps have no delete button; only apps with known settings have a gear
   assert.equal(await page.evaluate(`!!${inRow("KILLS", '[data-act="del"]')}`), false);
@@ -164,39 +170,90 @@ test("delete asks in the page; Cancel keeps the app, Delete removes it", { skip:
   assert.equal((await texts(page, ".status .store span"))[0], "0 KB / 24 KB");
 });
 
-test("install from the catalog: transfer, 'hold button 2' on the device, then the new row", { skip: SKIP }, async (t) => {
+test("install from the catalog: the question on the device first, then the transfer, then 'Installed'", { skip: SKIP }, async (t) => {
   const page = await open(t, { appQuestionMs: 60000 });
   await connect(page);
   await click(page, `${catRow("REACTION")}.querySelector('[data-act="install"]')`);
-  await page.waitFor(has("#instpanel .prog"));
+  await asking(page);
   // During the install the other catalog apps and the device list are locked
   assert.deepEqual(await texts(page, ".cat .row__name"), ["REACTION"]);
   assert.equal(await page.evaluate(`document.getElementById("appsList").classList.contains("list--busy")`), true);
   assert.equal(await page.evaluate(`document.getElementById("tabFirmware").getAttribute("aria-disabled")`), "true");
-  await page.waitFor(`document.querySelector("#instpanel .inst__big")`, 20000);
-  assert.match(await page.evaluate(`document.getElementById("instpanel").textContent`), /Hold button 2 on StatTrak/);
+  assert.match(await page.evaluate(`document.getElementById("instpanel").textContent`), /Answer on StatTrak.*Hold button 2 = yes, hold button 1 = no\./);
   assert.equal(await page.evaluate(`document.querySelector("#instpanel img").alt`), "StatTrak screen: INSTALL REACTION?");
   assert.equal(await device(page, "display"), "INSTALL REACTION?");
+  assert.equal(await device(page, "appCommands.includes(0x0114)"), false, "no data before the answer");
+  assert.equal(await page.evaluate(`!!document.querySelector("#instpanel .prog")`), false);
+  // Yes: the transfer, with its progress
+  await page.evaluate(`window.__progress = []; new MutationObserver(() => { const p = document.querySelector("#instpanel .pct"); if (p) window.__progress.push(p.textContent); })
+    .observe(document.getElementById("appsMain"), { childList: true, subtree: true, characterData: true })`);
   await device(page, "holdButton2()");
   await page.waitFor(row("REACTION"));
+  assert.ok((await page.evaluate("window.__progress")).length > 0, "no progress was shown");
   assert.deepEqual(await texts(page, "#appsList .row__name"), ["KILLS", "KILLS + DEAD", "STATS", "REACTION", "SETTINGS"]);
   assert.match(await page.evaluate(`${row("REACTION")}.textContent`), /Installed · 1\.2 KB/);
   assert.equal(await page.evaluate(`${row("REACTION")}.classList.contains("row--new")`), true);
+  // What the device shows now, and what the buttons do
+  assert.match(await page.evaluate(`document.getElementById("donepanel").textContent`),
+    /Installed.*On StatTrak: SYNC MORE \(button 1\) or OPEN \(button 2\)\. OPEN closes this connection\./);
+  assert.equal(await page.evaluate(`document.querySelector("#donepanel img").alt`), "StatTrak screen: APP INSTALLED, SYNC MORE, OPEN");
+  assert.equal(await device(page, "display"), "APP INSTALLED");
   assert.equal(await page.evaluate(`!!${catRow("REACTION")}`), false);
   assert.equal(await page.evaluate(`document.getElementById("tabFirmware").getAttribute("aria-disabled")`), null);
+});
+
+test("OPEN on the device after the install: a calm message, not 'Connection lost'", { skip: SKIP }, async (t) => {
+  const page = await open(t, { appQuestionMs: 60000 });
+  await connect(page);
+  await click(page, `${catRow("REACTION")}.querySelector('[data-act="install"]')`);
+  await asking(page);
+  await device(page, "holdButton2()");
+  await page.waitFor(has("#donepanel"));
+  // A change in the page (here: the order) does not change it
+  await click(page, inRow("KILLS", '[data-act="down"]'));
+  await page.waitFor(`window.__device.appNames()[0] === "KILLS + DEAD"`);
+  await device(page, "press(2)");
+  await page.waitFor(has("#appsMain .banner--info"));
+  assert.match(await mainText(page), /StatTrak opened REACTION.*OPEN closes the connection\. For more apps, open Apps: SYNC on StatTrak again, then connect\./);
+  assert.equal(await page.evaluate(`!!document.querySelector("#appsMain .banner--error")`), false);
+  assert.equal(await device(page, "screen"), "app");
+  assert.equal(await device(page, "openedApp"), 0x62e49bbb);
+});
+
+test("SYNC MORE on the device: the next install works; a lost connection later is 'Connection lost'", { skip: SKIP }, async (t) => {
+  const page = await open(t, { appQuestionMs: 60000 });
+  await connect(page);
+  await click(page, `${catRow("REACTION")}.querySelector('[data-act="install"]')`);
+  await asking(page);
+  await device(page, "holdButton2()");
+  await page.waitFor(has("#donepanel"));
+  await device(page, "press(1)");
+  assert.equal(await device(page, "syncState"), 0);
+  // The page sees it (STATUS): the device does not show APP INSTALLED any more
+  await page.waitFor(`AppsTab.state.opened === null`);
+  await click(page, `${catRow("ROUND TIMER")}.querySelector('[data-act="install"]')`);
+  await asking(page);
+  await device(page, "holdButton2()");
+  await page.waitFor(row("ROUND TIMER"));
+  await device(page, "press(1)");
+  await page.waitFor(`AppsTab.state.opened === null`);
+  await device(page, "loseConnection()");
+  await page.waitFor(has("#appsMain .banner--error"));
+  assert.match(await mainText(page), /Connection lost/);
 });
 
 test("the person says no on the device: 'Not installed', Try again works", { skip: SKIP }, async (t) => {
   const page = await open(t, { appQuestionMs: 60000 });
   await connect(page);
   await click(page, `${catRow("ROUND TIMER")}.querySelector('[data-act="install"]')`);
-  await page.waitFor(`document.querySelector("#instpanel .inst__big")`, 20000);
+  await asking(page);
   await device(page, "holdButton1()");
   await page.waitFor(`${catRow("ROUND TIMER")}.querySelector(".res--err")`);
   assert.match(await page.evaluate(`${catRow("ROUND TIMER")}.textContent`), /Not installed.*Declined on StatTrak or timed out/);
   assert.deepEqual(await texts(page, `.cat .btns button`), ["Close", "Try again"]);
+  assert.equal(await device(page, "appCommands.includes(0x0114)"), false, "data was sent after no");
   await click(page, `${catRow("ROUND TIMER")}.querySelector('[data-act="install"]')`);
-  await page.waitFor(`document.querySelector("#instpanel .inst__big")`, 20000);
+  await asking(page);
   await device(page, "holdButton2()");
   await page.waitFor(row("ROUND TIMER"));
 });
@@ -214,7 +271,7 @@ test("a lost answer during the transfer: the page sends again from the expected 
   const page = await open(t, { loseDataAnswerAt: 70, appQuestionMs: 60000 });
   await connect(page);
   await click(page, `${catRow("HEADSHOT %")}.querySelector('[data-act="install"]')`);
-  await page.waitFor(`document.querySelector("#instpanel .inst__big")`, 30000);
+  await asking(page, 30000);
   await device(page, "holdButton2()");
   await page.waitFor(row("HEADSHOT %"));
   assert.ok((await device(page, "events")).includes("lost answer of DATA 70"));
@@ -299,7 +356,7 @@ test("a file that is not an app, a damaged app, then a good app from a file", { 
   assert.deepEqual(await device(page, "appCommands.filter((c) => c === 0x0113)"), []);
 
   await pickFile(page, "my-app.stapp", `FakeStatTrak.makeApp({ name: "MY APP", id: 0x4242, settings: [{ name: "MODE", values: ["A", "B"] }] })`);
-  await page.waitFor(`document.querySelector("#instpanel .inst__big")`, 20000);
+  await asking(page);
   assert.equal(await page.evaluate(`!!document.querySelector("#appsMain .banner--error")`), false);
   await device(page, "holdButton2()");
   await page.waitFor(row("MY APP"));
@@ -313,6 +370,8 @@ test("the connection is lost during an install: 'Connection lost', the tabs work
   const page = await open(t, {});
   await connect(page);
   await click(page, `${catRow("REACTION")}.querySelector('[data-act="install"]')`);
+  await asking(page);
+  await device(page, "holdButton2()");
   await page.waitFor(`window.__device.syncReceived > 200`, 20000);
   await device(page, "loseConnection()");
   await page.waitFor(`document.querySelector("#appsMain .banner--error")`);
@@ -320,6 +379,92 @@ test("the connection is lost during an install: 'Connection lost', the tabs work
   assert.equal(await page.evaluate(`document.getElementById("tabFirmware").getAttribute("aria-disabled")`), null);
   // Connect again
   await connect(page);
+});
+
+test("the device stops the transfer (hold button 1): 'The transfer stopped', Try again works", { skip: SKIP }, async (t) => {
+  const page = await open(t, { appQuestionMs: 60000 });
+  await connect(page);
+  await click(page, `${catRow("SLOTS")}.querySelector('[data-act="install"]')`);
+  await asking(page);
+  await device(page, "holdButton2()");
+  await page.waitFor(`window.__device.syncReceived > 100`, 20000);
+  await device(page, "holdButton1()");
+  await page.waitFor(`${catRow("SLOTS")}.querySelector(".res--err")`);
+  assert.match(await page.evaluate(`${catRow("SLOTS")}.textContent`), /Not installed.*The transfer stopped on StatTrak\. Try again\./);
+  await click(page, `${catRow("SLOTS")}.querySelector('[data-act="install"]')`);
+  await asking(page);
+  await device(page, "holdButton2()");
+  await page.waitFor(row("SLOTS"));
+});
+
+test("a format 2 app on a firmware that reads format 1 only: 'Update the firmware first', nothing is sent", { skip: SKIP }, async (t) => {
+  const page = await open(t, { appFormat: 1 });
+  await connect(page);
+  await click(page, `${catRow("RUNNER")}.querySelector('[data-act="install"]')`);
+  await page.waitFor(`${catRow("RUNNER")}.querySelector(".res--err")`);
+  assert.match(await page.evaluate(`${catRow("RUNNER")}.textContent`), /Not installed.*Update the firmware first: this app needs a newer StatTrak firmware\./);
+  assert.equal(await device(page, "appCommands.includes(0x0113)"), false, "BEGIN was sent");
+  // A format 2 file
+  await act(page, '[data-act="dismiss"]');
+  await pickFile(page, "down.stapp", `FakeStatTrak.makeApp({ name: "DOWN", id: 0x5151, format: 2 })`);
+  await page.waitFor(has("#appsMain .banner--error"));
+  assert.match(await mainText(page), /down\.stapp needs a newer firmware\. Update the firmware first\./);
+  assert.equal(await device(page, "appCommands.includes(0x0113)"), false, "BEGIN was sent");
+});
+
+/* Types into the name field as a person does */
+const typeName = (page, value) => page.evaluate(`(() => { const input = document.getElementById("appsName"); input.value = ${JSON.stringify(value)};
+  input.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+const submitName = (page) => page.evaluate(`document.querySelector('[data-act="name-save"]').click()`);
+
+test("the Bluetooth name: the rules, Save, and Back to StatTrak", { skip: SKIP }, async (t) => {
+  const page = await open(t, {});
+  await connect(page);
+  const nameMsg = () => page.evaluate(`document.getElementById("appsNameMsg").textContent`);
+  assert.equal(await page.evaluate(`document.getElementById("appsName").maxLength`), 8);
+  // Empty, a space at the start, too long, a letter that is not ASCII: a message, nothing is sent
+  const sent = await device(page, "appCommands.length");
+  await submitName(page);
+  assert.equal(await nameMsg(), "Type a name first.");
+  await typeName(page, " RED");
+  assert.equal(await nameMsg(), "No space at the start or at the end.");
+  assert.equal(await page.evaluate(`document.getElementById("appsName").getAttribute("aria-invalid")`), "true");
+  await submitName(page);
+  assert.equal(await nameMsg(), "No space at the start or at the end.");
+  await typeName(page, "NINE CHAR");
+  assert.equal(await nameMsg(), "At most 8 characters.");
+  await typeName(page, "Rīga");
+  assert.match(await nameMsg(), /Use only A-Z, a-z, 0-9/);
+  assert.equal(await device(page, "appCommands.length"), sent, "a bad name was sent");
+  // A good name
+  await typeName(page, "Red 7");
+  assert.equal(await nameMsg(), "");
+  await submitName(page);
+  await page.waitFor(`window.__device.deviceName === "Red 7"`);
+  await page.waitFor(`/the next time/.test(document.getElementById("appsNameMsg").textContent)`);
+  assert.equal(await nameMsg(), "StatTrak uses the new name the next time you open Apps: SYNC.");
+  assert.match(await page.evaluate(`document.querySelector(".namebox").textContent`), /StatTrak shows the name Red 7 in Apps: SYNC\./);
+  // This start of Apps: SYNC keeps its name
+  assert.equal(await device(page, "bleName()"), "StatTrak");
+  await act(page, '[data-act="name-reset"]');
+  await page.waitFor(`window.__device.deviceName === "" && !document.querySelector('[data-act="name-reset"]')`);
+  assert.match(await page.evaluate(`document.querySelector(".namebox").textContent`), /StatTrak shows the name StatTrak in Apps: SYNC \(the standard name\)/);
+});
+
+test("a renamed StatTrak is found by its service UUID, and shows its name", { skip: SKIP }, async (t) => {
+  const page = await open(t, { deviceName: "RED 7", install: ["ROUND TIMER"] });
+  await connect(page);
+  assert.deepEqual(await device(page, "requests[0].filters"), [{ name: "StatTrak" }, { services: ["03b80e5a-ede8-4b33-a751-6ce34ec4c700"] }]);
+  assert.equal(await device(page, "webDevice.name"), "RED 7");
+  assert.match(await page.evaluate(`document.querySelector(".namebox").textContent`), /StatTrak shows the name RED 7 in Apps: SYNC\./);
+  assert.equal(await page.evaluate(`!!document.querySelector('[data-act="name-reset"]')`), true);
+  assert.deepEqual(await texts(page, "#appsList .row__name"), ["KILLS", "KILLS + DEAD", "STATS", "ROUND TIMER", "SETTINGS"]);
+});
+
+test("a browser that refuses the UUID filter: the page connects by the name StatTrak", { skip: SKIP }, async (t) => {
+  const page = await open(t, { uuidFilterBlocked: true });
+  await connect(page);
+  assert.deepEqual(await device(page, "requests.map((r) => r.filters.length)"), [2, 1]);
 });
 
 test("the Apps tab is locked while a firmware update runs", { skip: SKIP }, async (t) => {
@@ -343,6 +488,8 @@ test("a firmware tab connection is closed when the Apps tab opens", { skip: SKIP
   await page.waitFor(`!document.getElementById("firmwareView").hidden`);
   await page.evaluate(`document.getElementById("pairBtn").click()`);
   await page.waitFor(`!document.getElementById("step1After").hidden`);
+  // The firmware tab looks for the name "StatTrak" only
+  assert.deepEqual(await device(page, "requests[0]"), { filters: [{ name: "StatTrak" }], optionalServices: [0x8018] });
   await page.evaluate(`location.hash = "#apps"`);
   await page.waitFor(`!document.getElementById("appsView").hidden`);
   assert.equal(await device(page, "gatt.connected"), false);

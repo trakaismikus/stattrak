@@ -170,6 +170,29 @@
 .apps .inst__text { flex: 1 1 220px; display: flex; flex-direction: column; gap: 10px; }
 .apps .inst__big { font-family: var(--font-display); font-weight: 800; font-style: italic; text-transform: uppercase; font-size: 22px; line-height: 1.1; }
 .apps .inst__line { display: flex; justify-content: space-between; align-items: baseline; font-weight: 700; }
+.apps .inst__hint { font-size: 16px; color: var(--fg1); }
+.apps .inst__big--ok { display: flex; align-items: center; gap: 8px; color: var(--st-success); }
+
+/* a calm message (StatTrak opened the app and closed the connection) */
+.apps .banner--info { background: rgba(255,255,255,0.03); border-color: var(--stroke-2); color: var(--fg1); }
+.apps .banner--info .banner__icon, .apps .banner--info .banner__title { color: var(--fg1); }
+.apps .banner--info .banner__body { color: var(--fg2); }
+
+/* the Bluetooth name */
+.apps .name__now { font-size: 16px; }
+.apps .name__form { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; }
+.apps .name__label { font-weight: 700; font-size: 15px; min-width: 90px; }
+.apps .name__input {
+  width: 12ch; min-height: 40px; padding: 6px 10px; border-radius: var(--r-sm);
+  border: 1px solid var(--stroke-2); background: var(--st-ink-900); color: var(--fg1);
+  font-family: var(--font-mono); font-size: 16px;
+}
+.apps .name__input[aria-invalid="true"] { border-color: var(--st-kill-red); }
+.apps .name__input:disabled { opacity: 0.5; }
+.apps .name__msg { font-size: 14px; min-height: 1.45em; }
+.apps .name__msg:empty { display: none; }
+.apps .name__msg--err { color: var(--st-kill-red); }
+.apps .name__msg--ok { color: var(--st-success); }
 .apps .res { display: flex; gap: 10px; align-items: flex-start; font-size: 16px; }
 .apps .res b { display: block; }
 .apps .res span { color: var(--fg1); }

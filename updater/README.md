@@ -54,8 +54,31 @@ last) and the storage of the 24 KB for apps. The person can show or hide an app,
 arrows, or the arrow keys on the handle), change its settings, and delete it (the page asks in the
 row, not in a browser dialog). Under "Add apps" are the apps of `apps/catalog.json` (made by
 `python tools/app.py catalog`; do not change these files by hand) and **From file** for a
-`.stapp` file. An install sends the package, then the device asks "INSTALL <NAME>?": the person
-holds button 2 on the device (button 1 or 30 seconds = not installed).
+`.stapp` file.
+
+An install goes in this order (`docs/APPS.md` section 6):
+
+1. The page sends BEGIN and ASK. The device asks "INSTALL <NAME>?" and the page shows that
+   screen: hold button 2 = yes, hold button 1 = no (no answer in 30 seconds = no). No data goes
+   before the "yes".
+2. After the "yes" the page sends the package and shows the progress. The device checks it and
+   writes it to flash. A hold of button 1 on the device, or 10 seconds without data, stops the
+   transfer ("The transfer stopped on StatTrak").
+3. "Installed": the device shows APP INSTALLED with SYNC MORE (button 1: wait for the next app)
+   and OPEN (button 2: the app opens). OPEN turns Bluetooth off, so the page loses the
+   connection: it then shows a calm message ("StatTrak opened <NAME>"), not "Connection lost".
+
+A package of format 2 (an app with `down1` / `down2`, e.g. RUNNER) needs a firmware that reads
+format 2 (INFO). For an older firmware the page says "Update the firmware first" and sends
+nothing.
+
+**Bluetooth name.** When the firmware has the command DEVICE_NAME, the tab shows the Bluetooth
+name of StatTrak in "Apps: SYNC" and can change it (1 to 8 characters 0x20 .. 0x7E, no space at
+the start or the end) or set it back to "StatTrak". StatTrak uses a new name the next time the
+person opens Apps: SYNC. The update view always uses "StatTrak". The Apps tab finds a StatTrak
+with any name: its device chooser also looks for the service UUID that the device advertises
+(`03b80e5a-ede8-4b33-a751-6ce34ec4c700`). A browser that refuses that filter gets the name
+filter "StatTrak" only. The firmware tab looks for the name "StatTrak" only.
 
 - The tab has its own Bluetooth connection and sends only the app commands of `docs/APPS.md`
   section 6, never a firmware update command (a test checks this).
@@ -64,8 +87,8 @@ holds button 2 on the device (button 1 or 30 seconds = not installed).
   "Apps: SYNC" at the same time.
 - An old firmware (no app commands): "Update the firmware first", with a link to the firmware tab.
   A device that is not in "Apps: SYNC" (status 3): the page says what to do on the device.
-- The page checks a `.stapp` file (magic, size, CRC-32) before it sends it. The device does the
-  full check.
+- The page checks a `.stapp` file (magic, format 1 or 2, size, CRC-32) before it sends it. The
+  device does the full check.
 - The device has no command for the title picture or the setting names of an installed app. The
   page knows them for catalog apps and for a file installed in this page session; other apps show
   their name as the picture, and their settings are changed on the device.
@@ -78,15 +101,16 @@ holds button 2 on the device (button 1 or 30 seconds = not installed).
 | `js/ble.js` | The Bluetooth code: connect, commands, firmware transfer |
 | `js/firmware.js` | Checks of the firmware file |
 | `js/main.js` | The steps of the page |
-| `js/apps-protocol.js` | The app commands (`StatTrakApps`) and the check of a `.stapp` file (`StappFile`) |
-| `js/apps-pictures.js` | Title pictures and the device display, drawn with the firmware fonts |
+| `js/apps-protocol.js` | The app commands (`StatTrakApps`: install, list, Bluetooth name, the device chooser of the Apps tab) and the check of a `.stapp` file (`StappFile`) |
+| `js/apps-pictures.js` | Title pictures, and the device display in "Apps: SYNC": a port of `_draw()` of `../main/views/app_sync_view.c`, pixel by pixel |
 | `js/apps.js`, `css/apps.css` | The tabs and the Apps tab |
 | `apps/` | The app catalog: made by `python tools/app.py catalog`, not by hand |
-| `tests/fake-device.js` | A stand-in for the device and for Web Bluetooth. Its packet code is a port of the firmware code in `../components/ble_ota/`; its app commands are a port of `../main/ble_commands.c`, `../main/apps.c` and `../main/views/app_sync_view.c` |
+| `tests/fake-device.js` | A stand-in for the device and for Web Bluetooth. Its packet code is a port of the firmware code in `../components/ble_ota/`; its app commands are a port of `../main/ble_commands.c`, `../main/apps.c` and `../main/views/app_sync_view.c` (with the buttons of "Apps: SYNC"); its device chooser uses the filters (name, service UUID) |
 | `tests/ble.test.js` | Tests of `js/ble.js` and `js/firmware.js` in Node.js |
 | `tests/page.test.js` | Tests of the full page in a headless Chrome. They click the buttons as a user does |
-| `tests/apps.test.js` | Tests of `js/apps-protocol.js` in Node.js, and each rule of `docs/APPS.md` section 6 against the stand-in device |
-| `tests/apps-page.test.js` | Tests of the Apps tab in a headless Chrome: connect, list, hide, move, delete, settings, install with the answer on the device, refused, no answer in 30 s, a lost answer, no space, old firmware, not in "Apps: SYNC", bad files, lost connection, the tab lock |
+| `tests/apps.test.js` | Tests of `js/apps-protocol.js` in Node.js, each rule of `docs/APPS.md` section 6 against the stand-in device (install order, ASK, DATA only after "yes", a new BEGIN, the transfer stop, SYNC MORE / OPEN, DEVICE_NAME, format 2), and the device screens of `js/apps-pictures.js` against `tests/sync-screens.json` |
+| `tests/sync-screens.json` | Screens of "Apps: SYNC" from the firmware (the headless simulator, `../tests/stattrak_sim.py`). Make them again after a change to `_draw()` of `app_sync_view.c` |
+| `tests/apps-page.test.js` | Tests of the Apps tab in a headless Chrome: connect, list, hide, move, delete, settings, install (the question first, then the transfer, then "Installed"), no, no answer in 30 s, the transfer stopped on the device, OPEN (a calm message), SYNC MORE, a lost answer, no space, format 2 on an older firmware, the Bluetooth name, a renamed device, old firmware, not in "Apps: SYNC", bad files, lost connection, the tab lock |
 | `tests/files.test.js` | Tests of the fonts, of files from other sites, and that the Bluetooth numbers of the page are the numbers of the firmware |
 
 ## Run it on your computer
@@ -113,8 +137,8 @@ browser these tests are skipped). There is nothing to install.
 The tests use a stand-in device. **They do not show that an update works on a real device.**
 After a change to `js/ble.js` or to the update steps in `js/main.js`, do an update of a real
 device before the page is published.
-After a change to the Apps tab, install, move, hide and delete an app on a real device in
-"Apps: SYNC" before the page is published.
+After a change to the Apps tab, install (yes, no, OPEN, SYNC MORE), move, hide and delete an
+app, and rename the device, on a real device in "Apps: SYNC" before the page is published.
 
 ## Publish
 

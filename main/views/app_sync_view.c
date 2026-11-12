@@ -282,6 +282,7 @@ static bool _eventHandler(uint16_t event) {
           _answer(false);
       } else if(s_state == APP_SYNC_STATE__RECEIVING) {
         _reset();   // Stop this transfer; the page must start again with BEGIN
+        s_failed = true;
       } else {
         AppView_set(AppView_getPrevious());
       }
