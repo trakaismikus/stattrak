@@ -7,8 +7,8 @@
  * when the long press comes. Only a hold that starts while the screen shows counts: a button
  * that is still down from the screen before does nothing (HoldButtons_reset at each new screen).
  * A press in the 0.3 s slide of a view change goes to the old view: the new screen ignores that
- * hold (no fill, no answer), and a new hold works. The repeats of a hold go only to the view where
- * the button went down (AppView_eventHandler).
+ * hold (no fill, no answer), and a new hold works. The repeats of a hold go only to the view that
+ * got its long press (AppView_eventHandler).
  *
  * Use in a view:
  *   static hold_buttons_t s_hold;
