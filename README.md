@@ -1,16 +1,17 @@
 <p align="center">
-  <img src="docs/images/title.jpg" alt="StatTrak open firmware: your screens, your rules" width="100%">
+  <img src="docs/images/title.jpg" alt="StatTrak open firmware: your device, your rules" width="100%">
 </p>
 
 <p align="center">
-  <b>The open firmware of the StatTrak kill counter by TRIDOS.DESIGN x JZ.</b><br>
-  Change it, add your own screens, and put your version on your own device.<br>
+  <b>The open firmware of the <a href="https://tridos.design/products/stattrak-hit-counter">StatTrak kill counter</a> by TRIDOS.DESIGN x JZ.</b><br>
+  Change it, add your own apps and functions, and put your version on your own device.<br>
   <b>You do not have to be a programmer.</b>
 </p>
 
 <p align="center">
   <a href="#-start-in-5-minutes">Get started</a> ·
   <a href="#-the-web-updater">Web Updater</a> ·
+  <a href="#-apps-and-app-sync">Apps</a> ·
   <a href="#-the-screen-designer">Screen Designer</a> ·
   <a href="#-how-to-use-the-device">Use the device</a> ·
   <a href="docs/SAFETY.md">Safety</a>
@@ -20,23 +21,30 @@
 
 ## What is this?
 
-StatTrak is a small kill counter for airsoft. It mounts on your replica and counts your kills
-and deaths. This repository is the software inside it: the **firmware**.
+[StatTrak](https://tridos.design/products/stattrak-hit-counter) is a small kill counter for
+airsoft. It mounts on your replica and counts your kills and deaths. This repository is the
+software inside it: the **firmware**.
 
 The firmware is open. An **AI coding tool** does the technical work on your computer. You tell
 it what you want, it shows you pictures of the result, and you decide.
 
 <p align="center">
-  <img src="docs/images/product.jpg" alt="StatTrak on a Picatinny rail, with a PEQ box, and the DIY edition on a battery" width="100%">
+  <a href="https://tridos.design/products/stattrak-hit-counter"><img src="docs/images/product.jpg" alt="StatTrak on a Picatinny rail, with a PEQ box, and the DIY edition on a battery" width="100%"></a>
 </p>
 
-You get three tools:
+<p align="center">
+  No StatTrak yet? <a href="https://tridos.design/products/stattrak-hit-counter"><b>Get one in the TRIDOS shop</b></a>.
+  You can try everything in the simulator first.
+</p>
+
+You get four tools:
 
 | Tool | What it does |
 | --- | --- |
 | 🖥️ **Simulator** | Runs the real firmware on your computer. You see each change before it goes on the device. |
 | ✏️ **Screen Designer** | Draw your own screens on the real 128 × 32 pixels, then send them to your AI tool. |
 | 📡 **Web Updater** | Puts a firmware file on your StatTrak over Bluetooth, from your browser. Nothing to install. |
+| 🧩 **App Sync** | Installs apps (small games and tools) on your StatTrak from your browser. No firmware update. |
 
 > [!WARNING]
 > **You change the firmware at your own risk.** A faulty firmware can make a device unusable
@@ -89,6 +97,7 @@ I may not be a programmer. Use plain words.
 - *"Add a screen that shows a skull for two seconds after each tenth kill."*
 - *"Make the numbers larger."*
 - *"Add a second counter for headshots."*
+- *"Make an app: a small game for the break between two rounds."*
 
 The device has two buttons, a small display, a buzzer and Bluetooth. It has no clock and no
 internet. The AI tool tells you when an idea cannot work, and why.
@@ -97,7 +106,8 @@ internet. The AI tool tells you when an idea cannot work, and why.
 and shows you the pictures. You pick one. Then it builds the feature and shows it in the
 simulator. Only when you are happy, it makes the firmware file for your device.
 
-**5. Put it on your StatTrak** with the [Web Updater](#-the-web-updater).
+**5. Put it on your StatTrak.** A firmware change goes on with the
+[Web Updater](#-the-web-updater). An app goes on with [App Sync](#-apps-and-app-sync).
 
 ---
 
@@ -176,6 +186,82 @@ More about the page: [updater/README.md](updater/README.md).
 
 ---
 
+## 🧩 Apps and App Sync
+
+Your StatTrak can run **apps**, like a watch. An app is a small file (1 to 4 KB): a game, a
+timer, a different counter. You install it over Bluetooth from your browser, in the **Apps**
+tab of the Web Updater. The firmware stays the same, so an app install takes a few seconds. The
+firmware checks each app, and an app runs in a closed box: it cannot touch the firmware update,
+Bluetooth or the power.
+
+<p align="center">
+  <img src="docs/images/apps-screens.png" alt="Apps: SYNC on the device, the SLOTS app in the app menu, and the SLOTS game" width="100%">
+</p>
+
+> [!NOTE]
+> Apps need a firmware with the app menu. If the page says **Update the firmware first**,
+> install the newest firmware with the [Web Updater](#-the-web-updater) first.
+
+### Install an app
+
+1. **On the StatTrak:** Settings, then `Apps: SYNC`, hold button 2. The display shows
+   `APP SYNC` and `WAITING`.
+2. **On the computer:** open <https://stattrak.tridos.design/#apps> (the **Apps** tab), click
+   **Connect** and pick your StatTrak.
+3. Click **Install** next to an app.
+4. **Answer on the StatTrak.** It asks `INSTALL <NAME>?`. Hold button 2 for yes, or button 1 for
+   no. The page sends nothing before your yes.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/apps-ask.png" alt="The page shows the question on the device: INSTALL REACTION?"></td>
+    <td width="50%"><img src="docs/images/apps-done.png" alt="Installed: SYNC MORE or OPEN on the device"></td>
+  </tr>
+  <tr>
+    <td><b>The question.</b> The page shows what your StatTrak shows. The button to hold is orange.</td>
+    <td><b>Installed.</b> On the StatTrak: <b>SYNC MORE</b> (button 1) to install one more app, or <b>OPEN</b> (button 2) to play now.</td>
+  </tr>
+</table>
+
+### Sort, hide and delete
+
+The Apps tab shows all apps on your StatTrak, in the order of the app menu. You can:
+
+- move an app up or down (drag it, or use the arrows),
+- hide an app from the menu, or show it again,
+- change the settings of an app (the gear),
+- delete an app (the bin). The built-in apps stay.
+- give your StatTrak its own Bluetooth name, so you find it fast when there are more StatTraks.
+
+The bar at the top shows how much of the 24 KB for apps you use. `SETTINGS` is always the last
+app in the menu, so you can always get to the firmware update.
+
+<p align="center">
+  <img src="docs/images/apps-list.png" alt="The Apps tab: the apps on the device, with show / hide, arrows, settings and delete, and the apps to add" width="80%">
+</p>
+
+### The apps you can install now
+
+| App | What it does |
+| --- | --- |
+| **HEADSHOT %** | Counts kills and headshots and shows the headshot percentage. |
+| **REACTION** | A reaction game: wait for GO, then press a button as fast as you can. |
+| **ROUND TIMER** | Times each round, and beeps at the end. |
+| **RUNNER** | An endless runner: jump over the cacti. The game gets faster. |
+| **SLOTS** | A slot machine. Three the same wins, with confetti and a song on the buzzer. |
+| **WALLPAPER** | Looks like the big KILLS counter, but shows your own number. |
+
+### Make your own app
+
+Tell your AI coding tool what the app must do, for example *"Make an app that counts down
+from 10 minutes and beeps at the end."* The AI tool writes the app, tests it in the simulator
+and shows you the screens. Then you install the file with **From file** in the Apps tab.
+You can also share your app with other StatTrak owners: see [Share what you made](#-share-what-you-made).
+
+The details for AI tools and developers: [docs/APPS.md](docs/APPS.md).
+
+---
+
 ## 🎮 How to use the device
 
 <p align="center">
@@ -189,7 +275,7 @@ More about the page: [updater/README.md](updater/README.md).
 | App menu: button 1 / button 2 | Previous / next app |
 | App menu: both buttons, or wait 3 seconds | Open the selected app |
 | App menu: hold button 2 | The settings of the selected installed app (if it has settings) |
-| Settings: `Apps: SYNC`, hold button 2 | Connect to the "Apps" part of the web updater: install, delete, sort and hide apps, and give the device its own Bluetooth name (8 characters). A new app asks "INSTALL <NAME>?" before it is sent: hold button 2 = yes, hold button 1 = no (the button fills while you hold it). After the install: button 1 = SYNC MORE, button 2 = OPEN the app |
+| Settings: `Apps: SYNC`, hold button 2 | App Sync: install and sort apps from your browser (see [Apps and App Sync](#-apps-and-app-sync)) |
 | App: a fast game (RUNNER) | It reacts when the button goes down. Other apps get a press after the release |
 | Total view: short press | +1 kill. Long press: -1 kill |
 | Kill/death view: button 1 / button 2 | +1 kill / +1 death. Long press: -1 |
@@ -226,6 +312,8 @@ python tools/check.py              # safety check, build, unit tests, simulator 
 python tools/sim.py --tour         # a picture of each main view in out/
 python tools/sim.py boot click1 click1 frame   # 2 kills, print the display as text
 python tools/design.py render designs/example.json   # pictures of a screen design
+python tools/app.py build apps/slots/slots.sts       # an app: script -> .stapp package
+python tools/app.py sim apps/slots/slots.sts         # open the web simulator with the app
 python tools/setup.py firmware     # install ESP-IDF v5.4 (4 GB). Not necessary with Docker.
 python tools/build.py              # tests + firmware build -> build/stattrak.bin
 ```
@@ -239,13 +327,14 @@ python tools/build.py              # tests + firmware build -> build/stattrak.bi
 
 ```
 main/          application: start sequence, views, settings, storage, battery, Bluetooth commands
-components/    graphics, animation, display driver, Bluetooth, firmware update
+components/    graphics, animation, display driver, Bluetooth, firmware update, app engine
 designs/       screen design files
+apps/          example apps (StatTrak Script, docs/APPS.md)
 sim/           simulator: the firmware on a computer (headless, window, web)
 tests/         tests: full firmware in the simulator, and unit tests
-tools/         setup.py, check.py, check_safety.py, sim.py, design.py, build.py
-updater/       the web updater: the page that sends a firmware file to the device
-docs/          SAFETY.md, BLUETOOTH.md, DESIGNS.md, AUDIT.md, ROADMAP.md, images/
+tools/         setup.py, check.py, check_safety.py, sim.py, design.py, app.py, build.py
+updater/       the web updater: the page that sends a firmware file or an app to the device
+docs/          SAFETY.md, BLUETOOTH.md, DESIGNS.md, APPS.md, AUDIT.md, ROADMAP.md, images/
 ```
 
 </details>
@@ -260,6 +349,7 @@ docs/          SAFETY.md, BLUETOOTH.md, DESIGNS.md, AUDIT.md, ROADMAP.md, images
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to share a feature or an idea |
 | [docs/SAFETY.md](docs/SAFETY.md) | How a device can get bricked, and how to prevent it |
 | [docs/DESIGNS.md](docs/DESIGNS.md) | Screen design files |
+| [docs/APPS.md](docs/APPS.md) | Apps: the app file, the app engine and App Sync |
 | [docs/BLUETOOTH.md](docs/BLUETOOTH.md) | Bluetooth for your own features |
 | [sim/README.md](sim/README.md) | The simulator |
 | [updater/README.md](updater/README.md) | The Web Updater |
@@ -268,7 +358,8 @@ docs/          SAFETY.md, BLUETOOTH.md, DESIGNS.md, AUDIT.md, ROADMAP.md, images
 
 ## Who made it
 
-The firmware is by Janis Zaharans. The StatTrak kill counter is a product of TRIDOS.DESIGN x JZ.
+The firmware is by Janis Zaharans. The [StatTrak kill counter](https://tridos.design/products/stattrak-hit-counter)
+is a product of TRIDOS.DESIGN x JZ.
 
 ## License
 

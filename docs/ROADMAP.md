@@ -71,10 +71,11 @@ This repository (`trakaismikus/stattrak`) is private until these are done:
 
 ## Shipped
 
-- **2026-11: a README for people who do not code.** A title picture, product photos from the
-  TRIDOS shop, and sections with screenshots for "Start in 5 minutes", the Screen Designer,
-  the Web Updater and the device views (pictures in `docs/images/`). The developer commands
-  are in a section that opens on a click.
+- **2026-11: a README for people who do not code.** A title picture (the slot machine app on
+  the device), product photos and links to the StatTrak page of the TRIDOS shop, and sections
+  with screenshots for "Start in 5 minutes", the Screen Designer, the Web Updater, Apps and
+  App Sync, and the device views (pictures in `docs/images/`). The developer commands are in a
+  section that opens on a click.
 - **2026-11: app menu.** Both buttons open a menu of the apps (KILLS, KILLS + DEAD, STATS,
   SETTINGS) in place of "next view". Each app has a title picture; button 1 / 2 go to the
   previous / next app, both buttons or 3 seconds without a press open it. The app slides up and
