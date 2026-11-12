@@ -33,6 +33,9 @@
 #include <string.h>
 
 #include "host.h"
+#include "sdkconfig.h"
+
+#define YES_UP_MS  (CONFIG_BUTTON_SHORT_PRESS_TIME_MS + 50)   /* Button 2 up this long before the automatic "yes" */
 
 #include "app.h"
 #include "app_view.h"
@@ -300,8 +303,10 @@ static void _idle(void) {
   SimApps_update();
 
   /* simopen: the simulator holds button 2 for the person ("yes"), as the window and the web page do */
-  /* The firmware answers only a hold that starts during the question: button 2 must be up for
-   * 50 ms first (more than the debounce), as in the window and web simulators */
+  /* The firmware answers only a hold that starts during the question: button 2 must be up
+   * first, also after the power-on hold of both buttons. YES_UP_MS: after a short press the button
+   * driver waits CONFIG_BUTTON_SHORT_PRESS_TIME_MS for a second click; a hold that starts in that
+   * time never becomes a long press. */
   static bool s_simHold = false;
   static uint64_t s_upSinceMs = 0;   /* Button 2 is up since this time (0 = it is down) */
   if(HostButton_getLevel(1))
@@ -313,7 +318,7 @@ static void _idle(void) {
       s_simHold = false;
       HostButton_setLevel(1, false);
     }
-  } else if(!s_simHold && s_upSinceMs != 0 && Host_nowMs() + 1 - s_upSinceMs >= 50) {
+  } else if(!s_simHold && s_upSinceMs != 0 && Host_nowMs() + 1 - s_upSinceMs >= YES_UP_MS) {
     s_simHold = true;
     HostButton_setLevel(1, true);
   }

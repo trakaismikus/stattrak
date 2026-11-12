@@ -112,6 +112,41 @@ class SimAppsTest(AppTestCase):
         self.assertEqual(state["simapp_state"], DONE, state["simapp_text"])
         self.assertEqual(state["view"], "APP_HOST")
 
+    def test_simopen_after_the_web_page_power_on(self):
+        # The web page: both buttons held 0.8 s for the power-on, released together; the app is given at once
+        package = app.compile_file(os.path.join(REPO_ROOT, "apps", "runner", "runner.sts"))["package"]
+        path = os.path.join(self.folder, "runner.stapp")
+        with open(path, "wb") as handle:
+            handle.write(package)
+        for release_ms in (700, 800, 1300):
+            self.dev.power_cut()
+            self.dev.power_on(hold="both")
+            self.dev.command("simopen " + path)
+            self.dev.run(release_ms)
+            self.dev.release(1)
+            self.dev.release(2)
+            self.dev.run(5000)
+            state = self.dev.state()
+            self.assertEqual(state["simapp_state"], DONE, (release_ms, state["simapp_text"]))
+            self.assertEqual(state["view"], "APP_HOST")
+
+    def test_simopen_after_a_tap_of_button_2(self):
+        # A short press just before the question: the button driver waits for a second click
+        # (CONFIG_BUTTON_SHORT_PRESS_TIME_MS); the automatic hold must start after that time
+        package = app.compile_file(os.path.join(REPO_ROOT, "apps", "runner", "runner.sts"))["package"]
+        path = os.path.join(self.folder, "runner.stapp")
+        with open(path, "wb") as handle:
+            handle.write(package)
+        self.dev.command("simopen " + path)
+        self.dev.run(250)
+        self.dev.press(2)
+        self.dev.run(120)
+        self.dev.release(2)
+        self.dev.run(5000)
+        state = self.dev.state()
+        self.assertEqual(state["simapp_state"], DONE, state["simapp_text"])
+        self.assertEqual(state["view"], "APP_HOST")
+
     def test_simopen_waits_for_the_start_screen(self):
         # The page starts the install at once; the device shows its start screen first
         self.dev.power_cut()
