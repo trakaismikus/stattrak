@@ -38,6 +38,8 @@ enum ble_command_e {
   BLE_COMMAND__APP_SET_ORDER  = 0x0118,
   BLE_COMMAND__APP_SET_HIDDEN = 0x0119,
   BLE_COMMAND__APP_SETTING    = 0x011A,
+  BLE_COMMAND__APP_ASK        = 0x011B,   // After BEGIN: the name; the device asks "INSTALL <NAME>?"
+  BLE_COMMAND__APP_DEVICE_NAME = 0x011C,  // Read or set the Bluetooth name of "Apps: SYNC"
 
   // Add your commands here
 };

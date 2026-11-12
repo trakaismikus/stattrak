@@ -149,6 +149,7 @@ void        HostOta_boot(void);               /* Does what the bootloader does a
 bool        HostOta_wasRolledBack(void);      /* true: this start is a rollback to the old firmware */
 bool        HostOta_isPendingVerify(void);
 bool        HostOta_isActive(void);           /* true between Ota_init() and Ota_deinit() */
+const char* HostOta_getName(void);            /* The Bluetooth name of the last Ota_init() */
 uint32_t    HostOta_getInitCount(void);
 uint32_t    HostOta_getDeinitCount(void);
 uint32_t    HostOta_getDoubleInitCount(void); /* Ota_init() calls while already active */

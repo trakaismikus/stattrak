@@ -69,6 +69,8 @@ stapp_result_t Stapp_run(stapp_vm_t* vm, stapp_event_t event, stapp_sys_fn_t sys
     return STAPP_ERR_ARG;
   if(vm->error != STAPP_OK)
     return vm->error;
+  if((unsigned)event >= vm->info.handlerCount)
+    return STAPP_OK;   // A format 1 package has no down1 / down2 handler
 
   const uint8_t* package = vm->package;
   const uint16_t entry = Stapp_rd16(package + STAPP_HANDLERS_OFFSET + 2u * event);

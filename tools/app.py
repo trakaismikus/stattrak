@@ -38,7 +38,7 @@ import design  # noqa: E402
 # --- Limits and numbers (the same as components/stapp/stapp.h) ------------------------------------
 
 ENGINE_VERSION = 1
-FORMAT_VERSION = 1
+FORMAT_VERSION = 2     # The newest format. A package without down1 / down2 is written as format 1.
 MAGIC = b"STAP"
 
 HEADER_SIZE = 48
@@ -47,7 +47,7 @@ PICTURE_W = 80
 PICTURE_H = 24
 PICTURE_SIZE = PICTURE_W * PICTURE_H // 8          # 240
 HANDLERS_OFFSET = PICTURE_OFFSET + PICTURE_SIZE    # 288
-DATA_START = HANDLERS_OFFSET + 16                  # 304: the first byte after the handler table
+DATA_START = HANDLERS_OFFSET + 16                  # 304: the first byte after the handler table (format 1)
 CRC_SIZE = 4
 MIN_SIZE = DATA_START + CRC_SIZE                   # 308
 NO_HANDLER = 0xFFFF
@@ -75,7 +75,17 @@ PERM_SOUND = 0x0002
 PERM_ALL = PERM_COUNTERS | PERM_SOUND
 PERMISSIONS = {"counters": PERM_COUNTERS, "sound": PERM_SOUND}
 
-EVENTS = ("open", "draw", "press1", "press2", "long1", "long2", "tick", "close")
+EVENTS = ("open", "draw", "press1", "press2", "long1", "long2", "tick", "close", "down1", "down2")
+HANDLERS_V1 = 8        # Format 1 has the handlers up to close; format 2 also down1 and down2
+
+
+def handler_count(format_version):
+    return len(EVENTS) if format_version >= 2 else HANDLERS_V1
+
+
+def data_start(format_version):
+    """The first byte after the handler table: 304 (format 1) or 308 (format 2)"""
+    return HANDLERS_OFFSET + 2 * handler_count(format_version)
 
 NAME_CHARS = set("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 +-%/.:")
 
@@ -250,8 +260,11 @@ def check(data):
         return ERR_SIZE, None
     if data[0:4] != MAGIC:
         return ERR_MAGIC, None
-    if data[4] != FORMAT_VERSION or data[5] < 1 or data[5] > ENGINE_VERSION:
+    if data[4] < 1 or data[4] > FORMAT_VERSION or data[5] < 1 or data[5] > ENGINE_VERSION:
         return ERR_VERSION, None
+    first = data_start(data[4])
+    if size < first + CRC_SIZE:
+        return ERR_SIZE, None
     if _u16(data, 14) != size:
         return ERR_SIZE, None
     if zlib.crc32(data[:-CRC_SIZE]) & 0xFFFFFFFF != _u32(data, size - CRC_SIZE):
@@ -279,7 +292,7 @@ def check(data):
     if setting_count:
         pos = settings_offset
         for _ in range(setting_count):
-            if pos < DATA_START or pos + SETTING_NAME_LEN + 2 > data_end:
+            if pos < first or pos + SETTING_NAME_LEN + 2 > data_end:
                 return ERR_LAYOUT, None
             value_count = data[pos + SETTING_NAME_LEN]
             if value_count < MIN_VALUES or value_count > MAX_VALUES:
@@ -293,8 +306,8 @@ def check(data):
         blocks.append((bitmaps_offset, bitmaps_offset + 4 * bitmap_count))
     if code_size:
         blocks.append((code_offset, code_offset + code_size))
-    for start, end in blocks:
-        if start < DATA_START or end > data_end:
+    for block_start, block_end in blocks:
+        if block_start < first or block_end > data_end:
             return ERR_LAYOUT, None
     for index, (start, end) in enumerate(blocks):
         for other_start, other_end in blocks[index + 1:]:
@@ -314,7 +327,7 @@ def check(data):
     # 5. Strings
     for index in range(string_count):
         offset = _u16(data, strings_offset + 2 * index)
-        if offset < DATA_START or offset >= data_end:
+        if offset < first or offset >= data_end:
             return ERR_STRINGS, None
         end = data.find(b"\0", offset, data_end)
         if end < 0 or end - offset > MAX_STRING_LEN or any(b < 0x20 or b > 0x7E for b in data[offset:end]):
@@ -323,7 +336,7 @@ def check(data):
     # 6. Bitmaps
     for index in range(bitmap_count):
         width, height, offset = struct.unpack_from("<BBH", data, bitmaps_offset + 4 * index)
-        if (width < 1 or width > 128 or height < 1 or height > 32 or offset < DATA_START
+        if (width < 1 or width > 128 or height < 1 or height > 32 or offset < first
                 or offset + width * ((height + 7) // 8) > data_end):
             return ERR_BITMAPS, None
 
@@ -361,7 +374,7 @@ def check(data):
             return ERR_CODE, None
 
     # 8. Handlers
-    for event in range(len(EVENTS)):
+    for event in range(handler_count(data[4])):
         offset = _u16(data, HANDLERS_OFFSET + 2 * event)
         if offset != NO_HANDLER and offset not in starts:
             return ERR_HANDLER, None
@@ -385,7 +398,10 @@ def package_parts(data):
     parts = dict(info)
     parts["engine_version"] = data[5]
     parts["picture"] = bytes(data[PICTURE_OFFSET:PICTURE_OFFSET + PICTURE_SIZE])
-    parts["handlers"] = [_u16(data, HANDLERS_OFFSET + 2 * i) for i in range(len(EVENTS))]
+    parts["format_version"] = data[4]
+    # A format 1 package has no down1 / down2 handler
+    parts["handlers"] = [_u16(data, HANDLERS_OFFSET + 2 * i) if i < handler_count(data[4]) else NO_HANDLER
+                         for i in range(len(EVENTS))]
     settings = []
     pos = settings_offset
     for _ in range(info["setting_count"]):
@@ -898,7 +914,7 @@ class Parser:
         self.define(program, key, line)
 
     def top_on(self, program, line):
-        event = self.expect("name", "the event (open, draw, press1, press2, long1, long2, tick or close)")[1]
+        event = self.expect("name", "the event (open, draw, press1, press2, long1, long2, tick, close, down1 or down2)")[1]
         if event not in EVENTS:
             self.error(line, "the events are: %s." % ", ".join(EVENTS))
         if event in program.handlers:
@@ -1527,11 +1543,15 @@ def assemble_package(name, app_id, version, permissions, picture, handlers, sett
                      code, global_count, saved_count, engine_version=ENGINE_VERSION):
     """Put the parts together as a package (docs/APPS.md section 3). `settings`: list of
     (name, values, default). `bitmaps`: list of (width, height, data). Blocks in this order after
-    the handler table: settings, string table, strings, bitmap table, bitmap data, code, CRC."""
+    the handler table: settings, string table, strings, bitmap table, bitmap data, code, CRC.
+    Format 2 only if the app has a down1 or down2 handler: other packages stay format 1."""
+    format_version = 2 if any(offset != NO_HANDLER for offset in handlers[HANDLERS_V1:]) else 1
+    handlers = list(handlers[:handler_count(format_version)])
+    first = data_start(format_version)
     body = bytearray()
 
     def here():
-        return DATA_START + len(body)
+        return first + len(body)
 
     settings_offset = here()
     for setting_name, values, default in settings:
@@ -1542,26 +1562,26 @@ def assemble_package(name, app_id, version, permissions, picture, handlers, sett
     strings_offset = here()
     body += bytes(2 * len(strings))
     for index, text in enumerate(strings):
-        struct.pack_into("<H", body, strings_offset - DATA_START + 2 * index, here())
+        struct.pack_into("<H", body, strings_offset - first + 2 * index, here())
         body += text.encode("ascii") + b"\0"
     bitmaps_offset = here()
     body += bytes(4 * len(bitmaps))
     for index, (width, height, data) in enumerate(bitmaps):
-        struct.pack_into("<BBH", body, bitmaps_offset - DATA_START + 4 * index, width, height, here())
+        struct.pack_into("<BBH", body, bitmaps_offset - first + 4 * index, width, height, here())
         body += data
     code_offset = here()
     body += code
-    size = DATA_START + len(body) + CRC_SIZE
+    size = first + len(body) + CRC_SIZE
 
     header = bytearray(HEADER_SIZE)
     header[0:4] = MAGIC
-    header[4] = FORMAT_VERSION
+    header[4] = format_version
     header[5] = engine_version
     struct.pack_into("<HIHH", header, 6, permissions, app_id, version, size)
     header[16:32] = name.encode("ascii").ljust(16, b"\0")
     header[32:38] = bytes([global_count, saved_count, len(settings), len(strings), len(bitmaps), 0])
     struct.pack_into("<5H", header, 38, settings_offset, strings_offset, bitmaps_offset, code_offset, len(code))
-    package = bytes(header) + bytes(picture) + struct.pack("<8H", *handlers) + bytes(body)
+    package = bytes(header) + bytes(picture) + struct.pack("<%dH" % len(handlers), *handlers) + bytes(body)
     return package + struct.pack("<I", zlib.crc32(package) & 0xFFFFFFFF)
 
 
@@ -1961,7 +1981,7 @@ def run_actions(machine, actions):
     """Actions of the `run` command. Return the text output."""
     out = []
     for action in actions:
-        if action in ("press1", "press2", "long1", "long2", "tick"):
+        if action in ("press1", "press2", "long1", "long2", "down1", "down2", "tick"):
             result = machine.run(action)
         elif action.startswith("wait:"):
             machine.wait(int(action[5:]))
@@ -1986,7 +2006,7 @@ def run_actions(machine, actions):
             out.append("Wrote %s" % action[4:])
             result = "ok"
         else:
-            raise AppError("Unknown action %r. Actions: press1 press2 long1 long2 tick wait:MS frame png:FILE "
+            raise AppError("Unknown action %r. Actions: press1 press2 long1 long2 down1 down2 tick wait:MS frame png:FILE "
                            "counter:NAME=N setting:N=V random:SEED" % action)
         if result != "ok":
             out.append("App error after %s: %s" % (action, result))
@@ -2048,7 +2068,7 @@ def main(argv=None):
     picture.add_argument("-o", "--out", help="the PNG file (default: out/NAME_picture.png)")
     run = sub.add_parser("run", help="run the app in Python and print the screen")
     run.add_argument("file")
-    run.add_argument("actions", nargs="*", help="press1 press2 long1 long2 tick wait:MS frame png:FILE "
+    run.add_argument("actions", nargs="*", help="press1 press2 long1 long2 down1 down2 tick wait:MS frame png:FILE "
                                                 "counter:NAME=N setting:N=V random:SEED (a frame at the end)")
     sub.add_parser("catalog", help="build apps/*/ into updater/apps/ with catalog.json")
     sim = sub.add_parser("sim", help="open the web simulator with the app installed and running")

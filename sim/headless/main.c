@@ -93,6 +93,7 @@ static void _printState(void) {
   printf("ota_double_init=%lu\n", (unsigned long)HostOta_getDoubleInitCount());
   printf("ota_pending=%u\n", (unsigned)HostOta_getPendingStage());
   printf("ota_update_allowed=%d\n", HostOta_isUpdateAllowed() ? 1 : 0);
+  printf("ble_name=%s\n", HostOta_getName());
   printf("rolled_back=%d\n", HostOta_wasRolledBack() ? 1 : 0);
   printf("nvs_writes=%lu\n", (unsigned long)HostNvs_getWriteCount());
   printf("nvs_commits=%lu\n", (unsigned long)HostNvs_getCommitCount());

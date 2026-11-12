@@ -63,7 +63,7 @@ void BleCommands_update(void) {
 // Does one command. Writes the answer data into `response` (OTA_USER_RESPONSE_SIZE bytes at
 // most) and its length into `responseLen`. Returns the status.
 static uint8_t _handle(const ota_user_cmd_t* cmd, uint8_t* response, uint8_t* responseLen) {
-  if(cmd->cmdId >= BLE_COMMAND__APP_INFO && cmd->cmdId <= BLE_COMMAND__APP_SETTING)
+  if(cmd->cmdId >= BLE_COMMAND__APP_INFO && cmd->cmdId <= BLE_COMMAND__APP_DEVICE_NAME)
     return _handleApp(cmd, response, responseLen);
 
   switch(cmd->cmdId) {
@@ -96,10 +96,12 @@ static uint8_t _handleApp(const ota_user_cmd_t* cmd, uint8_t* response, uint8_t*
   App_updateActivity(Time_getMillis());
 
   // While the person answers "INSTALL <NAME>?", nothing can change the apps
-  const bool changes = (cmd->cmdId == BLE_COMMAND__APP_BEGIN || cmd->cmdId == BLE_COMMAND__APP_DATA ||
+  const bool changes = (cmd->cmdId == BLE_COMMAND__APP_BEGIN || cmd->cmdId == BLE_COMMAND__APP_ASK ||
+                        cmd->cmdId == BLE_COMMAND__APP_DATA ||
                         cmd->cmdId == BLE_COMMAND__APP_END || cmd->cmdId == BLE_COMMAND__APP_DELETE ||
                         cmd->cmdId == BLE_COMMAND__APP_SET_ORDER || cmd->cmdId == BLE_COMMAND__APP_SET_HIDDEN ||
-                        (cmd->cmdId == BLE_COMMAND__APP_SETTING && d[5] != 0xFF));
+                        (cmd->cmdId == BLE_COMMAND__APP_SETTING && d[5] != 0xFF) ||
+                        (cmd->cmdId == BLE_COMMAND__APP_DEVICE_NAME && d[0] != 0));
   if(changes && AppSync_isWaiting())
     return BLE_COMMAND_STATUS__WAITING;
 
@@ -156,6 +158,13 @@ static uint8_t _handleApp(const ota_user_cmd_t* cmd, uint8_t* response, uint8_t*
       }
     }
 
+    case BLE_COMMAND__APP_ASK:
+      switch(AppSync_ask(d, OTA_USER_REQUEST_SIZE)) {
+        case APP_SYNC_OK:          return BLE_COMMAND_STATUS__OK;
+        case APP_SYNC_ERR_WAITING: return BLE_COMMAND_STATUS__WAITING;
+        default:                   return BLE_COMMAND_STATUS__ERROR;
+      }
+
     case BLE_COMMAND__APP_DATA: {
       uint16_t expected = 0;
       const app_sync_result_t result = AppSync_data(_get16(&d[0]), &d[2], OTA_USER_REQUEST_SIZE - 2, &expected);
@@ -182,6 +191,8 @@ static uint8_t _handleApp(const ota_user_cmd_t* cmd, uint8_t* response, uint8_t*
           response[0] = (uint8_t)reason;
           *responseLen = 1;
           return BLE_COMMAND_STATUS__BAD_PACKAGE;
+        case APP_SYNC_ERR_WAITING:
+          return BLE_COMMAND_STATUS__WAITING;
         default:
           return BLE_COMMAND_STATUS__ERROR;
       }
@@ -215,6 +226,31 @@ static uint8_t _handleApp(const ota_user_cmd_t* cmd, uint8_t* response, uint8_t*
       }
       response[0] = Apps_getSetting(id, setting);
       *responseLen = 1;
+    } return BLE_COMMAND_STATUS__OK;
+
+    // u8 0 = read, 1 = write; then 8 bytes of the name, 0-padded (all 0 = back to "StatTrak").
+    // Answer: u8 1 = the person chose a name, then the Bluetooth name (8 bytes, 0-padded).
+    // A new name is used from the next start of "Apps: SYNC".
+    case BLE_COMMAND__APP_DEVICE_NAME: {
+      if(d[0] > 1)
+        return BLE_COMMAND_STATUS__ERROR;
+      if(d[0] == 1) {
+        char name[APPS_DEVICE_NAME_MAX + 1] = { 0 };
+        memcpy(name, &d[1], APPS_DEVICE_NAME_MAX);
+        // Only 0 bytes after the name
+        for(uint8_t i = (uint8_t)strlen(name); i < OTA_USER_REQUEST_SIZE - 1; i++) {
+          if(d[1 + i] != 0)
+            return BLE_COMMAND_STATUS__ERROR;
+        }
+        if(Apps_setDeviceName(name) != APPS_OK)
+          return BLE_COMMAND_STATUS__ERROR;
+      }
+      char name[APPS_DEVICE_NAME_MAX + 1];
+      Apps_getDeviceName(name);
+      const char* shown = (name[0] != 0) ? name : "StatTrak";
+      response[0] = (name[0] != 0) ? 1 : 0;
+      memcpy(&response[1], shown, strlen(shown));
+      *responseLen = 1 + APPS_DEVICE_NAME_MAX;
     } return BLE_COMMAND_STATUS__OK;
 
     default:

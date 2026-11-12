@@ -3,8 +3,9 @@
  * @brief   : Settings > "Apps: SYNC": Bluetooth on for the app manager of the web updater.
  *
  * In this view the device refuses new firmware (Ota_setUpdateAllowed(false)), and only here the
- * app commands of main/ble_commands.c work. A new app is kept in RAM until the person holds
- * button 2 ("INSTALL <NAME>?"); then it is written to flash once.
+ * app commands of main/ble_commands.c work. The device asks "INSTALL <NAME>?" before the data
+ * comes (BEGIN, ASK); only after the person holds button 2 it takes the data, and END writes the
+ * checked package to flash once.
  **************************************************************************************************/
 
 #ifndef _APP_SYNC_VIEW_H
@@ -24,7 +25,7 @@
 // Install state (the STATUS command sends it). Values are stable: the web page uses them.
 typedef enum app_sync_state_e {
   APP_SYNC_STATE__IDLE = 0,
-  APP_SYNC_STATE__RECEIVING,
+  APP_SYNC_STATE__RECEIVING,    // The person said yes: the data comes
   APP_SYNC_STATE__WAITING,      // "INSTALL <NAME>?" on the display
   APP_SYNC_STATE__INSTALLED,
   APP_SYNC_STATE__REFUSED,
@@ -41,6 +42,7 @@ typedef enum app_sync_result_e {
   APP_SYNC_ERR_CRC,
   APP_SYNC_ERR_PACKAGE,         // The package check failed
   APP_SYNC_ERR_WAITING,         // The person must answer the install question first
+  APP_SYNC_ERR_FLASH,           // The flash write failed
 } app_sync_result_t;
 
 /* > Function Declarations ************************************************************************/
@@ -53,10 +55,12 @@ bool              AppSync_isWaiting(void);
 
 // The install steps of the Bluetooth commands
 app_sync_result_t AppSync_begin(uint32_t id, uint32_t size, uint32_t crc);
+// The name field of ASK (16 bytes, as in the package header): shows "INSTALL <NAME>?"
+app_sync_result_t AppSync_ask(const uint8_t* name, uint8_t length);
 app_sync_result_t AppSync_data(uint16_t offset, const uint8_t* data, uint8_t length, uint16_t* expected);
 app_sync_result_t AppSync_end(stapp_result_t* reason, uint16_t* expected);
 
-// Each loop (App_update): the 30 s limit of the install question
+// Each loop (App_update): the 30 s limit of the install question, and a transfer that stopped
 void              AppSync_update(uint32_t now);
 
 #endif // _APP_SYNC_VIEW_H

@@ -209,17 +209,19 @@ In that view the device refuses new firmware. Numbers have the low byte first.
 
 | Number | Name | Data from the phone | Answer data |
 | --- | --- | --- | --- |
-| `0x0110` | INFO | none | engine version (1 byte), format version (1), free bytes (2), largest package (2), installed apps (1), largest count of installed apps (1) |
+| `0x0110` | INFO | none | engine version (1 byte), newest package format (1), free bytes (2), largest package (2), installed apps (1), largest count of installed apps (1) |
 | `0x0111` | LIST | index (1) | id (4), version (2), size (2), flags (1: bit 0 hidden, bit 1 built-in, bit 2 has settings, bit 3 switched off for errors), setting count (1), first 3 letters of the name. Status 4 = no app at this index |
 | `0x0112` | NAME | id (4), part (1) | 13 letters of the name from part x 13 |
 | `0x0113` | BEGIN | id (4), size (2), CRC-32 of the whole package file (4) | status 5 = not enough space, 6 = too large, 7 = 8 apps are installed |
-| `0x0114` | DATA | offset (2), 14 package bytes | the next expected offset (2). Status 8 = wrong offset: send again from the answer |
-| `0x0115` | END | none | status 0: the device asks "INSTALL <NAME>?". Status 8 + expected offset (2): data is missing. 9 = bad CRC. 10 = bad package + the reason (1, `Stapp_resultText()`) |
-| `0x0116` | STATUS | none | install state (1): 0 idle, 1 receiving, 2 waiting for the person, 3 installed, 4 refused, 5 no answer in 30 s |
+| `0x011B` | ASK | the name field of the package (16) | after BEGIN: the device asks "INSTALL <NAME>?" now, before any data. Status 2 without BEGIN or for a bad name |
+| `0x0114` | DATA | offset (2), 14 package bytes | only after the person said yes (STATUS 1). The next expected offset (2). Status 8 = wrong offset: send again from the answer |
+| `0x0115` | END | none | status 0: installed (the device shows "APP INSTALLED", SYNC MORE and OPEN). Status 8 + expected offset (2): data is missing. 9 = bad CRC. 10 = bad package + the reason (1, `Stapp_resultText()`); also a package with an other id or name than BEGIN and ASK |
+| `0x0116` | STATUS | none | install state (1): 0 idle, 1 receiving (the person said yes), 2 waiting for the person, 3 installed, 4 refused, 5 no answer in 30 s |
 | `0x0117` | DELETE | id (4) | status 12 = a built-in app cannot be deleted |
 | `0x0118` | SET_ORDER | count (1), 3 ids (12), part (1) | parts 0, 1, 2, ... with 3 ids each; the order is used when all ids are in. All apps of LIST, each one time |
 | `0x0119` | SET_HIDDEN | id (4), hidden (1: 0 or 1) | status 13 = the last shown app cannot be hidden. Shown again = the error count is 0 again |
 | `0x011A` | SETTING | id (4), setting (1), value (1, `0xFF` = only read) | the value (1) |
+| `0x011C` | DEVICE_NAME | 0 = read / 1 = write (1), the name (8, 0-padded; all 0 = "StatTrak") | chosen by the person (1: 0 / 1), the Bluetooth name (8). Used from the next start of "Apps: SYNC" only: the update view and the accept view are always "StatTrak" |
 
 Status 2 = the data is not correct (an unknown id, a value out of range, a command that does not
 fit the install state). Status 11 = the person must answer "INSTALL <NAME>?" first: while the

@@ -18,6 +18,7 @@
 #include <string.h>
 
 #include "ota.h"
+#include "app_ble_name.h"
 
 /* > Defines **************************************************************************************/
 #define USER_QUEUE_LENGTH     (4)   /* The same as OTA_USER_QUEUE_LENGTH on the device */
@@ -33,6 +34,8 @@ typedef struct {
 
 /* > Local Variables ******************************************************************************/
 static bool     s_active = false;
+static char     s_nextName[APP_BLE_NAME_MAX + 1] = "";   /* AppBle_setNextName() */
+static char     s_name[APP_BLE_NAME_MAX + 1] = "StatTrak"; /* The name of this Bluetooth start */
 static uint8_t  s_pendingStage = 0;
 static bool     s_rolledBack = false;
 
@@ -150,8 +153,23 @@ uint8_t HostOta_getState(void) {
 
 /* > components/ble_ota/ota.h *********************************************************************/
 
+/* > components/app_ble/app_ble_name.h ************************************************************/
+
+void AppBle_setNextName(const char* name) {
+  s_nextName[0] = 0;
+  if(name != NULL && strlen(name) <= APP_BLE_NAME_MAX)
+    strcpy(s_nextName, name);
+}
+
+const char* HostOta_getName(void) {
+  return s_name;
+}
+
 int Ota_init(void) {
   s_initCount++;
+  /* As AppBle_init(): the name of AppBle_setNextName() for this start only */
+  strcpy(s_name, s_nextName[0] ? s_nextName : "StatTrak");
+  s_nextName[0] = 0;
   if(s_active)
     s_doubleInitCount++;
 

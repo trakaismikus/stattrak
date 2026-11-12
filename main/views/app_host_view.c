@@ -215,6 +215,9 @@ static bool _eventHandler(uint16_t event) {
     case EVENT__LONG_HOLD_1:  appEvent = STAPP_EVENT__LONG_1; break;
     case EVENT__LONG_PRESS_2:
     case EVENT__LONG_HOLD_2:  appEvent = STAPP_EVENT__LONG_2; break;
+    // The button goes down: no wait for the release (a format 2 app, docs/APPS.md section 4)
+    case EVENT__RAW_PRESS_1:  appEvent = STAPP_EVENT__DOWN_1; break;
+    case EVENT__RAW_PRESS_2:  appEvent = STAPP_EVENT__DOWN_2; break;
     default:                  return false;
   }
 
@@ -378,7 +381,8 @@ static int32_t _sys(void* ctx, uint8_t sysId, const int32_t* a, bool drawing) {
       if(!(s_info.permissions & STAPP_PERM_COUNTERS))
         return 0;
       if(drawing || !(s_event == STAPP_EVENT__PRESS_1 || s_event == STAPP_EVENT__PRESS_2 ||
-                      s_event == STAPP_EVENT__LONG_1 || s_event == STAPP_EVENT__LONG_2))
+                      s_event == STAPP_EVENT__LONG_1 || s_event == STAPP_EVENT__LONG_2 ||
+                      s_event == STAPP_EVENT__DOWN_1 || s_event == STAPP_EVENT__DOWN_2))
         return 0;
       // At most 4 add_counter calls for one press (each change is a flash write)
       if(s_counterChanges >= APP_HOST_MAX_COUNTER_CHANGES)

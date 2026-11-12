@@ -12,7 +12,7 @@ import zlib
 from helpers import SimTestCase, BATTERY_LIPO_1S
 from stattrak_sim import (APP_CMD_BEGIN, APP_CMD_DATA, APP_CMD_DELETE, APP_CMD_END, APP_CMD_INFO,
                           APP_CMD_LIST, APP_CMD_NAME, APP_CMD_SET_HIDDEN, APP_CMD_SET_ORDER,
-                          APP_CMD_SETTING, APP_CMD_STATUS, SimError)
+                          APP_CMD_SETTING, APP_CMD_STATUS, APP_CMD_ASK, APP_CMD_DEVICE_NAME, SimError)
 from stapp_build import Asm, build, finish, PERM_COUNTERS, PERM_SOUND
 
 # Status codes (main/ble_commands.h)
@@ -140,7 +140,8 @@ class AppTestCase(SimTestCase):
         for _ in range(16):
             self.dev.click(2, settle_ms=200)   # The last row (it does not wrap)
         self.dev.click(1, settle_ms=200)       # Serial -> Version
-        self.dev.click(1, settle_ms=200)       # Version -> Firmware
+        self.dev.click(1, settle_ms=200)       # Version -> Factory
+        self.dev.click(1, settle_ms=200)       # Factory -> Firmware
         self.dev.long_press(2)
         self.assertEqual(self.dev.view, "UPDATE")
         self.assertEqual(self.dev.state()["ota_update_allowed"], 1)
@@ -159,6 +160,8 @@ class StoppedTransferTest(AppTestCase):
         status, _ = self.cmd(0x0113, struct.pack("<IHI", struct.unpack_from("<I", package, 8)[0], len(package),
                                                  zlib.crc32(package) & 0xFFFFFFFF))
         self.assertEqual(status, 0)
+        self.assertEqual(self.cmd(APP_CMD_ASK, package[16:32])[0], 0)
+        self.dev.long_press(2)                         # Yes: now the data can come
         self.assertEqual(self.cmd(0x0116)[1][0], 1)   # Receiving
 
     def test_the_transfer_ends_after_10_seconds_without_data(self):
@@ -315,12 +318,77 @@ class InstallTest(AppTestCase):
         self.assertEqual(state["app_install_state"], WAITING_STATE)
         status, data = self.cmd(APP_CMD_STATUS)
         self.assertEqual(data, bytes([WAITING_STATE]))
-        # Nothing can change the apps while the person answers
+        # Nothing can change the apps while the person answers, and no data comes before the answer
         self.assertEqual(self.cmd(APP_CMD_BEGIN, struct.pack("<IHI", 0x77, 400, 0))[0], WAITING)
+        self.assertEqual(self.cmd(APP_CMD_ASK, b"OTHER".ljust(16, b"\0"))[0], WAITING)
+        self.assertEqual(self.cmd(APP_CMD_DATA, bytes(16))[0], WAITING)
         self.assertEqual(self.cmd(APP_CMD_SET_HIDDEN, struct.pack("<IB", KILLS, 1))[0], WAITING)
+        self.assertEqual(self.cmd(APP_CMD_DEVICE_NAME, b"\x01MIKUS".ljust(16, b"\0"))[0], WAITING)
         self.assertGreater(sum(row.count("#") for row in self.dev.frame()[10:30]), 100)
         self.dev.long_press(2)
-        self.assertEqual(self.cmd(APP_CMD_STATUS)[1], bytes([INSTALLED]))
+        # Yes: the device takes the data now; nothing is installed before END
+        self.assertEqual(self.cmd(APP_CMD_STATUS)[1], bytes([RECEIVING]))
+        self.assertEqual(self.apps_list(), [KILLS, KILL_DEAD, STATS])
+
+    def test_no_data_before_the_question(self):
+        self.dev.open_app_sync()
+        package = counter_app()
+        # ASK without BEGIN, DATA without yes, a bad name
+        self.assertEqual(self.cmd(APP_CMD_ASK, b"COUNTER".ljust(16, b"\0"))[0], ERROR)
+        self.assertEqual(self.cmd(APP_CMD_BEGIN, struct.pack("<IHI", 0x1000, len(package), zlib.crc32(package)))[0], OK)
+        self.assertEqual(self.cmd(APP_CMD_DATA, struct.pack("<H", 0) + package[0:14])[0], ERROR)
+        self.assertEqual(self.cmd(APP_CMD_END)[0], ERROR)
+        self.assertEqual(self.cmd(APP_CMD_ASK, b"counter".ljust(16, b"\0"))[0], ERROR)     # small letters
+        self.assertEqual(self.cmd(APP_CMD_ASK, b"COUNTER\0X".ljust(16, b"\0"))[0], ERROR)  # bytes after the end
+        self.assertEqual(self.cmd(APP_CMD_STATUS)[1], bytes([IDLE]))
+        self.assertEqual(self.cmd(APP_CMD_ASK, b"COUNTER".ljust(16, b"\0"))[0], OK)
+        self.assertEqual(self.cmd(APP_CMD_STATUS)[1], bytes([WAITING_STATE]))
+
+    def test_only_a_hold_that_starts_during_the_question_answers_it(self):
+        self.dev.open_app_sync()
+        package = counter_app()
+        self.dev.press(2)                                   # Held before the question comes
+        self.assertEqual(self.cmd(APP_CMD_BEGIN, struct.pack("<IHI", 0x1000, len(package), zlib.crc32(package)))[0], OK)
+        self.assertEqual(self.cmd(APP_CMD_ASK, package[16:32])[0], OK)
+        self.dev.run(1500)                                  # Long press and its repeats
+        self.dev.release(2)
+        self.dev.run(400)
+        self.assertEqual(self.cmd(APP_CMD_STATUS)[1], bytes([WAITING_STATE]))
+        # The hold fills the YES button (x 102 .. 123, y 21 .. 29) from the left
+        def yes_pixels():
+            return sum(row[103:123].count("#") for row in self.dev.frame()[22:29])
+        empty = yes_pixels()
+        self.dev.press(2)
+        self.dev.run(350)
+        half = yes_pixels()
+        self.assertGreater(half, empty + 30)
+        self.dev.run(500)
+        self.dev.release(2)
+        self.dev.run(400)
+        self.assertEqual(self.cmd(APP_CMD_STATUS)[1], bytes([RECEIVING]))
+
+    def test_after_the_install_sync_more_or_open(self):
+        self.assert_installed(counter_app())
+        frame = "\n".join(self.dev.frame())
+        self.assertEqual(self.dev.view, "APP_SYNC")
+        # SYNC MORE (button 1): back to "Waiting", Bluetooth stays on
+        self.dev.click(1, settle_ms=600)
+        self.assertEqual(self.cmd(APP_CMD_STATUS)[1], bytes([IDLE]))
+        self.assertEqual(self.dev.view, "APP_SYNC")
+        self.assertNotEqual("\n".join(self.dev.frame()), frame)
+        # The next install, then OPEN (button 2): the app runs and Bluetooth is off
+        self.assert_installed(counter_app(app_id=0x2000, name="SECOND"), open_sync=False)
+        self.dev.click(2, settle_ms=800)
+        state = self.dev.state()
+        self.assertEqual(state["view"], "APP_HOST")
+        self.assertEqual(state["app_running"], 0x2000)
+        self.assertEqual(state["ota_active"], 0)
+
+    def test_the_name_must_be_the_name_of_the_question(self):
+        result = self.install(counter_app(), name=b"OTHER APP")
+        self.assertEqual((result["step"], result["status"]), ("end", BAD_PACKAGE), result)
+        self.assertEqual(self.apps_list(), [KILLS, KILL_DEAD, STATS])
+        self.assertEqual(self.cmd(APP_CMD_STATUS)[1], bytes([IDLE]))
 
     def test_bad_crc(self):
         result = self.install(counter_app(), crc=0x12345678)
@@ -342,6 +410,8 @@ class InstallTest(AppTestCase):
         package = counter_app()
         status, _ = self.cmd(APP_CMD_BEGIN, struct.pack("<IHI", 0x9999, len(package), zlib.crc32(package)))
         self.assertEqual(status, OK)
+        self.assertEqual(self.cmd(APP_CMD_ASK, package[16:32])[0], OK)
+        self.dev.long_press(2)
         chunks = [(APP_CMD_DATA, struct.pack("<H", o) + package[o:o + 14].ljust(14, b"\0"))
                   for o in range(0, len(package), 14)]
         self.assertTrue(all(answer[0] == OK for answer in self.dev.ble_commands(chunks)))
@@ -357,6 +427,8 @@ class InstallTest(AppTestCase):
         self.dev.open_app_sync()
         package = counter_app()
         self.assertEqual(self.cmd(APP_CMD_BEGIN, struct.pack("<IHI", 0x1000, len(package), zlib.crc32(package)))[0], OK)
+        self.assertEqual(self.cmd(APP_CMD_ASK, package[16:32])[0], OK)
+        self.dev.long_press(2)
         self.assertEqual(self.cmd(APP_CMD_DATA, struct.pack("<H", 0) + package[0:14])[0], OK)
         status, data = self.cmd(APP_CMD_DATA, struct.pack("<H", 28) + package[28:42])
         self.assertEqual(status, OFFSET)
@@ -394,7 +466,7 @@ class InstallTest(AppTestCase):
         status, data = self.cmd(APP_CMD_INFO)
         self.assertEqual(status, OK)
         engine, fmt, free, max_size, count, max_apps = struct.unpack("<BBHHBB", data)
-        self.assertEqual((engine, fmt, max_size, count, max_apps), (1, 1, 4096, 1, 8))
+        self.assertEqual((engine, fmt, max_size, count, max_apps), (1, 2, 4096, 1, 8))
         self.assertEqual(free, 24 * 1024 - len(counter_app()))
 
         status, data = self.cmd(APP_CMD_LIST, bytes([0]))
@@ -411,6 +483,68 @@ class InstallTest(AppTestCase):
         self.assertEqual(self.cmd(APP_CMD_NAME, struct.pack("<IB", KILL_DEAD, 0)), (OK, b"KILLS + DEAD"))
         self.assertEqual(self.cmd(APP_CMD_NAME, struct.pack("<IB", 0x1000, 1)), (OK, b""))
         self.assertEqual(self.cmd(APP_CMD_NAME, struct.pack("<IB", 0x4444, 0))[0], ERROR)
+
+
+class DeviceNameTest(AppTestCase):
+    """DEVICE_NAME: the Bluetooth name of "Apps: SYNC". The update views keep "StatTrak"."""
+
+    def name_cmd(self, name=None):
+        data = b"\x00" if name is None else b"\x01" + name
+        return self.cmd(APP_CMD_DEVICE_NAME, data.ljust(16, b"\0")[:16])
+
+    def test_read_write_and_back_to_stattrak(self):
+        self.dev.open_app_sync()
+        self.assertEqual(self.dev.state()["ble_name"], "StatTrak")
+        self.assertEqual(self.name_cmd(), (OK, b"\x00StatTrak"))
+        self.assertEqual(self.name_cmd(b"Mikus 1"), (OK, b"\x01Mikus 1\x00"))
+        self.assertEqual(self.name_cmd(), (OK, b"\x01Mikus 1\x00"))
+        # Used from the next start of Apps: SYNC, not now
+        self.assertEqual(self.dev.state()["ble_name"], "StatTrak")
+        self.leave_sync()
+        self.dev.open_app_sync()
+        self.assertEqual(self.dev.state()["ble_name"], "Mikus 1")
+        # Kept after a power cut
+        self.dev.power_cut()
+        self.dev.boot()
+        self.dev.open_app_sync()
+        self.assertEqual(self.dev.state()["ble_name"], "Mikus 1")
+        # All 0 = back to "StatTrak"
+        self.assertEqual(self.name_cmd(b""), (OK, b"\x00StatTrak"))
+        self.leave_sync()
+        self.dev.open_app_sync()
+        self.assertEqual(self.dev.state()["ble_name"], "StatTrak")
+
+    def test_bad_names_are_refused(self):
+        self.dev.open_app_sync()
+        for bad in (b" MIKUS", b"MIKUS ", b"MI\x07KUS", b"MIKUS\x00X", b"ABCDEFGH" + b"I", b"\xffABC"):
+            self.assertEqual(self.name_cmd(bad)[0], ERROR, bad)
+        self.assertEqual(self.cmd(APP_CMD_DEVICE_NAME, b"\x02".ljust(16, b"\0"))[0], ERROR)
+        self.assertEqual(self.name_cmd(b"ABCDEFGH"), (OK, b"\x01ABCDEFGH"))   # 8 characters is the most
+        self.assertEqual(self.name_cmd(b"~!{}"), (OK, b"\x01~!{}\x00\x00\x00\x00"))
+
+    def test_the_update_views_are_always_stattrak(self):
+        self.dev.open_app_sync()
+        self.assertEqual(self.name_cmd(b"MIKUS")[0], OK)
+        self.leave_sync()
+        self.dev.open_app_sync()
+        self.assertEqual(self.dev.state()["ble_name"], "MIKUS")
+        self.dev.long_press(1)
+        self.open_update_view_from_menu(transfer=False)
+        self.assertEqual(self.dev.state()["ble_name"], "StatTrak")
+
+    def test_a_factory_reset_erases_the_name(self):
+        self.dev.open_app_sync()
+        self.assertEqual(self.name_cmd(b"MIKUS")[0], OK)
+        self.leave_sync()
+        self.dev.click(2, settle_ms=200)   # "Firmware"
+        self.dev.click(2, settle_ms=200)   # "Factory"
+        self.dev.long_press(2)
+        self.assertEqual(self.dev.view, "ASK")
+        self.dev.long_press(2)             # Yes
+        self.dev.run(1000)
+        self.dev.open_app_sync()
+        self.assertEqual(self.dev.state()["ble_name"], "StatTrak")
+        self.assertEqual(self.name_cmd(), (OK, b"\x00StatTrak"))
 
 
 class ManageTest(AppTestCase):
@@ -688,7 +822,8 @@ class SafetyTest(AppTestCase):
     def test_a_factory_reset_removes_the_apps(self):
         self.assert_installed(counter_app())
         self.leave_sync()
-        self.dev.click(2, settle_ms=200)   # "Factory" is the row after "Apps"
+        self.dev.click(2, settle_ms=200)   # "Firmware" is the row after "Apps"
+        self.dev.click(2, settle_ms=200)   # then "Factory"
         self.dev.long_press(2)
         self.assertEqual(self.dev.view, "ASK")
         self.dev.long_press(2)             # Yes
@@ -729,7 +864,7 @@ class RobustnessTest(AppTestCase):
                 package[rng.randrange(12, len(package) - 4)] = rng.randrange(256)
             package = finish(package)
             result = self.install(package, open_sync=False)
-            self.assertIn(result["step"], ("begin", "end", "answer"), result)
+            self.assertIn(result["step"], ("begin", "ask", "end", "answer"), result)
             if result["state"] == INSTALLED:
                 # It passed the check: it must run without breaking the device
                 self.leave_sync()
@@ -751,7 +886,11 @@ class RobustnessTest(AppTestCase):
             data[0:4] = b"STAP"
             data[4], data[5] = 1, 1
             struct.pack_into("<I", data, 8, 0x5000 + case)
+            # A random name field: the device does not even ask
             result = self.install(bytes(data), open_sync=False)
+            self.assertEqual((result["step"], result["status"]), ("ask", ERROR), result)
+            # With a good name it asks; after yes the check of END refuses the package
+            result = self.install(bytes(data), open_sync=False, name=b"RANDOM %d" % case)
             self.assertEqual(result["step"], "end", result)
             self.assertEqual(result["status"], BAD_PACKAGE, result)
         self.dev.long_press(1)

@@ -42,14 +42,14 @@ This page is the specification. It is for AI coding tools and developers.
 | Steps for one event | 4000 instructions (draw included). More = app error. |
 | Stack | 32 values. Call depth 8. |
 
-## 3. Package format (version 1)
+## 3. Package format (versions 1 and 2)
 
 Little-endian. All offsets are from the start of the package.
 
 ```
 Header (48 bytes)
   0  u8[4]  magic "STAP"
-  4  u8     format version = 1
+  4  u8     format version = 1 or 2 (2 = the handler table also has down1, down2)
   5  u8     engine version needed (1)
   6  u16    permissions (bit 0: changes counters, bit 1: sound)
   8  u32    app id (not 0, not 0xFFFFFFFF; the compiler makes it from the name unless set)
@@ -69,8 +69,10 @@ Header (48 bytes)
  46  u16    code size
 Title picture: 240 bytes right after the header (offset 48): 80 x 24, Gfx_drawBitmapRaw format
   (3 pages of 80 bytes, bit 0 = top pixel of the page)
-Handler table: 8 x u16 right after the title picture (offset 288): code offsets (relative to
-  the code start) of: open, draw, press1, press2, long1, long2, tick, close. 0xFFFF = none.
+Handler table: right after the title picture (offset 288): code offsets (relative to the code
+  start) of: open, draw, press1, press2, long1, long2, tick, close (format 1: 8 x u16), then
+  down1, down2 (format 2: 10 x u16). 0xFFFF = none. The compiler writes format 2 only for an app
+  with a down1 or down2 handler; other apps stay format 1 (older firmware can install them).
 Settings block: for each setting:
   char[12] name (0-padded), u8 value count (2..6), u8 default (< count),
   then value count x char[8] (0-padded)
@@ -86,14 +88,15 @@ All blocks must be inside the package, must not overlap the header, the picture 
 ### 3.1 The check, rule by rule
 
 `Stapp_check` (C) and `tools/app.py check` (Python) check these rules in this order. The first
-broken rule gives the result. "Data area" = from offset 304 (after the handler table) to the
+broken rule gives the result. "Data area" = from offset 304 (format 1) or 308 (format 2), after
+the handler table, to the
 start of the CRC.
 
 | Step | Rule | Result if broken |
 | --- | --- | --- |
 | 1 | Package size 308 to 4096 bytes | `bad size` |
 | 2 | Magic `STAP` | `bad magic` |
-| 3 | Format version = 1, engine version needed = 1 .. `STAPP_ENGINE_VERSION` | `bad version` |
+| 3 | Format version = 1 or 2, engine version needed = 1 .. `STAPP_ENGINE_VERSION`. Format 2: size at least 312 | `bad version` (`bad size` for the 312) |
 | 4 | Total size in the header = package size | `bad size` |
 | 5 | CRC | `bad crc` |
 | 6 | Permissions only bits 0 and 1. Id not 0 .. 255 (0 and the built-in apps 1, 2, 3; 4 .. 255 are kept for later built-in apps) and not 0xFFFFFFFF. Name: 1 to 14 characters of `A-Z 0-9 space + - % / . :`, then only 0 bytes. Counts: globals <= 48, saved <= 16 and <= globals, settings <= 4, strings <= 32, bitmaps <= 8. Reserved byte = 0 | `bad header` |
@@ -223,7 +226,7 @@ must match it):
 - `invert(x, y, w, h)`: inverts the w x h pixels.
 
 Where calls work: drawing calls only in `draw`. `add_counter` only in `press1`, `press2`,
-`long1`, `long2` (in other handlers it does nothing and gives 0), at most 4 times in one event
+`long1`, `long2`, `down1`, `down2` (in other handlers it does nothing and gives 0), at most 4 times in one event
 (more calls only give the value). `click` and `tone` do nothing in `draw`.
 Each `draw` may draw at most about 8 full screens of pixels; more = app error `too many steps`.
 
@@ -233,7 +236,8 @@ Each `draw` may draw at most about 8 full screens of pixels; more = app error `t
 | --- | --- |
 | `open` | the app is opened from the menu (after the saved values are loaded) |
 | `draw` | each 10 ms, the screen is empty before |
-| `press1`, `press2` | short press |
+| `press1`, `press2` | short press: about 0.2 s after the release (the firmware waits to see if a second press comes) |
+| `down1`, `down2` | the button goes down: at once, no wait (format 2). Use it in fast games. Also the first button of a "both buttons" press comes here before the app menu opens |
 | `long1`, `long2` | long press start and each 500 ms while held |
 | `tick` | each 100 ms while the app is open |
 | `close` | the app is left (both buttons) |
@@ -272,22 +276,34 @@ display (any command that changes apps answers 11 until the person answers), 12 
 
 | Number | Name | Data in | Answer |
 | --- | --- | --- | --- |
-| `0x0110` | INFO | | u8 engine version, u8 format version, u16 free bytes, u16 max package, u8 app count, u8 max apps |
+| `0x0110` | INFO | | u8 engine version, u8 format version (the newest that the firmware reads: 2), u16 free bytes, u16 max package, u8 app count, u8 max apps |
 | `0x0111` | LIST | u8 index | u32 id, u16 version, u16 size, u8 flags (bit 0 hidden, bit 1 built-in, bit 2 has settings, bit 3 error), u8 setting count, 3 chars of the name (use NAME for the full name). Status 4 = index too large |
 | `0x0112` | NAME | u32 id, u8 part | 13 bytes of the name from part * 13. Status 2 = unknown id |
-| `0x0113` | BEGIN | u32 id, u16 size, u32 crc | crc = CRC-32 of the whole package file. Status 2 for an id 0 .. 255 or 0xFFFFFFFF or a size under 308; 5 no space, 6 too large, 7 too many apps. An id that is installed already is replaced: it keeps its place in the menu, and it is shown again if errors had switched it off |
-| `0x0114` | DATA | u16 offset, 14 bytes | answer: u16 next expected offset (also when it is ok). Status 8 = wrong offset: send again from the expected offset |
-| `0x0115` | END | | checks the CRC and the package: status 9 bad CRC, 10 bad package (u8 reason = `stapp_result_t`), 8 missing data (u16 expected offset). Status 0 = the device shows "INSTALL <NAME>?" now |
-| `0x0116` | STATUS | | u8 install state: 0 idle, 1 receiving, 2 waiting for the person, 3 installed, 4 refused, 5 timeout (30 s; the display shows "REFUSED") |
+| `0x0113` | BEGIN | u32 id, u16 size, u32 crc | crc = CRC-32 of the whole package file. Status 2 for an id 0 .. 255 or 0xFFFFFFFF or a size under 308; 5 no space, 6 too large, 7 too many apps. A new BEGIN stops an install that runs (also an earlier "yes"). An id that is installed already is replaced: it keeps its place in the menu, and it is shown again if errors had switched it off |
+| `0x011B` | ASK | 16 bytes: the name field of the package (offset 16) | after BEGIN: the display shows "INSTALL <NAME>?" (STATUS 2). Status 2 without BEGIN or for a bad name. END later refuses a package with an other name or id (status 10) |
+| `0x0114` | DATA | u16 offset, 14 bytes | only after "yes" (STATUS 1). Answer: u16 next expected offset (also when it is ok). Status 8 = wrong offset: send again from the expected offset |
+| `0x0115` | END | | checks the CRC and the package, then writes it to flash: status 9 bad CRC, 10 bad package (u8 reason = `stapp_result_t`), 8 missing data (u16 expected offset), 2 the flash write failed. Status 0 = installed: the display shows "APP INSTALLED", SYNC MORE and OPEN |
+| `0x0116` | STATUS | | u8 install state: 0 idle, 1 receiving (the person said yes: send DATA), 2 waiting for the person, 3 installed, 4 refused, 5 timeout (30 s; the display shows "REFUSED") |
 | `0x0117` | DELETE | u32 id | deletes the package and its values. Status 12 for a built-in app, 2 for an unknown id |
 | `0x0118` | SET_ORDER | u8 count, 3 x u32 id, u8 part | every part has this layout (16 bytes); part numbers go from 0 in order; ids after the end are 0. The order must have each app of the list one time. Applied when the last part is in |
 | `0x0119` | SET_HIDDEN | u32 id, u8 hidden (0 / 1) | hidden 0 also sets the error count back to 0. Status 13 = the last shown app cannot be hidden |
 | `0x011A` | SETTING | u32 id, u8 setting, u8 value (0xFF = read) | u8 value. Status 2 = unknown id, setting or value |
+| `0x011C` | DEVICE_NAME | u8 0 = read / 1 = write, 8 bytes name (0-padded; all 0 = back to "StatTrak") | u8 1 = the person chose a name, then the Bluetooth name (8 bytes, 0-padded). A name: 1 to 8 characters 0x20 .. 0x7E, no space at the start or the end; else status 2. The new name is used from the next start of "Apps: SYNC". Only "Apps: SYNC" uses it: the update view and the accept view are always "StatTrak". A factory reset erases it |
 
-Install: BEGIN, DATA from offset 0 in order, END, then STATUS until 3, 4 or 5. Data is kept in
-RAM until the person holds button 2 ("INSTALL <NAME>?"); then the package is written to flash
-once. Button 1 or 30 s without an answer = refused. While it receives, 10 s without DATA or a
-hold of button 1 stops the transfer (STATUS 0 again); the page then starts with BEGIN.
+Install: BEGIN, ASK, then STATUS until the person answers "INSTALL <NAME>?": 1 = yes, 4 = no,
+5 = no answer in 30 s. After yes: DATA from offset 0 in order, then END. END checks the package
+and writes it to flash once; its status 0 = installed (STATUS 3). Only a hold that starts while
+the question shows answers it (hold button 2 = yes, hold button 1 = no); the button fills from
+the left while it is held. While it receives, 10 s without DATA or a hold of button 1 stops the
+transfer (STATUS 0 again, the display shows "NOT INSTALLED"); the page then starts with BEGIN.
+
+After the install the display shows "APP INSTALLED", the name, SYNC MORE (press button 1: wait
+for the next app) and OPEN (press button 2: the app opens, and Bluetooth goes off, so the page
+loses the connection). A new BEGIN also works without SYNC MORE.
+
+The Bluetooth name is at most 8 characters: the advertising packet (31 bytes) also holds the
+flags and the 128-bit service UUID. The Apps tab finds a device with any name by that UUID; the
+firmware tab and older pages look for the name "StatTrak", so the update views keep it.
 
 An answer has no length field: a name (NAME) ends at its first 0 byte.
 
@@ -351,7 +367,7 @@ Each of these is one line. `#` starts a comment until the end of the line.
 | `saved NAME [= N]` | A variable that is kept in flash. |
 | `var NAME [= N]` | A variable of the app. |
 | `bitmap NAME "file.png"` or `bitmap NAME { "#..#" "...." }` | A bitmap (at most 128 x 32): a PNG file, or rows of `#` (on) and `.` (off), one or more per line. `NAME` is its id in `bitmap(x, y, NAME, c)`. |
-| `on EVENT { ... }` | A handler: `open draw press1 press2 long1 long2 tick close`. |
+| `on EVENT { ... }` | A handler: `open draw press1 press2 long1 long2 tick close down1 down2`. |
 | `func NAME(A, B) { ... }` | A function. Its parameters and variables are hidden globals. |
 
 When no `picture` line is there, the picture is the name in the title font, in the middle.
@@ -434,8 +450,9 @@ the firmware):
    buttons). `tests/test_sample_apps.py` runs them in the simulator.
    Play an app by hand in the web simulator, with one command (step 3 below):
    `python tools/app.py sim apps/runner/runner.sts`.
-   An app gets a short press about 0.2 s after the button goes down (the firmware waits to see
-   if it becomes a double press). Fast games must allow for this.
+   An app gets a short press (`press1`) about 0.2 s after the release (the firmware waits to see
+   if it becomes a double press). A fast game uses `down1` / `down2`: they come when the button
+   goes down (RUNNER does this).
 2. Compile and check it:
 
    ```
@@ -453,7 +470,7 @@ the firmware):
    python tools/app.py run apps/headshot/headshot.sts counter:game_kills=12 press2 png:out/hs.png
    ```
 
-   Actions: `press1 press2 long1 long2 tick`, `wait:MS` (a draw each 10 ms, a tick each 100 ms),
+   Actions: `press1 press2 long1 long2 down1 down2 tick`, `wait:MS` (a draw each 10 ms, a tick each 100 ms),
    `frame` (print the screen), `png:FILE`, `counter:NAME=N`, `setting:N=V` (value number),
    `random:SEED`. It prints the clicks too. This engine is a Python copy for previews; the
    simulator runs the real one (`python tools/sim.py boot app:...`).

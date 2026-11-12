@@ -23,6 +23,8 @@
 
 // STATUS answer (docs/APPS.md section 6)
 #define INSTALL_STATE__IDLE       0
+#define INSTALL_STATE__RECEIVING  1
+#define INSTALL_STATE__WAITING    2
 #define INSTALL_STATE__INSTALLED  3
 #define INSTALL_STATE__REFUSED    4
 #define INSTALL_STATE__TIMEOUT    5
@@ -38,6 +40,7 @@ static bool     s_open = false;
 static uint32_t s_sentBytes = 0;      // DATA sent up to here
 static uint8_t  s_waiting = 0;        // Commands without an answer
 static bool     s_endSent = false;
+static bool     s_asked = false;      // The device took ASK: it shows the question now
 static uint64_t s_startMs = 0;
 static uint64_t s_lastStatusMs = 0;
 
@@ -109,7 +112,7 @@ static void _installed(void) {
     AppView_set(VIEW_ID__APP_HOST);
     snprintf(s_text, sizeof(s_text), "%s is installed and open. LEFT + RIGHT: app menu.", s_name);
   } else {
-    snprintf(s_text, sizeof(s_text), "Installed. Hold LEFT to leave Apps: SYNC, then LEFT + RIGHT for the app menu.");
+    snprintf(s_text, sizeof(s_text), "Installed. On the device: LEFT = SYNC MORE, RIGHT = OPEN.");
   }
 }
 
@@ -130,28 +133,32 @@ static bool _readAnswers(void) {
       return false;
     }
 
-    if(cmd == BLE_COMMAND__APP_STATUS && len >= 1) {
-      if(data[0] == INSTALL_STATE__INSTALLED) {
-        _installed();
-        return false;
-      }
-      if(data[0] == INSTALL_STATE__REFUSED || data[0] == INSTALL_STATE__TIMEOUT) {
+    if(cmd == BLE_COMMAND__APP_ASK) {
+      s_asked = true;
+      if(s_open)
+        snprintf(s_text, sizeof(s_text), "INSTALL %s? The simulator holds RIGHT (button 2) = yes...", s_name);
+      else
+        snprintf(s_text, sizeof(s_text), "The device asks: hold RIGHT (button 2) = yes, hold LEFT (button 1) = no.");
+    }
+
+    if(cmd == BLE_COMMAND__APP_STATUS && len >= 1 && s_state == SIM_APPS__QUESTION) {
+      if(data[0] == INSTALL_STATE__RECEIVING) {
+        // Yes: now the data goes
+        s_state = SIM_APPS__SENDING;
+        snprintf(s_text, sizeof(s_text), "Sending %s...", s_name);
+      } else if(data[0] == INSTALL_STATE__REFUSED || data[0] == INSTALL_STATE__TIMEOUT) {
         s_state = SIM_APPS__REFUSED;
         snprintf(s_text, sizeof(s_text), "Not installed: the device said no.");
         return false;
-      }
-      if(data[0] == INSTALL_STATE__IDLE) {
+      } else if(data[0] != INSTALL_STATE__WAITING) {
         _fail("Not installed: the device stopped the install.");
         return false;
       }
     }
 
     if(cmd == BLE_COMMAND__APP_END) {
-      s_state = SIM_APPS__QUESTION;
-      if(s_open)
-        snprintf(s_text, sizeof(s_text), "INSTALL %s? The simulator holds RIGHT (button 2) = yes...", s_name);
-      else
-        snprintf(s_text, sizeof(s_text), "The device asks: hold RIGHT (button 2) = yes, hold LEFT (button 1) = no.");
+      _installed();
+      return false;
     }
   }
   return true;
@@ -187,6 +194,7 @@ bool SimApps_start(const uint8_t* package, uint32_t size, bool open) {
   s_sentBytes = 0;
   s_waiting = 0;
   s_endSent = false;
+  s_asked = false;
   s_startMs = Host_nowMs();
   s_lastStatusMs = 0;
   s_state = SIM_APPS__OPENING;
@@ -219,18 +227,30 @@ void SimApps_update(void) {
         return;
       }
       if(view == VIEW_ID__APP_SYNC && HostOta_isActive()) {
-        // BEGIN: u32 id, u16 size, u32 CRC-32 of the whole package
+        // BEGIN: u32 id, u16 size, u32 CRC-32 of the whole package. Then ASK: the name field of
+        // the header (16 bytes): the device asks "INSTALL <NAME>?" before the data comes.
         uint8_t data[10];
         _put32(&data[0], s_id);
         data[4] = (uint8_t)s_size;
         data[5] = (uint8_t)(s_size >> 8);
         _put32(&data[6], Stapp_crc32(s_package, s_size));
-        if(_send(BLE_COMMAND__APP_BEGIN, data, sizeof(data))) {
-          s_state = SIM_APPS__SENDING;
-          snprintf(s_text, sizeof(s_text), "Sending %s...", s_name);
+        if(_send(BLE_COMMAND__APP_BEGIN, data, sizeof(data)) && _send(BLE_COMMAND__APP_ASK, &s_package[16], 16)) {
+          s_state = SIM_APPS__QUESTION;
+          snprintf(s_text, sizeof(s_text), "Asking the device...");
+        } else {
+          _fail("Not installed: the device did not take the commands.");
         }
       }
     } break;
+
+    case SIM_APPS__QUESTION:
+      if(!_readAnswers() || s_state != SIM_APPS__QUESTION || !_stillInSync())
+        return;
+      if(s_waiting == 0 && (Host_nowMs() - s_lastStatusMs) >= STATUS_EVERY_MS) {
+        s_lastStatusMs = Host_nowMs();
+        _send(BLE_COMMAND__APP_STATUS, NULL, 0);
+      }
+      break;
 
     case SIM_APPS__SENDING:
       if(!_readAnswers() || s_state != SIM_APPS__SENDING || !_stillInSync())
@@ -245,18 +265,9 @@ void SimApps_update(void) {
           return;
         s_sentBytes += count;
       }
-      // END after the answers of all DATA commands
+      // END after the answers of all DATA commands: the device checks the app and writes it
       if(s_sentBytes >= s_size && s_waiting == 0 && !s_endSent && _send(BLE_COMMAND__APP_END, NULL, 0))
         s_endSent = true;
-      break;
-
-    case SIM_APPS__QUESTION:
-      if(!_readAnswers() || s_state != SIM_APPS__QUESTION || !_stillInSync())
-        return;
-      if(s_waiting == 0 && (Host_nowMs() - s_lastStatusMs) >= STATUS_EVERY_MS) {
-        s_lastStatusMs = Host_nowMs();
-        _send(BLE_COMMAND__APP_STATUS, NULL, 0);
-      }
       break;
 
     default:
@@ -273,5 +284,5 @@ const char* SimApps_getText(void) {
 }
 
 bool SimApps_wantsYes(void) {
-  return s_open && s_state == SIM_APPS__QUESTION;
+  return s_open && s_state == SIM_APPS__QUESTION && s_asked;
 }

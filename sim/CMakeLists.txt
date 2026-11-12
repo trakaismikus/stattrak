@@ -117,6 +117,7 @@ set(QUOTE_INCLUDE_DIRS
   ${COMPONENT_DIR}/stapp
   ${COMPONENT_DIR}/ssd1307
   ${COMPONENT_DIR}/ble_ota
+  ${COMPONENT_DIR}/app_ble
 )
 
 set(COMMON_OPTIONS "")

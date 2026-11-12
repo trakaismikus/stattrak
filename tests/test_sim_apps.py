@@ -67,6 +67,11 @@ class SimAppsTest(AppTestCase):
         package = bytearray(counter_app())
         package[100] ^= 0xFF                                                 # the CRC of the file no longer fits
         state = self.simapp(bytes(package))
+        # The device asks first (the data comes only after yes), then it checks the app
+        self.assertEqual(state["simapp_state"], QUESTION, state["simapp_text"])
+        self.dev.long_press(2)
+        self.dev.run(1000)
+        state = self.dev.state()
         self.assertEqual(state["simapp_state"], FAILED)
         self.assertIn("not a valid app file", state["simapp_text"])
         self.assertEqual(self.apps_list(), [KILLS, KILL_DEAD, STATS])

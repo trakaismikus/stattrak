@@ -3,9 +3,9 @@
  * @brief   : Install an app package in the simulator, like the web updater does (the window and
  *            web simulators, and the headless commands "simapp" / "simopen").
  *
- * The simulator opens "Apps: SYNC" (as the Settings row does) and sends the package with the
- * Bluetooth app commands of docs/APPS.md section 6 (BEGIN, DATA, END, STATUS). The device then asks
- * "INSTALL <NAME>?". The person answers with the buttons (hold button 2 = yes), as on a device; or,
+ * The simulator opens "Apps: SYNC" (as the Settings row does) and uses the Bluetooth app commands
+ * of docs/APPS.md section 6: BEGIN and ASK (the device asks "INSTALL <NAME>?"), STATUS until the
+ * answer, then DATA and END. The person answers with the buttons (hold button 2 = yes), as on a device; or,
  * with `open`, the front end holds button 2 itself (SimApps_wantsYes) and the app opens after the
  * install. The firmware code of the install is the real code; only the phone is simulated.
  **************************************************************************************************/
@@ -19,8 +19,8 @@
 typedef enum sim_apps_state_e {
   SIM_APPS__IDLE = 0,
   SIM_APPS__OPENING,      // Opens "Apps: SYNC" (waits for the end of the start screen)
-  SIM_APPS__SENDING,      // BEGIN, DATA, END
-  SIM_APPS__QUESTION,     // The device shows "INSTALL <NAME>?"
+  SIM_APPS__SENDING,      // After yes: DATA, END
+  SIM_APPS__QUESTION,     // BEGIN, ASK: the device shows "INSTALL <NAME>?"
   SIM_APPS__INSTALLED,
   SIM_APPS__REFUSED,      // The person said no, or 30 s without an answer
   SIM_APPS__FAILED,       // See SimApps_getText()

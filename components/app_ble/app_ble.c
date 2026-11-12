@@ -47,6 +47,15 @@ static ble_app_service_t* s_service;
 
 /* > Function Definitions *************************************************************************/
 
+// A name for the next start only (AppBle_setNextName). Empty = GAP_NAME.
+static char s_nextName[APP_BLE_NAME_MAX + 1] = "";
+
+void AppBle_setNextName(const char* name) {
+  s_nextName[0] = '\0';
+  if(name != NULL && strlen(name) <= APP_BLE_NAME_MAX)
+    strcpy(s_nextName, name);
+}
+
 void AppBle_init(ble_app_service_t* service) {
   esp_err_t ret;
   int rc;
@@ -135,9 +144,10 @@ void AppBle_init(ble_app_service_t* service) {
     assert(rc == 0);
   }
 
-  /* Set the default device name. */
-  rc = ble_svc_gap_device_name_set(GAP_NAME);
+  /* Set the device name: GAP_NAME, or the name of AppBle_setNextName() for this start only. */
+  rc = ble_svc_gap_device_name_set(s_nextName[0] ? s_nextName : GAP_NAME);
   assert(rc == 0);
+  s_nextName[0] = '\0';
 
   /* XXX Need to have template for store */
   ble_store_config_init();
