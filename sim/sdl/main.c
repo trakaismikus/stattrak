@@ -11,8 +11,9 @@
  *   A           a phone accepts the new firmware (only while the device waits for it)
  *   ESC         quit
  *
- * Apps: "--app FILE" installs an app package (.stapp) like the web updater (sim_apps.h). The web
- * page has an "Apps" panel for the same.
+ * Apps: "--app FILE" installs an app package (.stapp) like the web updater (sim_apps.h), answers yes
+ * and opens it. The web page has an "Apps" panel, and the address simulator.html#app=... does the
+ * same as --app (see sim/web/shell.html.in and "python tools/app.py sim").
  *
  * The device powers on by itself: the simulator holds the two buttons for a short time, as a
  * user does. After a power-off, hold LEFT and RIGHT together to power on again.
@@ -46,7 +47,6 @@
 #define AUTO_HOLD_MS        (800)     /* The simulator holds both buttons this long at power-on */
 #define FAKE_TRANSFER_MS    (8000)
 #define VOLTAGE_STEP_MV     (100)
-#define APP_START_MS        (3000)    /* --app: the install starts when the device shows its first view */
 
 #ifdef __EMSCRIPTEN__
   #define DEFAULT_STATE_FILE  "/stattrak_sim_state.txt"
@@ -240,12 +240,16 @@ static void _takeWebApp(void) {
     var p = Module.simAppPending;
     if(!p) return 0;
     Module.simAppPending = null;
-    if(p.length > $1) return -1;
+    if(p.length === 0 || p.length > $1) return -1;
     HEAPU8.set(p, $0);
     return p.length;
   }, s_web, (int)sizeof(s_web) - 1);
-  if(size != 0)
-    SimApps_start(s_web, (size > 0) ? (uint32_t)size : (uint32_t)sizeof(s_web));   /* too large: an error text */
+  if(size == 0)
+    return;
+  const bool open = EM_ASM_INT({ return Module.simAppOpen ? 1 : 0; }) != 0;
+  /* Empty or too large: SimApps_start gives the error text */
+  SimApps_start(s_web, (size > 0) ? (uint32_t)size : 0, open);
+  s_appState = (sim_apps_state_t)-1;   /* The page waits for an answer: send the text also when it did not change */
 }
 #endif
 
@@ -267,8 +271,9 @@ static void _showAppText(void) {
 }
 
 static void _appsUpdate(void) {
-  if(s_appFileSize > 0 && Host_nowMs() >= APP_START_MS) {
-    SimApps_start(s_appFile, s_appFileSize);
+  if(s_appFileSize > 0) {
+    /* --app FILE: install, answer yes and open the app (it waits for the end of the start screen) */
+    SimApps_start(s_appFile, s_appFileSize, true);
     s_appFileSize = 0;
   }
 #ifdef __EMSCRIPTEN__
@@ -287,8 +292,9 @@ static void _idle(void) {
   if(s_autoHold && Host_nowMs() >= AUTO_HOLD_MS)
     s_autoHold = false;
 
+  /* An install that opens the app answers "yes" itself: it holds button 2 */
   HostButton_setLevel(0, s_keys[0] || s_autoHold);
-  HostButton_setLevel(1, s_keys[1] || s_autoHold);
+  HostButton_setLevel(1, s_keys[1] || s_autoHold || SimApps_wantsYes());
 
   _appsUpdate();
 
@@ -359,7 +365,18 @@ int main(int argc, char** argv) {
     .voltageMv = 4000,
   };
 
-  s_argv = argv;
+  /* A power-on starts the program again with these arguments, without "--app FILE" (installed already) */
+  static char* s_restartArgs[64];
+  int restartCount = 0;
+  for(int i = 0; i < argc && restartCount < 63; i++) {
+    if(i > 0 && strcmp(argv[i], "--app") == 0) {
+      i++;
+      continue;
+    }
+    s_restartArgs[restartCount++] = argv[i];
+  }
+  s_restartArgs[restartCount] = NULL;
+  s_argv = s_restartArgs;
 
   for(int i = 1; i < argc; i++) {
     if(strcmp(argv[i], "--state") == 0 && (i + 1) < argc) {
@@ -379,8 +396,7 @@ int main(int argc, char** argv) {
         "  --state FILE   file that keeps the device flash content (default: %s)\n"
         "  --voltage MV   battery voltage in millivolts (default: 4000)\n"
         "  --log          print firmware log lines\n"
-        "  --app FILE     install an app package (.stapp) after the start, like the web updater;\n"
-        "                 then hold RIGHT on the question \"INSTALL <NAME>?\"\n"
+        "  --app FILE     install an app package (.stapp) like the web updater, answer yes and open it\n"
         "Keys: LEFT/RIGHT = buttons, UP/DOWN = battery voltage, U = send update, A = accept update, ESC = quit\n",
         DEFAULT_STATE_FILE);
       return 64;

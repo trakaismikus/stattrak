@@ -128,6 +128,7 @@
     }
     #apps label.file { display: block; margin-top: 8px; font-size: 14px; }
     #apps label.file input { display: block; margin-top: 4px; font-size: 13px; max-width: 100%; }
+    #apps label.quick { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 14px; cursor: pointer; }
     #apps-status { margin-top: 10px; min-height: 2.6em; font-size: 14px; color: #444444; }
     #apps-status[data-state="4"] { color: #1a7f37; }
     #apps-status[data-state="5"], #apps-status[data-state="6"] { color: #b42318; }
@@ -159,7 +160,8 @@
     <label class="file">Other app file (.stapp)
       <input type="file" id="apps-file" accept=".stapp">
     </label>
-    <div id="apps-status" aria-live="polite">Pick an app. The device asks "INSTALL &lt;NAME&gt;?": hold → (button 2) = yes.</div>
+    <label class="quick"><input type="checkbox" id="apps-open" checked> Answer yes and open the app</label>
+    <div id="apps-status" aria-live="polite">Pick an app. It is installed like with the web updater.</div>
   </div>
 
   <div id="instructions">
@@ -202,11 +204,18 @@
           for (var y = 0; y < 24; y++)
             if (pkg[48 + (y >> 3) * 80 + x] & (1 << (y & 7))) g.fillRect(x, y, 1, 1);
       }
-      function install(pkg) {
+      var fileInput = document.getElementById('apps-file');
+      var openBox = document.getElementById('apps-open');
+      function setBusy(busy) {
+        buttons.forEach(function(b) { b.disabled = busy; });
+        fileInput.disabled = busy;
+      }
+      function install(pkg, open) {
         status.dataset.state = '1';
         status.textContent = 'Starting...';
+        Module.simAppOpen = open;
         Module.simAppPending = pkg;
-        buttons.forEach(function(b) { b.disabled = true; });
+        setBusy(true);
       }
 
       APPS.map(bytes).forEach(function(pkg) {
@@ -219,17 +228,37 @@
         label.textContent = name(pkg);
         button.appendChild(pic);
         button.appendChild(label);
-        button.addEventListener('click', function() { button.blur(); install(pkg); });
+        button.addEventListener('click', function() { button.blur(); install(pkg, openBox.checked); });
         list.appendChild(button);
         buttons.push(button);
       });
 
-      document.getElementById('apps-file').addEventListener('change', function(event) {
+      fileInput.addEventListener('change', function(event) {
         var file = event.target.files[0];
         event.target.blur();
         if (!file) return;
-        file.arrayBuffer().then(function(data) { install(new Uint8Array(data)); event.target.value = ''; });
+        file.arrayBuffer().then(function(data) { install(new Uint8Array(data), openBox.checked); event.target.value = ''; });
       });
+
+      // Start with an app (python tools/app.py sim): simulator.html#app=NAME or #app=<base64url package>,
+      // and "&fresh" for a new device (no counters, settings or apps from an earlier visit).
+      var hash = new URLSearchParams(location.hash.slice(1));
+      if (hash.has('fresh')) {
+        try { localStorage.removeItem('stattrak_sim_state'); } catch (e) { }
+      }
+      var wanted = hash.get('app');
+      if (wanted) {
+        var key = wanted.toUpperCase().replace(/[-_]/g, ' ');
+        var found = APPS.map(bytes).filter(function(pkg) { return name(pkg) === key; })[0];
+        if (!found) {
+          try {
+            var raw = atob(wanted.replace(/-/g, '+').replace(/_/g, '/'));
+            found = new Uint8Array(raw.length);
+            for (var i = 0; i < raw.length; i++) found[i] = raw.charCodeAt(i);
+          } catch (e) { found = new Uint8Array(0); }
+        }
+        install(found, true);
+      }
 
       // The buzzer (sim/host/host_board.c): a square wave, a new note replaces the note that plays.
       // A browser plays sound only after a key press or a click on the page.
@@ -254,8 +283,7 @@
       Module.simAppStatus = function(text, state) {
         status.textContent = text;
         status.dataset.state = String(state);
-        var busy = BUSY.indexOf(state) >= 0;
-        buttons.forEach(function(b) { b.disabled = busy; });
+        setBusy(BUSY.indexOf(state) >= 0);
       };
     })();
   </script>

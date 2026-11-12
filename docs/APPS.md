@@ -432,8 +432,8 @@ the firmware):
    on a device: `apps/runner/` (a jump game), `apps/slots/` (a slot machine with confetti and a
    song made with `tone`), `apps/wallpaper/` (looks like KILLS, the digits are set with the
    buttons). `tests/test_sample_apps.py` runs them in the simulator.
-   Try them by hand in the web simulator: its "Apps" panel installs an app like the web updater
-   and the arrow keys are the buttons (`sim/README.md`, "Web simulator").
+   Play an app by hand in the web simulator, with one command (step 3 below):
+   `python tools/app.py sim apps/runner/runner.sts`.
    An app gets a short press about 0.2 s after the button goes down (the firmware waits to see
    if it becomes a double press). Fast games must allow for this.
 2. Compile and check it:
@@ -457,6 +457,17 @@ the firmware):
    `frame` (print the screen), `png:FILE`, `counter:NAME=N`, `setting:N=V` (value number),
    `random:SEED`. It prints the clicks too. This engine is a Python copy for previews; the
    simulator runs the real one (`python tools/sim.py boot app:...`).
+
+   Play it by hand on the real firmware, in the browser:
+
+   ```
+   python tools/app.py sim apps/runner/runner.sts            # add --fresh for a new device
+   ```
+
+   It compiles the app, builds the web simulator when it is missing or old (Emscripten or Docker,
+   about 1 minute the first time; `tools/websim.py`), and opens the browser. The app is
+   installed like with the web updater (the simulator answers "INSTALL?" with yes) and is open:
+   the arrow keys are the buttons, LEFT + RIGHT together = the app menu.
 4. Put it into the catalog of the web updater: `python tools/app.py catalog` builds every
    `apps/*/*.sts` into `updater/apps/<name>.stapp` and writes `updater/apps/catalog.json`.
 5. Tests: `tests/test_app_tool.py` (`cd tests` then `python -m unittest test_app_tool`).

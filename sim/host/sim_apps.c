@@ -11,6 +11,7 @@
 
 #include "host.h"
 #include "app_view.h"
+#include "app_host_view.h"
 #include "ble_commands.h"
 #include "stapp.h"
 
@@ -18,9 +19,10 @@
 #define DATA_BYTES        14      // DATA: u16 offset + 14 bytes of the package
 #define MAX_WAITING       4       // Commands sent and not answered yet (the command queue)
 #define STATUS_EVERY_MS   200     // STATUS while the device shows the question
-#define OPEN_TIMEOUT_MS   3000
+#define OPEN_TIMEOUT_MS   8000    // Also the time of the start screen after a power-on
 
 // STATUS answer (docs/APPS.md section 6)
+#define INSTALL_STATE__IDLE       0
 #define INSTALL_STATE__INSTALLED  3
 #define INSTALL_STATE__REFUSED    4
 #define INSTALL_STATE__TIMEOUT    5
@@ -28,8 +30,11 @@
 /* > Local Variables ******************************************************************************/
 static sim_apps_state_t s_state = SIM_APPS__IDLE;
 static char     s_text[120] = "";
+static char     s_name[STAPP_MAX_NAME + 1] = "";
 static uint8_t  s_package[STAPP_MAX_SIZE];
 static uint32_t s_size = 0;
+static uint32_t s_id = 0;
+static bool     s_open = false;
 static uint32_t s_sentBytes = 0;      // DATA sent up to here
 static uint8_t  s_waiting = 0;        // Commands without an answer
 static bool     s_endSent = false;
@@ -74,6 +79,11 @@ static bool _canOpenSync(view_id_t view) {
   }
 }
 
+// The start screen after a power-on: wait for its end
+static bool _isStarting(view_id_t view) {
+  return view == VIEW_ID__BLANK || view == VIEW_ID__INTRO;
+}
+
 static const char* _statusText(uint8_t status) {
   switch(status) {
     case BLE_COMMAND_STATUS__UNKNOWN:         return "this firmware has no app commands";
@@ -90,7 +100,19 @@ static const char* _statusText(uint8_t status) {
   }
 }
 
-// Reads the answers of the device. false: an answer was an error (the install stopped).
+static void _installed(void) {
+  s_state = SIM_APPS__INSTALLED;
+  if(s_open) {
+    // As the app menu does when it opens an app
+    AppHost_setApp(s_id);
+    AppView_set(VIEW_ID__APP_HOST);
+    snprintf(s_text, sizeof(s_text), "%s is installed and open. LEFT + RIGHT: app menu.", s_name);
+  } else {
+    snprintf(s_text, sizeof(s_text), "Installed. Hold LEFT to leave Apps: SYNC, then LEFT + RIGHT for the app menu.");
+  }
+}
+
+// Reads the answers of the device. false: the install ended (an error, or the answer of STATUS).
 static bool _readAnswers(void) {
   uint16_t cmd = 0;
   uint8_t status = 0, len = 0;
@@ -100,17 +122,6 @@ static bool _readAnswers(void) {
     if(s_waiting > 0)
       s_waiting--;
 
-    if(cmd == BLE_COMMAND__APP_STATUS && status == BLE_COMMAND_STATUS__OK && len >= 1) {
-      if(data[0] == INSTALL_STATE__INSTALLED) {
-        s_state = SIM_APPS__INSTALLED;
-        snprintf(s_text, sizeof(s_text), "Installed. Hold LEFT to leave Apps: SYNC, then LEFT + RIGHT for the app menu.");
-      } else if(data[0] == INSTALL_STATE__REFUSED || data[0] == INSTALL_STATE__TIMEOUT) {
-        s_state = SIM_APPS__REFUSED;
-        snprintf(s_text, sizeof(s_text), "Not installed: the device said no.");
-      }
-      continue;
-    }
-
     if(status != BLE_COMMAND_STATUS__OK) {
       char text[100];
       snprintf(text, sizeof(text), "Not installed: %s.", _statusText(status));
@@ -118,27 +129,60 @@ static bool _readAnswers(void) {
       return false;
     }
 
+    if(cmd == BLE_COMMAND__APP_STATUS && len >= 1) {
+      if(data[0] == INSTALL_STATE__INSTALLED) {
+        _installed();
+        return false;
+      }
+      if(data[0] == INSTALL_STATE__REFUSED || data[0] == INSTALL_STATE__TIMEOUT) {
+        s_state = SIM_APPS__REFUSED;
+        snprintf(s_text, sizeof(s_text), "Not installed: the device said no.");
+        return false;
+      }
+      if(data[0] == INSTALL_STATE__IDLE) {
+        _fail("Not installed: the device stopped the install.");
+        return false;
+      }
+    }
+
     if(cmd == BLE_COMMAND__APP_END) {
       s_state = SIM_APPS__QUESTION;
-      snprintf(s_text, sizeof(s_text), "The device asks: hold RIGHT (button 2) = yes, hold LEFT (button 1) = no.");
+      if(s_open)
+        snprintf(s_text, sizeof(s_text), "INSTALL %s? The simulator holds RIGHT (button 2) = yes...", s_name);
+      else
+        snprintf(s_text, sizeof(s_text), "The device asks: hold RIGHT (button 2) = yes, hold LEFT (button 1) = no.");
     }
   }
   return true;
 }
 
+// false (and FAILED): the device is not in "Apps: SYNC" any more (a warning, power-off, a button)
+static bool _stillInSync(void) {
+  if(HostOta_isActive() && AppView_get() == VIEW_ID__APP_SYNC && AppView_getNext() == VIEW_ID__APP_SYNC)
+    return true;
+  _fail("Not installed: the device left Apps: SYNC.");
+  return false;
+}
+
 /* > Global Functions *****************************************************************************/
 
-bool SimApps_start(const uint8_t* package, uint32_t size) {
-  if(s_state == SIM_APPS__OPENING || s_state == SIM_APPS__SENDING || s_state == SIM_APPS__QUESTION)
+bool SimApps_start(const uint8_t* package, uint32_t size, bool open) {
+  if(s_state == SIM_APPS__OPENING || s_state == SIM_APPS__SENDING || s_state == SIM_APPS__QUESTION) {
+    // The install that runs goes on; its text stays
     return false;
+  }
 
-  if(size < 12 || size > sizeof(s_package)) {
+  if(size < STAPP_HEADER_SIZE || size > sizeof(s_package)) {
     _fail("Not installed: this is not a valid app file.");
     return false;
   }
 
   memcpy(s_package, package, size);
   s_size = size;
+  memcpy(&s_id, &s_package[8], sizeof(s_id));
+  memcpy(s_name, &s_package[16], STAPP_MAX_NAME);
+  s_name[STAPP_MAX_NAME] = '\0';
+  s_open = open;
   s_sentBytes = 0;
   s_waiting = 0;
   s_endSent = false;
@@ -158,32 +202,37 @@ void SimApps_update(void) {
   switch(s_state) {
     case SIM_APPS__OPENING: {
       const view_id_t view = AppView_get();
-      if(view != VIEW_ID__APP_SYNC) {
-        if(!_canOpenSync(view)) {
+      const view_id_t next = AppView_getNext();
+      if((Host_nowMs() - s_startMs) > OPEN_TIMEOUT_MS) {
+        _fail("Not installed: Apps: SYNC did not open.");
+        return;
+      }
+      if(_isStarting(view) || _isStarting(next))
+        return;
+      if(next != VIEW_ID__APP_SYNC) {
+        if(!_canOpenSync(view) || !_canOpenSync(next)) {
           _fail("Not installed: the device is busy (update, warning or power-off). Try again.");
           return;
         }
-        if(AppView_getNext() != VIEW_ID__APP_SYNC)
-          AppView_set(VIEW_ID__APP_SYNC);   // As the Settings row "Apps: SYNC" does
+        AppView_set(VIEW_ID__APP_SYNC);   // As the Settings row "Apps: SYNC" does
+        return;
       }
       if(view == VIEW_ID__APP_SYNC && HostOta_isActive()) {
         // BEGIN: u32 id, u16 size, u32 CRC-32 of the whole package
         uint8_t data[10];
-        memcpy(data, &s_package[8], 4);
+        _put32(&data[0], s_id);
         data[4] = (uint8_t)s_size;
         data[5] = (uint8_t)(s_size >> 8);
         _put32(&data[6], Stapp_crc32(s_package, s_size));
         if(_send(BLE_COMMAND__APP_BEGIN, data, sizeof(data))) {
           s_state = SIM_APPS__SENDING;
-          snprintf(s_text, sizeof(s_text), "Sending the app...");
+          snprintf(s_text, sizeof(s_text), "Sending %s...", s_name);
         }
-      } else if((Host_nowMs() - s_startMs) > OPEN_TIMEOUT_MS) {
-        _fail("Not installed: Apps: SYNC did not open.");
       }
     } break;
 
     case SIM_APPS__SENDING:
-      if(!_readAnswers() || s_state != SIM_APPS__SENDING)
+      if(!_readAnswers() || s_state != SIM_APPS__SENDING || !_stillInSync())
         return;
       while(s_waiting < MAX_WAITING && s_sentBytes < s_size) {
         uint8_t data[2 + DATA_BYTES];
@@ -201,7 +250,7 @@ void SimApps_update(void) {
       break;
 
     case SIM_APPS__QUESTION:
-      if(!_readAnswers() || s_state != SIM_APPS__QUESTION)
+      if(!_readAnswers() || s_state != SIM_APPS__QUESTION || !_stillInSync())
         return;
       if(s_waiting == 0 && (Host_nowMs() - s_lastStatusMs) >= STATUS_EVERY_MS) {
         s_lastStatusMs = Host_nowMs();
@@ -220,4 +269,8 @@ sim_apps_state_t SimApps_getState(void) {
 
 const char* SimApps_getText(void) {
   return s_text;
+}
+
+bool SimApps_wantsYes(void) {
+  return s_open && s_state == SIM_APPS__QUESTION;
 }

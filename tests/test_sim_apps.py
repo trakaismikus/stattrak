@@ -11,6 +11,7 @@ import sys
 import tempfile
 import unittest
 
+from helpers import BATTERY_LIPO_1S
 from test_apps import AppTestCase, counter_app, INSTALLED, KILLS, KILL_DEAD, STATS
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -68,6 +69,50 @@ class SimAppsTest(AppTestCase):
         state = self.simapp(bytes(package))
         self.assertEqual(state["simapp_state"], FAILED)
         self.assertIn("not a valid app file", state["simapp_text"])
+        self.assertEqual(self.apps_list(), [KILLS, KILL_DEAD, STATS])
+
+    def test_simopen_answers_yes_and_opens_the_app(self):
+        # "python tools/app.py sim", the page address #app=... and "simulator --app FILE" do this
+        package = app.compile_file(os.path.join(REPO_ROOT, "apps", "slots", "slots.sts"))["package"]
+        app_id = struct.unpack_from("<I", package, 8)[0]
+        path = os.path.join(self.folder, "slots.stapp")
+        with open(path, "wb") as handle:
+            handle.write(package)
+        self.dev.command("simopen " + path)
+        self.dev.run(4000)
+        state = self.dev.state()
+        self.assertEqual(state["simapp_state"], DONE, state["simapp_text"])
+        self.assertEqual(state["view"], "APP_HOST")
+        self.assertEqual(state["app_running"], app_id)
+        self.assertEqual(state["app_error"], 0)
+
+    def test_simopen_waits_for_the_start_screen(self):
+        # The page starts the install at once; the device shows its start screen first
+        self.dev.power_cut()
+        self.dev.power_on(hold="both")
+        path = os.path.join(self.folder, "app.stapp")
+        with open(path, "wb") as handle:
+            handle.write(counter_app())
+        self.dev.command("simopen " + path)
+        self.dev.run(400)
+        self.dev.release(1)
+        self.dev.release(2)
+        self.dev.run(8000)
+        state = self.dev.state()
+        self.assertEqual(state["simapp_state"], DONE, state["simapp_text"])
+        self.assertEqual(state["app_running"], 0x1000)
+
+    def test_the_install_stops_when_the_device_leaves_app_sync(self):
+        # A battery warning replaces "Apps: SYNC" during the question: no install, no stuck panel
+        self.boot_with(voltage=3700, battery_type=BATTERY_LIPO_1S, low_bat=3)
+        self.dev.run(45 * 1000)
+        state = self.simapp(counter_app())
+        self.assertEqual(state["simapp_state"], QUESTION, state["simapp_text"])
+        self.dev.run(20 * 1000)                                              # the warning comes
+        state = self.dev.state()
+        self.assertEqual(state["view"], "BATTERY_LOW")
+        self.assertEqual(state["simapp_state"], FAILED)
+        self.assertIn("left Apps: SYNC", state["simapp_text"])
         self.assertEqual(self.apps_list(), [KILLS, KILL_DEAD, STATS])
 
     def test_install_while_an_app_runs_and_install_again(self):

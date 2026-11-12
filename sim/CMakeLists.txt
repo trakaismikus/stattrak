@@ -290,7 +290,7 @@ if(EMSCRIPTEN)
 
   # The apps of the web updater catalog (updater/apps/*.stapp) go into the page as hex text: the
   # "Apps" panel installs them. Run "python tools/app.py catalog" first to have the newest ones.
-  file(GLOB SIM_APP_FILES ${ROOT_DIR}/updater/apps/*.stapp)
+  file(GLOB SIM_APP_FILES CONFIGURE_DEPENDS ${ROOT_DIR}/updater/apps/*.stapp)
   set(SIM_APPS_JS "")
   foreach(app_file ${SIM_APP_FILES})
     file(READ ${app_file} app_hex HEX)

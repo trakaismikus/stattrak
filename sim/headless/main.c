@@ -19,6 +19,7 @@
  *   ble response             print the oldest answer of the firmware to a user command
  *   nvs fail <0|1>           make all flash writes fail
  *   simapp <file>            install an app package like the window / web simulator (sim_apps.h)
+ *   simopen <file>           the same, and the simulator answers yes and opens the app
  *   state                    print the device state as key=value lines
  *   frame                    print the display, 32 lines of 128 characters ('#' = pixel on)
  *   quit                     stop
@@ -265,16 +266,16 @@ static bool _readCommand(void) {
     } else {
       _reply("err usage: nvs fail <0|1>");
     }
-  } else if(strcmp(cmd, "simapp") == 0) {
+  } else if(strcmp(cmd, "simapp") == 0 || strcmp(cmd, "simopen") == 0) {
     char path[sizeof(line)] = "";
     static uint8_t s_simApp[STAPP_MAX_SIZE + 1];
     FILE* file = (sscanf(line, "%*s %299[^\r\n]", path) == 1) ? fopen(path, "rb") : NULL;
     if(file == NULL) {
-      _reply("err usage: simapp <file>");
+      _reply("err usage: simapp <file> | simopen <file>");
     } else {
       const size_t size = fread(s_simApp, 1, sizeof(s_simApp), file);
       fclose(file);
-      _reply(SimApps_start(s_simApp, (uint32_t)size) ? "ok" : "err not started");
+      _reply(SimApps_start(s_simApp, (uint32_t)size, strcmp(cmd, "simopen") == 0) ? "ok" : "err not started");
     }
   } else if(strcmp(cmd, "state") == 0) {
     _printState();
@@ -296,6 +297,13 @@ static void _idle(void) {
     Host_end(HOST_END__ABORT, "the firmware wrote outside the display frame buffer");
 
   SimApps_update();
+
+  /* simopen: the simulator holds button 2 for the person ("yes"), as the window and the web page do */
+  static bool s_simHold = false;
+  if(SimApps_wantsYes() != s_simHold) {
+    s_simHold = SimApps_wantsYes();
+    HostButton_setLevel(1, s_simHold);
+  }
 
   while(Host_nowMs() >= s_runUntil) {
     if(s_runPending) {
