@@ -422,7 +422,7 @@ the firmware):
 | `list` | 15 x 13 | |
 | `lightning` | 11 x 17 | |
 | `trophy` | 15 x 15 | |
-| `runner` | 13 x 16 | |
+| `runner` | 14 x 17 | the character of RUNNER |
 | `cherries` | 15 x 14 | |
 
 ## 8. Write an app

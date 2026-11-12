@@ -126,5 +126,26 @@ class SampleAppsTest(AppTestCase):
         self.assertEqual([row[30:] for row in before], [row[30:] for row in after])
 
 
+class RunnerDesignTest(unittest.TestCase):
+    """RUNNER is drawn from the owner's design (apps/runner/design.json, Screen Designer)."""
+
+    def test_game_over_is_the_design(self):
+        import design
+        result = compiled("runner")
+        names = {name: index for index, name in result["global_names"].items()}
+        machine = app.Machine(result["package"])
+        machine.run("open")
+        # The state of the design: HI 305, score 25 (road not moved), the character dead in the air
+        # (7 pixels high), the large cactus at x 19 and the cacti together at x 77
+        state = dict(best=305, state=2, dist=256000, last_h=7, w1=19 + 256, t1=1, w2=77 + 256, t2=2, t3=0,
+                     over_at=machine.now)
+        for name, value in state.items():
+            machine.globals[names[name]] = value
+        assets = design.load_assets()
+        drawing, _ = design.load_design(os.path.join(REPO_ROOT, "apps", "runner", "design.json"), assets)
+        screen = [s for s in drawing["screens"] if s["id"] == "gameOver"][0]
+        self.assertEqual(machine.frame(), design.draw_frame(screen, assets))
+
+
 if __name__ == "__main__":
     unittest.main()

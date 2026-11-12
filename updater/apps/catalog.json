@@ -65,14 +65,14 @@
     {
       "id": "09d34cb8",
       "name": "RUNNER",
-      "version": 1,
-      "size": 1801,
+      "version": 2,
+      "size": 2313,
       "permissions": [
         "sound"
       ],
-      "description": "An endless runner: press a button to jump over crates, posts and drones. The game gets faster. It keeps your best score.",
+      "description": "An endless runner: press a button to jump over the cacti. The game gets faster. It keeps your best score.",
       "file": "runner.stapp",
-      "picture": "AAAAAAAAAAAAAAAAAADg8LDwsPDgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAIBDz9/3///TwECBAAAAAAAP7+EhL+7AB+/oCA/n4A/v4MGP7+AP7+DBj+/gD+/pKSgoIA/v4SEv7sAAAAAAAAAAAAAAAAAAAAAAAAAAAACAwGAwEAAAABAw4IAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "picture": "AAAAAAAAAAAAAAAAAAAAAADg8NDw8PDgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPvjw+Pj8/v//EzICAgAAAAAAAP7+EhL+7AB+/oCA/n4A/v4MGP7+AP7+DBj+/gD+/pKSgoIA/v4SEv7sAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMfFwMfEQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
       "settings": [
         {
           "name": "SPEED",
