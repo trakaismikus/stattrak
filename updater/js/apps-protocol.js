@@ -193,7 +193,8 @@ class StatTrakApps {
 
   // The Bluetooth name (DEVICE_NAME): 1 to 8 characters 0x20 .. 0x7E, no space at the start or the end
   static DEFAULT_NAME = "StatTrak";
-  static NAME_MAX = 8;
+  static NAME_PREFIX = "StatTrak-";   // The app sync name is NAME_PREFIX + the part of the person
+  static NAME_MAX = 12;               // The part (main/apps.h APPS_DEVICE_NAME_MAX)
 
   // The 128-bit service UUID that the device advertises (components/app_ble/app_ble.c). The Apps
   // tab finds a device with any Bluetooth name by it.
@@ -461,8 +462,8 @@ class StatTrakApps {
     return (await this._ok(StatTrakApps.CMD__STATUS))[0];
   }
 
-  /* The problem of a Bluetooth name as a text for the person, or "" for a good name
-     ("" is good too: back to "StatTrak"). The rules of Apps_isDeviceNameValid() (main/apps.c). */
+  /* The problem of the name part (after "StatTrak-") as a text for the person, or "" for a good
+     part ("" is good too: back to "StatTrak"). The rules of Apps_isDeviceNameValid() (main/apps.c). */
   static nameProblem(name) {
     if (name === "") return "";
     if (name.length > StatTrakApps.NAME_MAX) return `At most ${StatTrakApps.NAME_MAX} characters.`;
@@ -471,8 +472,9 @@ class StatTrakApps {
     return "";
   }
 
-  /* DEVICE_NAME, read: { custom, name }. custom = the person chose a name; name = the
-     Bluetooth name in "Apps: SYNC" ("StatTrak" when none). null = a firmware without it. */
+  /* DEVICE_NAME, read: { custom, part, name }. custom = the person chose a part; part = the text
+     after "StatTrak-"; name = the Bluetooth name in "Apps: SYNC" ("StatTrak" when there is no
+     part). null = a firmware without it. */
   deviceName() {
     return this._serial(async () => {
       try {
@@ -484,8 +486,8 @@ class StatTrakApps {
     });
   }
 
-  /* DEVICE_NAME, write. "" = back to "StatTrak". The device uses it from the next start of
-     "Apps: SYNC". Returns { custom, name }. */
+  /* DEVICE_NAME, write the part after "StatTrak-". "" = back to "StatTrak". The device uses it
+     from the next start of "Apps: SYNC". Returns { custom, part, name }. */
   setDeviceName(name) {
     return this._serial(async () => {
       const problem = StatTrakApps.nameProblem(name);
@@ -494,7 +496,7 @@ class StatTrakApps {
       data[0] = 1;
       for (let i = 0; i < name.length; i++) data[1 + i] = name.charCodeAt(i);
       const answer = StatTrakApps._nameAnswer(await this._ok(StatTrakApps.CMD__DEVICE_NAME, data));
-      if (answer.name !== (name || StatTrakApps.DEFAULT_NAME) || answer.custom !== !!name) {
+      if (answer.part !== name || answer.custom !== !!name) {
         throw new AppsError("bad answer", "The name did not change");
       }
       return answer;
@@ -502,26 +504,28 @@ class StatTrakApps {
   }
 
   static _nameAnswer(d) {
-    const name = StatTrakApps._text(d.subarray(1), StatTrakApps.NAME_MAX);
-    if (d[0] > 1 || !name || (d[0] === 0 && name !== StatTrakApps.DEFAULT_NAME)) {
+    const part = StatTrakApps._text(d.subarray(1), StatTrakApps.NAME_MAX);
+    if (d[0] > 1 || (d[0] === 1) !== (part !== "")) {
       throw new AppsError("bad answer", "The answer to DEVICE_NAME is not correct");
     }
-    return { custom: d[0] === 1, name };
+    const name = part ? StatTrakApps.NAME_PREFIX + part : StatTrakApps.DEFAULT_NAME;
+    return { custom: d[0] === 1, part, name };
   }
 
-  /* The device chooser of the Apps tab (Web Bluetooth): a device with any Bluetooth name, by
-     the service UUID that it advertises, and "StatTrak" by its name. A browser that refuses the
-     UUID filter (a TypeError, e.g. a UUID on its block list) gets the name filter only. */
+  /* The device chooser of the Apps tab (Web Bluetooth): a name that starts with "StatTrak"
+     ("StatTrak" and "StatTrak-<part>"), or the service UUID that it advertises (in the scan
+     response for a long name). A browser that refuses the UUID filter (a TypeError, e.g. a UUID on
+     its block list) gets the name filter only. */
   static async pair() {
     const optionalServices = [BleOta.OTA_SERVICE_UUID];
     try {
       return await BleOta.create({
-        filters: [{ name: StatTrakApps.DEFAULT_NAME }, { services: [StatTrakApps.ADVERTISED_UUID] }],
+        filters: [{ namePrefix: StatTrakApps.DEFAULT_NAME }, { services: [StatTrakApps.ADVERTISED_UUID] }],
         optionalServices,
       });
     } catch (error) {
       if (!(error instanceof TypeError)) throw error;
-      return BleOta.create({ filters: [{ name: StatTrakApps.DEFAULT_NAME }], optionalServices });
+      return BleOta.create({ filters: [{ namePrefix: StatTrakApps.DEFAULT_NAME }], optionalServices });
     }
   }
 

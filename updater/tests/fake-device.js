@@ -197,6 +197,7 @@
           // A filter matches when all its parts match: the name, the advertised services
           const name = device.bleName();
           const match = filters.some((f) => (f.name === undefined || f.name === name) &&
+            (f.namePrefix === undefined || name.startsWith(f.namePrefix)) &&
             (f.services === undefined || f.services.every((uuid) => uuid === ADVERTISED_UUID)));
           if (!device.advertising() || !match) {
             const error = new Error("User cancelled the requestDevice() chooser.");
@@ -702,7 +703,7 @@
     ST_BUILTIN = 12, ST_LAST_SHOWN = 13;
   // apps.h, stapp.h
   const APPS_MAX_INSTALLED = 8, APPS_MAX_BYTES = 24 * 1024, APPS_LIST_MAX = 11, APPS_ERROR_LIMIT = 3;
-  const APPS_DEVICE_NAME_MAX = 8, GAP_NAME = "StatTrak";
+  const APPS_DEVICE_NAME_MAX = 12, GAP_NAME = "StatTrak", NAME_PREFIX = "StatTrak-";
   const STAPP_MAX_SIZE = 4096, STAPP_RESERVED_IDS = 255, STAPP_MAX_NAME = 14;
   const STAPP_HANDLERS_OFFSET = 288, STAPP_HANDLERS_V1 = 8, STAPP_HANDLERS_V2 = 10;
   const STAPP_MIN_SIZE = STAPP_HANDLERS_OFFSET + 2 * STAPP_HANDLERS_V1 + 4;   // 308
@@ -873,7 +874,7 @@
     this.screen = "appsync";
     this._syncReset();
     this.syncFailed = false;
-    this.syncBleName = this.deviceName || GAP_NAME;
+    this.syncBleName = this.deviceName ? NAME_PREFIX + this.deviceName : GAP_NAME;
     this._syncDisplay();
   };
 
@@ -1286,7 +1287,8 @@
         return answer(ST_OK, 1);
       }
       case APP_DEVICE_NAME: {
-        // u8 0 = read, 1 = write; then 8 bytes of the name, 0-padded (all 0 = back to "StatTrak")
+        // The part after "StatTrak-". u8 0 = read, 1 = write; then 12 bytes at most, 0-padded (all 0 =
+        // no part: "StatTrak"). Answer: u8 1 = there is a part, then the part (12 bytes, 0-padded).
         if (d[0] > 1) return answer(ST_ERROR);
         if (d[0] === 1) {
           const name = cText(d, 1, APPS_DEVICE_NAME_MAX);
@@ -1299,9 +1301,8 @@
           this.appWrites++;
           this.events.push("device name " + (name || "(none)"));
         }
-        const shown = this.deviceName || GAP_NAME;
         r[0] = this.deviceName ? 1 : 0;
-        for (let i = 0; i < shown.length; i++) r[1 + i] = shown.charCodeAt(i);
+        for (let i = 0; i < this.deviceName.length; i++) r[1 + i] = this.deviceName.charCodeAt(i);
         return answer(ST_OK, 1 + APPS_DEVICE_NAME_MAX);
       }
     }

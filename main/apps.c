@@ -661,7 +661,7 @@ static bool _writeBlob(char prefix, uint32_t id, const void* data, uint32_t size
   return _commit();
 }
 
-/* > The Bluetooth name of "Apps: SYNC" (key "bname", 1 .. 8 bytes, no 0 at the end) ****************/
+/* > The name part of the app sync Bluetooth name, "StatTrak-<part>" (key "bname", 1 .. 12 bytes) ****/
 
 bool Apps_isDeviceNameValid(const char* name) {
   if(name == NULL)

@@ -226,9 +226,9 @@ static uint8_t _handleApp(const ota_user_cmd_t* cmd, uint8_t* response, uint8_t*
       *responseLen = 1;
     } return BLE_COMMAND_STATUS__OK;
 
-    // u8 0 = read, 1 = write; then 8 bytes of the name, 0-padded (all 0 = back to "StatTrak").
-    // Answer: u8 1 = the person chose a name, then the Bluetooth name (8 bytes, 0-padded).
-    // A new name is used from the next start of "Apps: SYNC".
+    // The name part after "StatTrak-". u8 0 = read, 1 = write; then the part (12 bytes at most),
+    // 0-padded (all 0 = no part: the name is "StatTrak"). Answer: u8 1 = there is a part, then
+    // the part (12 bytes, 0-padded). A new part is used from the next start of the app sync.
     case BLE_COMMAND__APP_DEVICE_NAME: {
       if(d[0] > 1)
         return BLE_COMMAND_STATUS__ERROR;
@@ -245,9 +245,9 @@ static uint8_t _handleApp(const ota_user_cmd_t* cmd, uint8_t* response, uint8_t*
       }
       char name[APPS_DEVICE_NAME_MAX + 1];
       Apps_getDeviceName(name);
-      const char* shown = (name[0] != 0) ? name : "StatTrak";
       response[0] = (name[0] != 0) ? 1 : 0;
-      memcpy(&response[1], shown, strlen(shown));
+      memset(&response[1], 0, APPS_DEVICE_NAME_MAX);
+      memcpy(&response[1], name, strlen(name));
       *responseLen = 1 + APPS_DEVICE_NAME_MAX;
     } return BLE_COMMAND_STATUS__OK;
 

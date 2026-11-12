@@ -251,12 +251,13 @@ const AppsTab = (() => {
     return '<section><div class="sec-head"><h2 class="h2">Bluetooth name</h2></div><div class="row namebox"><div class="row__panel">' +
       `<div class="name__now">StatTrak shows the name <strong>${esc(now.name)}</strong> in Apps: SYNC${now.custom ? "" : " (the standard name)"}.</div>` +
       '<form class="name__form" data-form="name" novalidate><label class="name__label" for="appsName">New name</label>' +
+      `<span class="name__prefix" aria-hidden="true">${esc(StatTrakApps.NAME_PREFIX)}</span>` +
       `<input class="name__input" id="appsName" type="text" maxlength="${StatTrakApps.NAME_MAX}" autocomplete="off" spellcheck="false" ` +
       `value="${esc(A.nameDraft)}" aria-describedby="appsNameMsg appsNameHelp"${A.nameMsg && A.nameMsg.kind === "err" ? ' aria-invalid="true"' : ""}${off}>` +
       `<button class="btn btn--primary btn--sm" type="submit" data-act="name-save"${off}>Save</button>` +
       (now.custom ? `<button class="btn btn--ghost btn--sm" type="button" data-act="name-reset"${off}>Back to StatTrak</button>` : "") + "</form>" +
       `<div class="name__msg${A.nameMsg ? " name__msg--" + A.nameMsg.kind : ""}" id="appsNameMsg" role="status">${A.nameMsg ? esc(A.nameMsg.text) : ""}</div>` +
-      '<div class="row__desc" id="appsNameHelp">1 to 8 characters. A phone or computer finds StatTrak by this name. The firmware update always uses "StatTrak".</div>' +
+      `<div class="row__desc" id="appsNameHelp">1 to ${StatTrakApps.NAME_MAX} characters after "${esc(StatTrakApps.NAME_PREFIX)}". A phone or computer finds StatTrak by this name. The firmware update always uses "StatTrak".</div>` +
       "</div></div></section>";
   }
 

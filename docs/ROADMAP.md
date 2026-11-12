@@ -19,14 +19,16 @@ Product status of the StatTrak firmware. Finding numbers (A1, B7, ...) are from
   [APPS.md](APPS.md). Tested in the simulator only; the install over Bluetooth and the flash
   use of 24 KB of packages in NVS were not run on a real device.
 
-## Next up
+- **Soft radio start** (branch `feat/bluetooth-start`, not shipped). Fix for "the update screen
+  turned the device off" (2026-11-12): a brown-out at the radio start, because the bright
+  Settings screen and the radio start together pulled the supply too low on a weak unit (also
+  with firmware 1.0.1; test firmware: 6 of 10 starts failed, 0 of 15 with the display off). The
+  update view, the accept view and the app sync now show a small Bluetooth sign first and start
+  the radio when only the sign is lit (docs/BLUETOOTH.md, "Radio start"). Same branch: the
+  app sync Bluetooth name is "StatTrak-" + a part of 12 characters at most, and up from the first
+  setting goes to the last one. Needs a device test on the weak unit and on a good unit.
 
-0. **The update screen turned the device off (reported 2026-11-12, not reproduced since).** On the
-   first app firmware, Settings > `Firmware: UPDATE` gave a blank screen several times; the 10 s
-   hold at power-on worked. Tests when it happens again: `Apps: SYNC` (does it turn off too?),
-   `Sound: OFF` then `Firmware: UPDATE`, a fresh battery. Ideas after the results: start
-   Bluetooth a moment after the click, less radio power at the start, more free RAM (the app
-   firmware has 72 KB, 1.1.0 has 84 KB).
+## Next up
 
 These need a decision by TRIDOS and a test on real devices. They change code that the
 simulator cannot test.

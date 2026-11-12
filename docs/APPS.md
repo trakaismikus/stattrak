@@ -289,7 +289,7 @@ display (any command that changes apps answers 11 until the person answers), 12 
 | `0x0118` | SET_ORDER | u8 count, 3 x u32 id, u8 part | every part has this layout (16 bytes); part numbers go from 0 in order; ids after the end are 0. The order must have each app of the list one time. Applied when the last part is in |
 | `0x0119` | SET_HIDDEN | u32 id, u8 hidden (0 / 1) | hidden 0 also sets the error count back to 0. Status 13 = the last shown app cannot be hidden |
 | `0x011A` | SETTING | u32 id, u8 setting, u8 value (0xFF = read) | u8 value. Status 2 = unknown id, setting or value |
-| `0x011C` | DEVICE_NAME | u8 0 = read / 1 = write, 8 bytes name (0-padded; all 0 = back to "StatTrak") | u8 1 = the person chose a name, then the Bluetooth name (8 bytes, 0-padded). A name: 1 to 8 characters 0x20 .. 0x7E, no space at the start or the end; else status 2. The new name is used from the next start of "Apps: SYNC". Only "Apps: SYNC" uses it: the update view and the accept view are always "StatTrak". A factory reset erases it |
+| `0x011C` | DEVICE_NAME | u8 0 = read / 1 = write, the name part after "StatTrak-" (12 bytes at most, 0-padded; all 0 = no part) | u8 1 = there is a part, then the part (12 bytes, 0-padded). A part: 1 to 12 characters 0x20 .. 0x7E, no space at the start or the end; else status 2. "Apps: SYNC" is "StatTrak-<part>" (no part: "StatTrak") from its next start. Only "Apps: SYNC" uses it: the update view and the accept view are always "StatTrak". A factory reset erases it |
 
 Install: BEGIN, ASK, then STATUS until the person answers "INSTALL <NAME>?": 1 = yes, 4 = no,
 5 = no answer in 30 s. After yes: DATA from offset 0 in order, then END. END checks the package
@@ -302,9 +302,13 @@ After the install the display shows "APP INSTALLED", the name, SYNC MORE (hold b
 for the next app) and OPEN (hold button 2: the app opens, and Bluetooth goes off, so the page
 loses the connection). A new BEGIN also works without SYNC MORE.
 
-The Bluetooth name is at most 8 characters: the advertising packet (31 bytes) also holds the
-flags and the 128-bit service UUID. The Apps tab finds a device with any name by that UUID; the
-firmware tab and older pages look for the name "StatTrak", so the update views keep it.
+The Bluetooth name of "Apps: SYNC" always starts with "StatTrak": "StatTrak-" and the part that
+the person chose (12 characters at most), so a phone or a computer shows it as a StatTrak. The
+advertising packet has 31 bytes: a name of 8 characters or less fits next to the flags and the
+128-bit service UUID; a longer name moves the UUID to the scan response
+(`components/app_ble/app_ble.c`). The Apps tab finds the device by the name start "StatTrak" or
+by the UUID; the firmware tab and older pages look for the exact name "StatTrak", so the update
+views keep it.
 
 An answer has no length field: a name (NAME) ends at its first 0 byte.
 

@@ -421,7 +421,7 @@ test("the Bluetooth name: the rules, Save, and Back to StatTrak", { skip: SKIP }
   const page = await open(t, {});
   await connect(page);
   const nameMsg = () => page.evaluate(`document.getElementById("appsNameMsg").textContent`);
-  assert.equal(await page.evaluate(`document.getElementById("appsName").maxLength`), 8);
+  assert.equal(await page.evaluate(`document.getElementById("appsName").maxLength`), 12);
   // Empty, a space at the start, too long, a letter that is not ASCII: a message, nothing is sent
   const sent = await device(page, "appCommands.length");
   await submitName(page);
@@ -431,8 +431,8 @@ test("the Bluetooth name: the rules, Save, and Back to StatTrak", { skip: SKIP }
   assert.equal(await page.evaluate(`document.getElementById("appsName").getAttribute("aria-invalid")`), "true");
   await submitName(page);
   assert.equal(await nameMsg(), "No space at the start or at the end.");
-  await typeName(page, "NINE CHAR");
-  assert.equal(await nameMsg(), "At most 8 characters.");
+  await typeName(page, "THIRTEEN CHAR");
+  assert.equal(await nameMsg(), "At most 12 characters.");
   await typeName(page, "Rīga");
   assert.match(await nameMsg(), /Use only A-Z, a-z, 0-9/);
   assert.equal(await device(page, "appCommands.length"), sent, "a bad name was sent");
@@ -443,7 +443,7 @@ test("the Bluetooth name: the rules, Save, and Back to StatTrak", { skip: SKIP }
   await page.waitFor(`window.__device.deviceName === "Red 7"`);
   await page.waitFor(`/the next time/.test(document.getElementById("appsNameMsg").textContent)`);
   assert.equal(await nameMsg(), "StatTrak uses the new name the next time you open Apps: SYNC.");
-  assert.match(await page.evaluate(`document.querySelector(".namebox").textContent`), /StatTrak shows the name Red 7 in Apps: SYNC\./);
+  assert.match(await page.evaluate(`document.querySelector(".namebox").textContent`), /StatTrak shows the name StatTrak-Red 7 in Apps: SYNC\./);
   // This start of Apps: SYNC keeps its name
   assert.equal(await device(page, "bleName()"), "StatTrak");
   await act(page, '[data-act="name-reset"]');
@@ -451,12 +451,12 @@ test("the Bluetooth name: the rules, Save, and Back to StatTrak", { skip: SKIP }
   assert.match(await page.evaluate(`document.querySelector(".namebox").textContent`), /StatTrak shows the name StatTrak in Apps: SYNC \(the standard name\)/);
 });
 
-test("a renamed StatTrak is found by its service UUID, and shows its name", { skip: SKIP }, async (t) => {
+test("a renamed StatTrak (StatTrak-<part>) is found, and shows its name", { skip: SKIP }, async (t) => {
   const page = await open(t, { deviceName: "RED 7", install: ["ROUND TIMER"] });
   await connect(page);
-  assert.deepEqual(await device(page, "requests[0].filters"), [{ name: "StatTrak" }, { services: ["03b80e5a-ede8-4b33-a751-6ce34ec4c700"] }]);
-  assert.equal(await device(page, "webDevice.name"), "RED 7");
-  assert.match(await page.evaluate(`document.querySelector(".namebox").textContent`), /StatTrak shows the name RED 7 in Apps: SYNC\./);
+  assert.deepEqual(await device(page, "requests[0].filters"), [{ namePrefix: "StatTrak" }, { services: ["03b80e5a-ede8-4b33-a751-6ce34ec4c700"] }]);
+  assert.equal(await device(page, "webDevice.name"), "StatTrak-RED 7");
+  assert.match(await page.evaluate(`document.querySelector(".namebox").textContent`), /StatTrak shows the name StatTrak-RED 7 in Apps: SYNC\./);
   assert.equal(await page.evaluate(`!!document.querySelector('[data-act="name-reset"]')`), true);
   assert.deepEqual(await texts(page, "#appsList .row__name"), ["KILLS", "KILLS + DEAD", "STATS", "ROUND TIMER", "SETTINGS"]);
 });
