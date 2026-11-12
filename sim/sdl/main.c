@@ -292,9 +292,15 @@ static void _idle(void) {
   if(s_autoHold && Host_nowMs() >= AUTO_HOLD_MS)
     s_autoHold = false;
 
-  /* An install that opens the app answers "yes" itself: it holds button 2 */
+  /* An install that opens the app answers "yes" itself: it holds button 2. It starts the hold
+   * only after button 2 was up (a held key gives no new long press). */
+  static bool s_yesArmed = false;
+  if(!SimApps_wantsYes())
+    s_yesArmed = false;
+  else if(!s_keys[1] && !s_autoHold)
+    s_yesArmed = true;
   HostButton_setLevel(0, s_keys[0] || s_autoHold);
-  HostButton_setLevel(1, s_keys[1] || s_autoHold || SimApps_wantsYes());
+  HostButton_setLevel(1, s_keys[1] || s_autoHold || s_yesArmed);
 
   _appsUpdate();
 

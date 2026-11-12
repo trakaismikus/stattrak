@@ -14,6 +14,7 @@ builds are faster.
 
 import base64
 import os
+import pathlib
 import shutil
 import subprocess
 import sys
@@ -23,7 +24,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BUILD_DIR = os.path.join(ROOT, "build-web")
 PAGE = os.path.join(BUILD_DIR, "simulator.html")
 EMSDK_IMAGE = "emscripten/emsdk:4.0.10"   # the same as the CI job "Web simulator build"
-SOURCES = ("sim", "main", "components", "version.txt")
+SOURCES = ("sim", "main", "components", "version.txt", os.path.join("updater", "apps"))   # the apps of the panel
 
 
 class WebSimError(Exception):
@@ -101,7 +102,7 @@ def build(log=print):
     log("Building the web simulator with %s (about 1 minute; the log is build-web/build.log)..." % name)
     result = subprocess.run(command(line), cwd=ROOT)
     if result.returncode != 0 or not os.path.isfile(PAGE):
-        raise WebSimError("The build of the web simulator failed. See build-web/build.log.")
+        raise WebSimError("The build of the web simulator failed. See the lines above and build-web/build.log.")
     os.utime(PAGE, None)   # newer than the sources now, also when the build changed nothing
     log("Built %s" % PAGE)
 
@@ -109,7 +110,11 @@ def build(log=print):
 def open_with_app(package, name, fresh=False, browser=True, rebuild=False, log=print):
     """Open the simulator page with the app installed and running. Return the launcher file path."""
     if rebuild or not is_up_to_date():
-        build(log)
+        if os.path.isfile(PAGE) and _builder() is None and not rebuild:
+            # Still good for the app: the app goes into the address, not into the page
+            log("Note: build-web/simulator.html is older than the firmware code, and this computer cannot build it.")
+        else:
+            build(log)
     data = base64.urlsafe_b64encode(bytes(package)).decode("ascii").rstrip("=")
     address = "simulator.html#app=" + data + ("&fresh" if fresh else "")
     # A small page that goes to the address: a file:// address with a long "#..." part does not
@@ -122,7 +127,7 @@ def open_with_app(package, name, fresh=False, browser=True, rebuild=False, log=p
                      '<a href="%s">Open the simulator</a>\n' % (name, address, address))
     log("Simulator with %s: %s" % (name, launcher))
     if browser:
-        webbrowser.open("file:///" + launcher.replace("\\", "/").lstrip("/"))
+        webbrowser.open(pathlib.Path(launcher).resolve().as_uri())
     return launcher
 
 

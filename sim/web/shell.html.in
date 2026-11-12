@@ -243,6 +243,8 @@
       // Start with an app (python tools/app.py sim): simulator.html#app=NAME or #app=<base64url package>,
       // and "&fresh" for a new device (no counters, settings or apps from an earlier visit).
       var hash = new URLSearchParams(location.hash.slice(1));
+      // Only this one time: a power-on (a reload of the page) must not install again or forget the device
+      try { if (location.hash) history.replaceState(null, '', location.pathname + location.search); } catch (e) { }
       if (hash.has('fresh')) {
         try { localStorage.removeItem('stattrak_sim_state'); } catch (e) { }
       }
@@ -250,14 +252,20 @@
       if (wanted) {
         var key = wanted.toUpperCase().replace(/[-_]/g, ' ');
         var found = APPS.map(bytes).filter(function(pkg) { return name(pkg) === key; })[0];
-        if (!found) {
-          try {
-            var raw = atob(wanted.replace(/-/g, '+').replace(/_/g, '/'));
-            found = new Uint8Array(raw.length);
-            for (var i = 0; i < raw.length; i++) found[i] = raw.charCodeAt(i);
-          } catch (e) { found = new Uint8Array(0); }
+        if (!found && wanted.length <= 14) {
+          // A name (a package is 48 bytes or more): it is not in this page
+          status.dataset.state = '6';
+          status.textContent = 'There is no app ' + wanted + ' in this page. Run "python tools/app.py catalog", then build the page again.';
+        } else {
+          if (!found) {
+            try {
+              var raw = atob(wanted.replace(/-/g, '+').replace(/_/g, '/'));
+              found = new Uint8Array(raw.length);
+              for (var i = 0; i < raw.length; i++) found[i] = raw.charCodeAt(i);
+            } catch (e) { found = new Uint8Array(0); }
+          }
+          install(found, true);
         }
-        install(found, true);
       }
 
       // The buzzer (sim/host/host_board.c): a square wave, a new note replaces the note that plays.
