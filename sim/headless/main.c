@@ -42,6 +42,7 @@
 #include "launcher_view.h"
 #include "app_host_view.h"
 #include "app_settings_view.h"
+#include "settings_view.h"
 #include "app_sync_view.h"
 #include "apps.h"
 #include "eeprom.h"
@@ -156,6 +157,7 @@ static void _printState(void) {
   printf("app_install_state=%d\n", (int)AppSync_getState());
   printf("app_settings_id=%lu\n", (unsigned long)AppSettings_getAppId());
   printf("app_settings_row=%u\n", (unsigned)AppSettings_getRow());
+  printf("settings_row=%u\n", (unsigned)SettingsView_getSelectedId());
   printf("simapp_state=%d\n", (int)SimApps_getState());
   printf("simapp_text=%s\n", SimApps_getText());
 }
