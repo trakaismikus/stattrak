@@ -300,10 +300,22 @@ static void _idle(void) {
   SimApps_update();
 
   /* simopen: the simulator holds button 2 for the person ("yes"), as the window and the web page do */
+  /* The firmware answers only a hold that starts during the question: button 2 must be up for
+   * 50 ms first (more than the debounce), as in the window and web simulators */
   static bool s_simHold = false;
-  if(SimApps_wantsYes() != s_simHold) {
-    s_simHold = SimApps_wantsYes();
-    HostButton_setLevel(1, s_simHold);
+  static uint64_t s_upSinceMs = 0;   /* Button 2 is up since this time (0 = it is down) */
+  if(HostButton_getLevel(1))
+    s_upSinceMs = 0;
+  else if(s_upSinceMs == 0)
+    s_upSinceMs = Host_nowMs() + 1;
+  if(!SimApps_wantsYes()) {
+    if(s_simHold) {
+      s_simHold = false;
+      HostButton_setLevel(1, false);
+    }
+  } else if(!s_simHold && s_upSinceMs != 0 && Host_nowMs() + 1 - s_upSinceMs >= 50) {
+    s_simHold = true;
+    HostButton_setLevel(1, true);
   }
 
   while(Host_nowMs() >= s_runUntil) {
