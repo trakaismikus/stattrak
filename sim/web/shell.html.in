@@ -98,6 +98,45 @@
     /* canvas {
       display: block;
     } */
+
+    /* Apps panel: install an app like the web updater does */
+    #apps {
+      position: absolute;
+      top: 90px;
+      right: 16px;
+      width: 240px;
+      z-index: 20;
+      font-size: 15px;
+      color: #222222;
+      background: #f4f4f4;
+      border: 1px solid #dddddd;
+      border-radius: 6px;
+      padding: 12px;
+      box-sizing: border-box;
+    }
+    #apps h2 { margin: 0 0 8px; font-size: 18px; }
+    #apps-list { display: grid; gap: 6px; }
+    #apps button.app {
+      display: flex; align-items: center; gap: 8px; width: 100%;
+      padding: 4px; border: 1px solid #cccccc; border-radius: 4px;
+      background: #ffffff; cursor: pointer; font: inherit; text-align: left;
+    }
+    #apps button.app:hover:not(:disabled) { border-color: #888888; }
+    #apps button.app:disabled { opacity: 0.5; cursor: default; }
+    #apps button.app canvas {
+      position: static; width: 80px; height: 24px; background: #000000; image-rendering: pixelated; flex: none;
+    }
+    #apps label.file { display: block; margin-top: 8px; font-size: 14px; }
+    #apps label.file input { display: block; margin-top: 4px; font-size: 13px; max-width: 100%; }
+    #apps-status { margin-top: 10px; min-height: 2.6em; font-size: 14px; color: #444444; }
+    #apps-status[data-state="4"] { color: #1a7f37; }
+    #apps-status[data-state="5"], #apps-status[data-state="6"] { color: #b42318; }
+    #apps-status[data-state="3"] { color: #000000; font-weight: 700; }
+
+    @media (max-width: 900px) {
+      #apps { position: static; width: auto; margin: 8px 16px; }
+      body { display: block; }
+    }
   </style>
 </head>
 <body>
@@ -114,8 +153,17 @@
     </div>
   </div>
 
+  <div id="apps">
+    <h2>Apps</h2>
+    <div id="apps-list"></div>
+    <label class="file">Other app file (.stapp)
+      <input type="file" id="apps-file" accept=".stapp">
+    </label>
+    <div id="apps-status" aria-live="polite">Pick an app. The device asks "INSTALL &lt;NAME&gt;?": hold → (button 2) = yes.</div>
+  </div>
+
   <div id="instructions">
-    <p>Buttons: left (←) and right (→) arrow keys. Both together: next view. Hold both: power off / power on.</p>
+    <p>Buttons: left (←) and right (→) arrow keys. Both together: app menu. Hold both: power off / power on.</p>
     <p>Battery voltage: up (↑) / down (↓). Firmware update test: U = send, A = accept.</p>
     <p>Version v@PROJECT_VER@</p>
   </div>
@@ -126,6 +174,90 @@
         return document.getElementById('canvas');
       })()
     };
+
+    // --- Apps panel. The simulator takes Module.simAppPending in its own loop (sim/sdl/main.c) and
+    // installs it with the Bluetooth app commands, like the web updater (sim/sdl/sim_apps.c).
+    (function() {
+      var APPS = @SIM_APPS_JS@;   // updater/apps/*.stapp, as hex text (sim/CMakeLists.txt)
+      var BUSY = [1, 2, 3];       // sim_apps_state_t: opening, sending, question
+      var list = document.getElementById('apps-list');
+      var status = document.getElementById('apps-status');
+      var buttons = [];
+
+      function bytes(hex) {
+        var out = new Uint8Array(hex.length / 2);
+        for (var i = 0; i < out.length; i++) out[i] = parseInt(hex.substr(i * 2, 2), 16);
+        return out;
+      }
+      function name(pkg) {   // header bytes 16..31
+        var text = '';
+        for (var i = 16; i < 32 && pkg[i]; i++) text += String.fromCharCode(pkg[i]);
+        return text;
+      }
+      function picture(canvas, pkg) {   // 80 x 24 at byte 48: 3 pages of 80 bytes, bit 0 = top
+        canvas.width = 80; canvas.height = 24;
+        var g = canvas.getContext('2d');
+        g.fillStyle = '#000'; g.fillRect(0, 0, 80, 24); g.fillStyle = '#fff';
+        for (var x = 0; x < 80; x++)
+          for (var y = 0; y < 24; y++)
+            if (pkg[48 + (y >> 3) * 80 + x] & (1 << (y & 7))) g.fillRect(x, y, 1, 1);
+      }
+      function install(pkg) {
+        status.dataset.state = '1';
+        status.textContent = 'Starting...';
+        Module.simAppPending = pkg;
+        buttons.forEach(function(b) { b.disabled = true; });
+      }
+
+      APPS.map(bytes).forEach(function(pkg) {
+        var button = document.createElement('button');
+        button.className = 'app';
+        button.type = 'button';
+        var pic = document.createElement('canvas');
+        picture(pic, pkg);
+        var label = document.createElement('span');
+        label.textContent = name(pkg);
+        button.appendChild(pic);
+        button.appendChild(label);
+        button.addEventListener('click', function() { button.blur(); install(pkg); });
+        list.appendChild(button);
+        buttons.push(button);
+      });
+
+      document.getElementById('apps-file').addEventListener('change', function(event) {
+        var file = event.target.files[0];
+        event.target.blur();
+        if (!file) return;
+        file.arrayBuffer().then(function(data) { install(new Uint8Array(data)); event.target.value = ''; });
+      });
+
+      // The buzzer (sim/host/host_board.c): a square wave, a new note replaces the note that plays.
+      // A browser plays sound only after a key press or a click on the page.
+      var audio = null, note = null;
+      Module.simBeep = function(freq, ms) {
+        try {
+          if (!audio) audio = new (window.AudioContext || window.webkitAudioContext)();
+          if (audio.state === 'suspended') audio.resume();
+          if (note) { try { note.stop(); } catch (e) { } }
+          var osc = audio.createOscillator(), gain = audio.createGain();
+          osc.type = 'square';
+          osc.frequency.value = freq;
+          gain.gain.value = 0.04;
+          osc.connect(gain);
+          gain.connect(audio.destination);
+          osc.start();
+          osc.stop(audio.currentTime + Math.max(ms, 15) / 1000);
+          note = osc;
+        } catch (e) { }
+      };
+
+      Module.simAppStatus = function(text, state) {
+        status.textContent = text;
+        status.dataset.state = String(state);
+        var busy = BUSY.indexOf(state) >= 0;
+        buttons.forEach(function(b) { b.disabled = busy; });
+      };
+    })();
   </script>
 
   {{{ SCRIPT }}}

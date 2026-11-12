@@ -105,6 +105,11 @@ cmake --build build-sim
 The device powers on by itself when the program starts. Counters and settings stay in
 `stattrak_sim_state.txt`. Delete this file to get a new device.
 
+Apps: `./build-sim/simulator --app apps/runner/runner.stapp` installs an app after the start, like
+the web updater: the simulator opens "Apps: SYNC" and sends the app with the Bluetooth app
+commands. The device asks "INSTALL RUNNER?": hold RIGHT (button 2) = yes, hold LEFT = no. Then
+hold LEFT to leave "Apps: SYNC" and press LEFT + RIGHT for the app menu.
+
 ## Web simulator (Emscripten)
 
 ```sh
@@ -128,7 +133,13 @@ docker run --rm -v "$PWD":/src -w /src emscripten/emsdk:4.0.10 \
 ```
 
 The keys are the same as in the window simulator. The page keeps counters and settings in
-the browser storage.
+the browser storage, and plays the buzzer with the browser sound (after the first key press).
+
+**Apps:** the panel "Apps" on the right installs an app, like the web updater: click one of the
+apps of the catalog (`updater/apps/`, put into the page by the build), or pick a `.stapp` file.
+The device asks "INSTALL <NAME>?": hold RIGHT (button 2) = yes. Then hold LEFT to leave "Apps:
+SYNC" and press LEFT + RIGHT for the app menu. Run `python tools/app.py catalog` before the build
+to have the newest apps in the page.
 
 ## Build options
 
@@ -150,6 +161,7 @@ sim/host/host_board.c  power latch, display buffer with guard bytes, buzzer, bat
 sim/host/host_button.c the state machine of the espressif/button component
 sim/host/host_nvs.c    flash key-value table, with "write fails" for tests
 sim/host/host_ota.c    stand-in for the Bluetooth update: fake transfer, accept, rollback
+sim/host/sim_apps.c    installs an app with the Bluetooth app commands (window, web page, "simapp")
 sim/headless/main.c    front end: commands on standard input
 sim/sdl/main.c         front end: window or web page
 ```

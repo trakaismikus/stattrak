@@ -101,6 +101,7 @@ set(HOST_SOURCES
   ${HOST_DIR}/host_button.c
   ${HOST_DIR}/host_nvs.c
   ${HOST_DIR}/host_ota.c
+  ${HOST_DIR}/sim_apps.c
 )
 
 # -iquote and not -I: main/time.h must not replace the system <time.h>.
@@ -286,6 +287,17 @@ if(EMSCRIPTEN)
     set(STATTRAK_IMG_SRC "StatTrakv3.jpg")
     file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/web/StatTrakv3.jpg DESTINATION ${CMAKE_BINARY_DIR})
   endif()
+
+  # The apps of the web updater catalog (updater/apps/*.stapp) go into the page as hex text: the
+  # "Apps" panel installs them. Run "python tools/app.py catalog" first to have the newest ones.
+  file(GLOB SIM_APP_FILES ${ROOT_DIR}/updater/apps/*.stapp)
+  set(SIM_APPS_JS "")
+  foreach(app_file ${SIM_APP_FILES})
+    file(READ ${app_file} app_hex HEX)
+    string(APPEND SIM_APPS_JS "\"${app_hex}\",")
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${app_file})
+  endforeach()
+  set(SIM_APPS_JS "[${SIM_APPS_JS}]")
 
   configure_file(${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html.in ${CMAKE_BINARY_DIR}/shell.html)
 

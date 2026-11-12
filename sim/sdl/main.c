@@ -11,6 +11,9 @@
  *   A           a phone accepts the new firmware (only while the device waits for it)
  *   ESC         quit
  *
+ * Apps: "--app FILE" installs an app package (.stapp) like the web updater (sim_apps.h). The web
+ * page has an "Apps" panel for the same.
+ *
  * The device powers on by itself: the simulator holds the two buttons for a short time, as a
  * user does. After a power-off, hold LEFT and RIGHT together to power on again.
  **************************************************************************************************/
@@ -31,7 +34,9 @@
 #endif
 
 #include "host.h"
+#include "sim_apps.h"
 #include "ssd1307.h"
+#include "stapp.h"
 
 /* > Defines **************************************************************************************/
 #define PIXEL_SIZE          (4)
@@ -41,6 +46,7 @@
 #define AUTO_HOLD_MS        (800)     /* The simulator holds both buttons this long at power-on */
 #define FAKE_TRANSFER_MS    (8000)
 #define VOLTAGE_STEP_MV     (100)
+#define APP_START_MS        (3000)    /* --app: the install starts when the device shows its first view */
 
 #ifdef __EMSCRIPTEN__
   #define DEFAULT_STATE_FILE  "/stattrak_sim_state.txt"
@@ -57,6 +63,11 @@ static bool     s_autoHold = true;
 static uint32_t s_realStart = 0;
 
 static char**   s_argv = NULL;
+
+static uint8_t  s_appFile[STAPP_MAX_SIZE];   /* --app FILE */
+static uint32_t s_appFileSize = 0;
+static sim_apps_state_t s_appState = SIM_APPS__IDLE;
+static char     s_appText[120] = "";
 
 /* > Local Functions ******************************************************************************/
 
@@ -207,6 +218,66 @@ static bool _pollEvents(bool running) {
   return true;
 }
 
+/* > Apps *****************************************************************************************/
+
+/* --app FILE: read the package. false: the file cannot be read or is too large. */
+static bool _readAppFile(const char* path) {
+  FILE* file = fopen(path, "rb");
+  if(file == NULL)
+    return false;
+  s_appFileSize = (uint32_t)fread(s_appFile, 1, sizeof(s_appFile), file);
+  const bool tooLarge = (fgetc(file) != EOF);
+  fclose(file);
+  return s_appFileSize > 0 && !tooLarge;
+}
+
+#ifdef __EMSCRIPTEN__
+/* The web page puts a package into Module.simAppPending (the "Apps" panel). The simulator takes it
+ * here, in its own loop, so the page never calls into the firmware while it runs. */
+static void _takeWebApp(void) {
+  static uint8_t s_web[STAPP_MAX_SIZE + 1];
+  const int size = EM_ASM_INT({
+    var p = Module.simAppPending;
+    if(!p) return 0;
+    Module.simAppPending = null;
+    if(p.length > $1) return -1;
+    HEAPU8.set(p, $0);
+    return p.length;
+  }, s_web, (int)sizeof(s_web) - 1);
+  if(size != 0)
+    SimApps_start(s_web, (size > 0) ? (uint32_t)size : (uint32_t)sizeof(s_web));   /* too large: an error text */
+}
+#endif
+
+/* Shows each new install text: in the window title, or in the "Apps" panel of the web page */
+static void _showAppText(void) {
+  const sim_apps_state_t state = SimApps_getState();
+  const char* text = SimApps_getText();
+  if(state == s_appState && strcmp(text, s_appText) == 0)
+    return;
+  s_appState = state;
+  snprintf(s_appText, sizeof(s_appText), "%s", text);
+#ifdef __EMSCRIPTEN__
+  EM_ASM({ if(Module.simAppStatus) Module.simAppStatus(UTF8ToString($0), $1); }, s_appText, (int)state);
+#else
+  _setTitle(s_appText);
+  printf("Apps: %s\n", s_appText);
+  fflush(stdout);
+#endif
+}
+
+static void _appsUpdate(void) {
+  if(s_appFileSize > 0 && Host_nowMs() >= APP_START_MS) {
+    SimApps_start(s_appFile, s_appFileSize);
+    s_appFileSize = 0;
+  }
+#ifdef __EMSCRIPTEN__
+  _takeWebApp();
+#endif
+  SimApps_update();
+  _showAppText();
+}
+
 /* > Front end hooks ******************************************************************************/
 
 static void _idle(void) {
@@ -218,6 +289,8 @@ static void _idle(void) {
 
   HostButton_setLevel(0, s_keys[0] || s_autoHold);
   HostButton_setLevel(1, s_keys[1] || s_autoHold);
+
+  _appsUpdate();
 
   /* Keep simulated time and real time together */
   const int32_t ahead = (int32_t)((uint32_t)Host_nowMs() - (SDL_GetTicks() - s_realStart));
@@ -295,12 +368,19 @@ int main(int argc, char** argv) {
       config.voltageMv = (uint16_t)strtoul(argv[++i], NULL, 10);
     } else if(strcmp(argv[i], "--log") == 0) {
       config.log = true;
+    } else if(strcmp(argv[i], "--app") == 0 && (i + 1) < argc) {
+      if(!_readAppFile(argv[++i])) {
+        fprintf(stderr, "Cannot read the app file %s (at most %u bytes)\n", argv[i], (unsigned)STAPP_MAX_SIZE);
+        return 66;
+      }
     } else {
       fprintf(stderr,
         "StatTrak simulator\n"
         "  --state FILE   file that keeps the device flash content (default: %s)\n"
         "  --voltage MV   battery voltage in millivolts (default: 4000)\n"
         "  --log          print firmware log lines\n"
+        "  --app FILE     install an app package (.stapp) after the start, like the web updater;\n"
+        "                 then hold RIGHT on the question \"INSTALL <NAME>?\"\n"
         "Keys: LEFT/RIGHT = buttons, UP/DOWN = battery voltage, U = send update, A = accept update, ESC = quit\n",
         DEFAULT_STATE_FILE);
       return 64;

@@ -432,6 +432,8 @@ the firmware):
    on a device: `apps/runner/` (a jump game), `apps/slots/` (a slot machine with confetti and a
    song made with `tone`), `apps/wallpaper/` (looks like KILLS, the digits are set with the
    buttons). `tests/test_sample_apps.py` runs them in the simulator.
+   Try them by hand in the web simulator: its "Apps" panel installs an app like the web updater
+   and the arrow keys are the buttons (`sim/README.md`, "Web simulator").
    An app gets a short press about 0.2 s after the button goes down (the firmware waits to see
    if it becomes a double press). Fast games must allow for this.
 2. Compile and check it:
