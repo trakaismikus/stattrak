@@ -57,7 +57,18 @@ static void _deinit(void) {
   Ota_deinit();
 }
 
+// "Complete" is a new screen: a hold that started during "Verifying" does not count
+static void _checkScreen(void) {
+  static uint8_t s_shownState = 0xFF;
+  const uint8_t state = Ota_getState();
+  if(state != s_shownState) {
+    s_shownState = state;
+    HoldButtons_reset(&s_hold);
+  }
+}
+
 static bool _eventHandler(uint16_t event) {
+  _checkScreen();
   HoldButtons_event(&s_hold, event);
 
   switch(event) {
@@ -85,6 +96,7 @@ static bool _eventHandler(uint16_t event) {
 
 static void _draw(void) {
   char str[32];
+  _checkScreen();
   uint8_t state = Ota_getState();
   
   // Gfx_drawStringAligned(Gfx_getWidth()/2, 2, "FIRMWARE UPDATE", &font5x5, 1, 0, GFX_ALIGN__CENTER, GFX_ROTATION__0);

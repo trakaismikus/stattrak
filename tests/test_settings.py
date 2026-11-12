@@ -161,6 +161,14 @@ class SettingsTest(SimTestCase):
         self.assertEqual(state["view"], "SETTINGS")
         self.assertEqual(state["eeprom.total_kills"], 50)
 
+    def test_a_long_no_does_not_open_the_question_again(self):
+        self.boot_with(total_kills=50)
+        self.open_setting("FACTORY_RESET")
+        self.dev.long_press(2)
+        self.assertEqual(self.dev.view, "ASK")
+        self.dev.long_press(1, hold_ms=1300)   # NO, and the first repeat of the hold
+        self.assertEqual(self.dev.view, "SETTINGS")
+
     def test_view_change_is_blocked_while_a_question_is_open(self):
         self.dev.boot()
         self.open_setting("FACTORY_RESET")

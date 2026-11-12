@@ -75,7 +75,7 @@ static bool _eventHandler(uint16_t event) {
     case EVENT__LONG_PRESS_2:
       return true;
 
-default: break;
+    default: break;
   }
 
   return false;

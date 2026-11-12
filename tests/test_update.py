@@ -197,6 +197,17 @@ class NewFirmwareTest(SimTestCase):
         self.assertEqual(state["view"], "FW_ACCEPT")
         self.assertEqual(state["ota_update_allowed"], 1)
 
+    def test_a_long_ok_does_not_act_on_the_view_after_it(self):
+        self.update_firmware()
+        self.dev.boot()
+        self.assertTrue(self.dev.ota_accept())
+        self.dev.run(200)
+        kills = self.dev.state()["eeprom.total_kills"]
+        self.dev.long_press(1, hold_ms=2500)   # OK, and the repeats of the hold
+        state = self.dev.state()
+        self.assertEqual(state["view"], "TOTAL")
+        self.assertEqual(state["eeprom.total_kills"], kills)
+
     def test_new_firmware_waits_for_accept(self):
         self.update_firmware()
         self.dev.boot()

@@ -14,6 +14,7 @@
 /* > Local Function Declarations ******************************************************************/
 static bool _eventHandler(uint16_t event);
 static void _draw(void);
+static void _init(void);
 
 /* > Defines **************************************************************************************/
 
@@ -32,6 +33,7 @@ static hold_buttons_t s_hold;    // NO = hold 1, YES = hold 2 (main/views/hold_b
 view_t g_askView = {
   .eventHandler = _eventHandler,
   .draw = _draw,
+  .init = _init,
 };
 
 /* > Function Definitions *************************************************************************/
@@ -43,6 +45,11 @@ void AskView_set(const char* question, void (*answerCallback)(bool)) {
 }
 
 /* > Local Function Definitions *******************************************************************/
+
+// Also when the view comes back after a warning: a release that went to the warning is lost
+static void _init(void) {
+  HoldButtons_reset(&s_hold);
+}
 
 static bool _eventHandler(uint16_t event) {
   HoldButtons_event(&s_hold, event);

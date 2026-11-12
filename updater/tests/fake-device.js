@@ -843,6 +843,7 @@
   /* The text of the display (a short form of _draw()) */
   P._syncDisplay = function () {
     if (this.screen !== "appsync") return;
+    this._checkScreen();
     const texts = {
       [SYNC_RECEIVING]: () => "Receiving " + (this.syncSize > 0 ? Math.floor((this.syncReceived * 100) / this.syncSize) : 0) + "%",
       [SYNC_WAITING]: () => "INSTALL " + this.syncName + "?",
@@ -898,7 +899,7 @@
      buttonUp(): EVENT__RAW_RELEASE.
      longPress(): EVENT__LONG_PRESS (700 ms after the press, the button is still down).
      press(): a short press (down, up, then EVENT__PRESS): it does nothing. */
-  P._checkScreen = function () {
+  P._checkScreen = function () {   // Also in _syncDisplay(): the firmware does it at each draw
     const shown = this.syncState * 2 + (this.syncFailed ? 1 : 0);
     if (shown !== this.syncShown) {
       this.syncShown = shown;

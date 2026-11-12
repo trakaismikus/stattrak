@@ -392,6 +392,12 @@ class InstallTest(AppTestCase):
         self.assertEqual(state["app_running"], 0x2000)
         self.assertEqual(state["ota_active"], 0)
 
+    def test_a_long_back_does_not_open_apps_sync_again(self):
+        self.dev.open_app_sync()
+        self.dev.long_press(1, hold_ms=1300)   # BACK, and the first repeat of the hold
+        self.assertEqual(self.dev.view, "SETTINGS")
+        self.assertEqual(self.dev.state()["ota_active"], 0)
+
     def test_the_name_must_be_the_name_of_the_question(self):
         result = self.install(counter_app(), name=b"OTHER APP")
         self.assertEqual((result["step"], result["status"]), ("end", BAD_PACKAGE), result)

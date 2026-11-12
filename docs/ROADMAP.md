@@ -14,7 +14,7 @@ Product status of the StatTrak firmware. Finding numbers (A1, B7, ...) are from
   SYNC MORE and OPEN after the install, a Bluetooth name for "Apps: SYNC", `down1` / `down2`
   events (package format 2) so RUNNER jumps at once, new WALLPAPER buttons, and
   `Factory: RESET` after `Firmware: UPDATE` in the settings. All buttons on the display use the
-  small style and answer a hold that starts on their screen (`main/views/hold_button.c`).The web and window simulators
+  small style and answer a hold that starts on their screen (`main/views/hold_button.c`). The web and window simulators
   install apps too (an "Apps" panel, `--app FILE`) and play the buzzer in the browser. Specification:
   [APPS.md](APPS.md). Tested in the simulator only; the install over Bluetooth and the flash
   use of 24 KB of packages in NVS were not run on a real device.

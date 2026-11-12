@@ -88,6 +88,16 @@ class BatteryTest(SimTestCase):
         self.assertTrue(self.dev.is_on)
         self.assertEqual(self.dev.view, "TOTAL")
 
+    def test_a_long_dismiss_does_not_act_on_the_view_below(self):
+        # The repeats of the hold (from 1.2 s) must not go to the KILLS screen (-1 kill)
+        self.boot_with(voltage=3700, battery_type=BATTERY_LIPO_1S, low_bat=3, total_kills=50)
+        self.dev.run(61 * 1000)
+        self.assertEqual(self.dev.view, "BATTERY_LOW")
+        self.dev.long_press(1, hold_ms=2500)
+        state = self.dev.state()
+        self.assertEqual(state["view"], "TOTAL")
+        self.assertEqual(state["eeprom.total_kills"], 50)
+
     def test_low_battery_warning_is_shown_one_time(self):
         # 3.7 V on a 1S LiPo is 16 %. The warning level is 20 % (setting value 3).
         self.boot_with(voltage=3700, battery_type=BATTERY_LIPO_1S, low_bat=3)
