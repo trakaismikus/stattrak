@@ -63,9 +63,14 @@ func hold(delta) {
   }
 }
 
-# A new push of a button: the hold that started the edit has ended
-on down1 { entry_hold = 0 }
-on down2 { entry_hold = 0 }
+# A new push of a button: the hold that started the edit has ended. A push is input: a hold
+# that starts near the end of the 3 s keeps the edit open.
+func pushed() {
+  entry_hold = 0
+  if editing { last_input = time() }
+}
+on down1 { pushed() }
+on down2 { pushed() }
 
 on long1 { hold(-1) }
 on long2 { hold(1) }

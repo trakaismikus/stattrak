@@ -227,6 +227,10 @@ class SafetyCheckTest(unittest.TestCase):
         self.edit("components/app_ble/app_ble.c", "  assert(rc == 0);\n  s_nextName[0] = '\\0';\n", "  assert(rc == 0);\n")
         self.assert_fails("bluetooth-identity")
 
+    def test_person_name_not_forgotten_after_ota_init(self):
+        self.edit("main/views/app_sync_view.c", "  AppBle_setNextName(NULL);\n", "")
+        self.assert_fails("bluetooth-identity")
+
     def test_bluetooth_service_number_change(self):
         self.edit("components/ble_ota/ble_ota.c", "0x8020", "0x9020")
         self.assert_fails("bluetooth-identity")

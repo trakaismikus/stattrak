@@ -191,8 +191,6 @@ static uint8_t _handleApp(const ota_user_cmd_t* cmd, uint8_t* response, uint8_t*
           response[0] = (uint8_t)reason;
           *responseLen = 1;
           return BLE_COMMAND_STATUS__BAD_PACKAGE;
-        case APP_SYNC_ERR_WAITING:
-          return BLE_COMMAND_STATUS__WAITING;
         default:
           return BLE_COMMAND_STATUS__ERROR;
       }

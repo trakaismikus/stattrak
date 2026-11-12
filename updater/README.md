@@ -77,8 +77,10 @@ name of StatTrak in "Apps: SYNC" and can change it (1 to 8 characters 0x20 .. 0x
 the start or the end) or set it back to "StatTrak". StatTrak uses a new name the next time the
 person opens Apps: SYNC. The update view always uses "StatTrak". The Apps tab finds a StatTrak
 with any name: its device chooser also looks for the service UUID that the device advertises
-(`03b80e5a-ede8-4b33-a751-6ce34ec4c700`). A browser that refuses that filter gets the name
-filter "StatTrak" only. The firmware tab looks for the name "StatTrak" only.
+(`03b80e5a-ede8-4b33-a751-6ce34ec4c700`). This is the standard number of the Bluetooth MIDI
+service, so the chooser can also list MIDI keyboards near the computer. A browser that refuses
+that filter gets the name filter "StatTrak" only. The firmware tab looks for the name "StatTrak"
+only.
 
 - The tab has its own Bluetooth connection and sends only the app commands of `docs/APPS.md`
   section 6, never a firmware update command (a test checks this).

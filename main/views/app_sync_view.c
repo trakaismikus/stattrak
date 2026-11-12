@@ -224,6 +224,9 @@ static void _init(void) {
   AppBle_setNextName(name);
 
   Ota_init();
+  // Ota_init() can return before AppBle_init() used the name (Bluetooth on already, no memory):
+  // forget it here too, so that the next Bluetooth start (the update view) is "StatTrak"
+  AppBle_setNextName(NULL);
   // A view of a user feature: nobody can send a firmware while it is open (docs/BLUETOOTH.md)
   Ota_setUpdateAllowed(false);
 }

@@ -138,6 +138,16 @@ test("a lost answer to DATA: the page sends again from the offset that the devic
   t.ota.disconnect();
 });
 
+test("a lost answer to END: STATUS 3 says the app is installed", async () => {
+  const t = await connect({ loseAppAnswers: { 0x0115: 1 } });
+  const bytes = catalogFile("HEADSHOT %");
+  const { result } = await install(t, bytes, "holdButton2");
+  assert.equal(result, "installed");
+  assert.ok(t.device.events.includes("lost answer of 0x115"));
+  assert.ok(t.device.installed.has(0x3b4aad40));
+  t.ota.disconnect();
+});
+
 test("a late answer of an earlier DATA command does not make a gap in the package", async () => {
   const t = await connect({});
   const bytes = catalogFile("ROUND TIMER");

@@ -430,7 +430,14 @@ class StatTrakApps {
         }
 
         // END checks the package and writes it to flash: status 0 = installed
-        const end = await this._command(StatTrakApps.CMD__END);
+        let end;
+        try {
+          end = await this._command(StatTrakApps.CMD__END);
+        } catch (error) {
+          // END writes the app: if only its answer was lost, STATUS says installed (3)
+          if (error.kind === "no answer" && (await this._state()) === StatTrakApps.STATE__INSTALLED) return "installed";
+          throw error;
+        }
         if (end.status === StatTrakApps.STATUS__OK) return "installed";
         if (end.status === StatTrakApps.STATUS__OFFSET) {
           offset = resend(StatTrakApps._u16(end.data, 0));

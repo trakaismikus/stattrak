@@ -354,8 +354,8 @@ const AppsTab = (() => {
 
   const LOST = { kind: "error", title: "Connection lost", body: "Turn on Apps: SYNC again, then connect." };
   // The person pressed OPEN after an install: StatTrak opened the app and turned Bluetooth off
-  const OPENED = (name) => ({ kind: "info", title: `StatTrak opened ${name}`,
-    body: "OPEN closes the connection. For more apps, open Apps: SYNC on StatTrak again, then connect." });
+  const OPENED = (name) => ({ kind: "info", title: `${name} is installed`,
+    body: "The connection ended. OPEN on StatTrak opens the app and closes the connection. For more apps, open Apps: SYNC on StatTrak again, then connect." });
   const NOT_IN_SYNC = { kind: "warn", title: "StatTrak is not in Apps: SYNC", body: "Open Apps: SYNC on StatTrak, then connect." };
 
   async function connect() {
@@ -405,7 +405,7 @@ const AppsTab = (() => {
   function onDisconnected(event) {
     if (event.target !== A.ota) return;
     const opened = A.opened && !busy() ? A.opened : null;
-    log(opened ? "disconnected: StatTrak opened " + opened.name : "disconnected", opened ? "ok" : "warn");
+    log(opened ? "disconnected after the install of " + opened.name : "disconnected", opened ? "ok" : "warn");
     disconnect(opened ? OPENED(opened.name) : LOST);
     render();
   }
@@ -414,10 +414,16 @@ const AppsTab = (() => {
      connection (a calm message, not "Connection lost"). STATUS tells when the person pressed
      SYNC MORE (or an other install began): then a lost connection is lost again. */
   const OPEN_WATCH_MS = 1000;
-  function watchOpened() {
+  const OPEN_WATCH_LIMIT_MS = 60000;   // Each command keeps the device awake: not for ever
+  function watchOpened(started) {
     clearTimeout(watchTimer);
     const apps = A.apps;
     if (!A.opened || !apps) return;
+    if (started === undefined) started = Date.now();
+    if (Date.now() - started >= OPEN_WATCH_LIMIT_MS) {
+      A.opened = null;
+      return render();
+    }
     watchTimer = setTimeout(async () => {
       if (apps !== A.apps || !A.opened) return;
       if (!busy()) {
@@ -426,13 +432,13 @@ const AppsTab = (() => {
           if (apps !== A.apps) return;
           if (state !== StatTrakApps.STATE__INSTALLED) {
             A.opened = null;
-            return;
+            return render();
           }
         } catch (_) {
           return;   // The connection is lost: onDisconnected() shows it
         }
       }
-      watchOpened();
+      watchOpened(started);
     }, OPEN_WATCH_MS);
   }
 

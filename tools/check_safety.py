@@ -499,6 +499,13 @@ class Checker:
             if text is not None and re.search(r"\bAppBle_setNextName\s*\(", self.strip_comments(text)):
                 self.fail("bluetooth-identity", "%s: only main/views/app_sync_view.c may call AppBle_setNextName()."
                           % relative)
+        # And it forgets the name right after Ota_init(): Ota_init() can return before AppBle_init()
+        sync = self.read("main/views/app_sync_view.c")
+        if sync is not None and re.search(r"\bAppBle_setNextName\s*\(", self.strip_comments(sync)):
+            if not re.search(r"\bOta_init\s*\(\s*\)\s*;\s*AppBle_setNextName\s*\(\s*NULL\s*\)\s*;",
+                             self.strip_comments(sync)):
+                self.fail("bluetooth-identity", "main/views/app_sync_view.c: call AppBle_setNextName(NULL) right "
+                                                "after Ota_init().")
 
         ble_ota = self.read("components/ble_ota/ble_ota.c", "bluetooth-identity")
         if ble_ota is not None:

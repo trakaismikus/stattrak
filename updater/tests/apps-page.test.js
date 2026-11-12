@@ -214,7 +214,7 @@ test("OPEN on the device after the install: a calm message, not 'Connection lost
   await page.waitFor(`window.__device.appNames()[0] === "KILLS + DEAD"`);
   await device(page, "press(2)");
   await page.waitFor(has("#appsMain .banner--info"));
-  assert.match(await mainText(page), /StatTrak opened REACTION.*OPEN closes the connection\. For more apps, open Apps: SYNC on StatTrak again, then connect\./);
+  assert.match(await mainText(page), /REACTION is installed.*The connection ended\. OPEN on StatTrak opens the app and closes the connection\./);
   assert.equal(await page.evaluate(`!!document.querySelector("#appsMain .banner--error")`), false);
   assert.equal(await device(page, "screen"), "app");
   assert.equal(await device(page, "openedApp"), 0x62e49bbb);
