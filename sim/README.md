@@ -34,7 +34,7 @@ of this repository (also on Windows). Then:
 
 ```sh
 python tools/sim.py boot click1 click1 frame          # 2 kills, print the display
-python tools/sim.py boot both both both png:settings  # save out/settings.png
+python tools/sim.py boot both click1 both png:settings  # menu, SETTINGS, open: out/settings.png
 python tools/sim.py boot:10600 state                  # hold both buttons 10 s: update mode
 python tools/sim.py --fresh boot set:auto_off=1       # a new device
 python tools/sim.py --help                            # all actions
@@ -65,7 +65,7 @@ with Device() as dev:
     dev.boot()                      # hold both buttons, release, wait for the animation
     dev.click(1)                    # short press on button 1
     dev.long_press(2)               # long press on button 2
-    dev.click_both()                # next view
+    dev.click_both()                # app menu (or: open the selected app)
     dev.run(30000)                  # 30 simulated seconds (this takes milliseconds)
     print(dev.state()["view"])      # TOTAL, KILL_DEAD, STATS, SETTINGS, UPDATE, ...
     print(dev.state()["eeprom.total_kills"])
@@ -96,7 +96,7 @@ cmake --build build-sim
 | Key | Function |
 | --- | --- |
 | LEFT / RIGHT | Button 1 / button 2 |
-| LEFT + RIGHT | Short: next view. Long: power off. After a power-off: power on |
+| LEFT + RIGHT | Short: app menu, or open the selected app. Long: power off. After a power-off: power on |
 | UP / DOWN | Battery voltage + / - 100 mV |
 | U | A phone sends new firmware (only in the update view) |
 | A | A phone accepts the new firmware (only in the "Verifying..." view) |
@@ -104,6 +104,11 @@ cmake --build build-sim
 
 The device powers on by itself when the program starts. Counters and settings stay in
 `stattrak_sim_state.txt`. Delete this file to get a new device.
+
+Apps: `./build-sim/simulator --app apps/runner/runner.stapp` installs an app at the start, like
+the web updater (`sim/host/sim_apps.c`: it opens "Apps: SYNC" and sends the app with the
+Bluetooth app commands), answers "INSTALL RUNNER?" with yes and opens the app. The device asks
+before the app is sent, as on a real device.
 
 ## Web simulator (Emscripten)
 
@@ -128,7 +133,21 @@ docker run --rm -v "$PWD":/src -w /src emscripten/emsdk:4.0.10 \
 ```
 
 The keys are the same as in the window simulator. The page keeps counters and settings in
-the browser storage.
+the browser storage, and plays the buzzer with the browser sound (after the first key press).
+
+**Apps:** the quick way is `python tools/app.py sim apps/NAME/NAME.sts`: it builds this page
+when it is missing or old (`tools/websim.py`: Emscripten, or Docker with the image above) and
+opens it with the app installed and open.
+
+- The address does it: `simulator.html#app=RUNNER` (an app of the catalog) or
+  `simulator.html#app=<the package as base64url>`, and `&fresh` for a new device.
+- The panel "Apps" on the right: click an app of the catalog (`updater/apps/`, put into the page
+  by the build; run `python tools/app.py catalog` first for the newest ones), or pick a `.stapp`
+  file. "Answer yes and open the app" on: the simulator holds RIGHT for the question and opens
+  the app. Off: the device asks "INSTALL <NAME>?" and you answer (hold RIGHT = yes, hold LEFT =
+  no). After the install the device shows SYNC MORE (LEFT) and OPEN (RIGHT).
+- The install is the real firmware code; only the phone is simulated. The headless commands
+  `simapp FILE` and `simopen FILE` run the same code (`tests/test_sim_apps.py`).
 
 ## Build options
 
@@ -150,6 +169,7 @@ sim/host/host_board.c  power latch, display buffer with guard bytes, buzzer, bat
 sim/host/host_button.c the state machine of the espressif/button component
 sim/host/host_nvs.c    flash key-value table, with "write fails" for tests
 sim/host/host_ota.c    stand-in for the Bluetooth update: fake transfer, accept, rollback
+sim/host/sim_apps.c    installs an app with the Bluetooth app commands (window, web page, "simapp")
 sim/headless/main.c    front end: commands on standard input
 sim/sdl/main.c         front end: window or web page
 ```

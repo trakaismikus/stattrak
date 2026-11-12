@@ -113,7 +113,7 @@ def program(name):
 def step_unit_tests():
     log("\n[3/4] Unit tests")
     ok = True
-    for name in ("test_units", "test_ble_ota"):
+    for name in ("test_units", "test_stapp", "test_ble_ota"):
         path = program(name)
         if path is None:
             log("%s: program not found" % name)

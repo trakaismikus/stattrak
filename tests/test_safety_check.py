@@ -165,6 +165,31 @@ class SafetyCheckTest(unittest.TestCase):
         self.edit("main/app.c", "      AppView_set(VIEW_ID__UPDATE);", "      AppView_set(VIEW_ID__TOTAL);")
         self.assert_fails("update-views")
 
+    def test_settings_removed_from_the_app_menu(self):
+        self.edit("main/views/launcher_view.c",
+                  "  s_items[s_count++] = (apps_item_t){ VIEW_ID__SETTINGS, APPS_ID__NONE };\n", "")
+        self.assert_fails("update-views")
+
+    def test_settings_in_the_app_menu_only_under_a_condition(self):
+        # SETTINGS must not depend on the flash content (the apps list)
+        self.edit("main/views/launcher_view.c",
+                  "  s_items[s_count++] = (apps_item_t){ VIEW_ID__SETTINGS, APPS_ID__NONE };\n",
+                  "  if(s_count < 3)\n    s_items[s_count++] = (apps_item_t){ VIEW_ID__SETTINGS, APPS_ID__NONE };\n")
+        self.assert_fails("update-views")
+
+    def test_app_commands_outside_app_sync(self):
+        self.edit("main/ble_commands.c", "  if(!AppSync_isActive())\n    return BLE_COMMAND_STATUS__NOT_IN_APP_SYNC;\n", "")
+        self.assert_fails("update-views")
+
+    def test_app_menu_without_a_place_for_settings(self):
+        self.edit("main/views/launcher_view.c", "Apps_getMenu(s_items, APPS_MENU_MAX - 1)",
+                  "Apps_getMenu(s_items, APPS_MENU_MAX)")
+        self.assert_fails("update-views")
+
+    def test_both_buttons_do_not_open_the_app_menu(self):
+        self.edit("main/main.c", "          Launcher_onBothButtons();", "          AppView_set(VIEW_ID__TOTAL);")
+        self.assert_fails("update-views")
+
     def test_update_view_refuses_new_firmware(self):
         self.edit("main/views/update_view.c", "  Ota_init();", "  Ota_init();\n  Ota_setUpdateAllowed(false);")
         self.assert_fails("update-views")
@@ -189,6 +214,21 @@ class SafetyCheckTest(unittest.TestCase):
 
     def test_bluetooth_name_change(self):
         self.edit("components/app_ble/app_ble.c", '#define GAP_NAME   "StatTrak"', '#define GAP_NAME   "MyTrak"')
+        self.assert_fails("bluetooth-identity")
+
+    def test_person_name_in_the_update_view(self):
+        # Only "Apps: SYNC" may give Bluetooth the name of the person: the web updater looks for "StatTrak"
+        self.edit("main/views/update_view.c", "static void _init(void) {\n  Ota_init();",
+                  "static void _init(void) {\n  AppBle_setNextName(\"MIKUS\");\n  Ota_init();")
+        self.assert_fails("bluetooth-identity")
+
+    def test_person_name_is_not_forgotten(self):
+        # AppBle_init() must forget the name after one start (the next start is "StatTrak" again)
+        self.edit("components/app_ble/app_ble.c", "  assert(rc == 0);\n  s_nextName[0] = '\\0';\n", "  assert(rc == 0);\n")
+        self.assert_fails("bluetooth-identity")
+
+    def test_person_name_not_forgotten_after_ota_init(self):
+        self.edit("main/views/app_sync_view.c", "  AppBle_setNextName(NULL);\n", "")
         self.assert_fails("bluetooth-identity")
 
     def test_bluetooth_service_number_change(self):

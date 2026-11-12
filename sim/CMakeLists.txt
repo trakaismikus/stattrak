@@ -57,6 +57,7 @@ set(FIRMWARE_SOURCES
   ${MAIN_DIR}/main.c
   ${MAIN_DIR}/app.c
   ${MAIN_DIR}/app_view.c
+  ${MAIN_DIR}/apps.c
   ${MAIN_DIR}/battery.c
   ${MAIN_DIR}/ble_commands.c
   ${MAIN_DIR}/eeprom.c
@@ -64,6 +65,9 @@ set(FIRMWARE_SOURCES
 
   ${MAIN_DIR}/board/bsp_button.c
 
+  ${MAIN_DIR}/views/app_host_view.c
+  ${MAIN_DIR}/views/app_settings_view.c
+  ${MAIN_DIR}/views/app_sync_view.c
   ${MAIN_DIR}/views/ask_view.c
   ${MAIN_DIR}/views/auto_off_view.c
   ${MAIN_DIR}/views/battery_critical_view.c
@@ -71,6 +75,7 @@ set(FIRMWARE_SOURCES
   ${MAIN_DIR}/views/fw_accept_view.c
   ${MAIN_DIR}/views/intro_view.c
   ${MAIN_DIR}/views/kill_dead_view.c
+  ${MAIN_DIR}/views/launcher_view.c
   ${MAIN_DIR}/views/msg_view.c
   ${MAIN_DIR}/views/settings_view.c
   ${MAIN_DIR}/views/space_view.c
@@ -81,9 +86,12 @@ set(FIRMWARE_SOURCES
   ${MAIN_DIR}/resources/font.c
   ${MAIN_DIR}/resources/font_glyph.c
   ${MAIN_DIR}/resources/img.c
+  ${MAIN_DIR}/resources/app_icons.c
 
   ${COMPONENT_DIR}/gfx/gfx.c
   ${COMPONENT_DIR}/gui/animation.c
+  ${COMPONENT_DIR}/stapp/stapp_check.c
+  ${COMPONENT_DIR}/stapp/stapp_vm.c
 )
 
 # --- Stand-ins for the hardware and the SDK
@@ -93,6 +101,7 @@ set(HOST_SOURCES
   ${HOST_DIR}/host_button.c
   ${HOST_DIR}/host_nvs.c
   ${HOST_DIR}/host_ota.c
+  ${HOST_DIR}/sim_apps.c
 )
 
 # -iquote and not -I: main/time.h must not replace the system <time.h>.
@@ -105,8 +114,10 @@ set(QUOTE_INCLUDE_DIRS
   ${MAIN_DIR}/resources
   ${COMPONENT_DIR}/gfx
   ${COMPONENT_DIR}/gui
+  ${COMPONENT_DIR}/stapp
   ${COMPONENT_DIR}/ssd1307
   ${COMPONENT_DIR}/ble_ota
+  ${COMPONENT_DIR}/app_ble
 )
 
 set(COMMON_OPTIONS "")
@@ -174,10 +185,23 @@ if(NOT EMSCRIPTEN)
 endif()
 
 
+# --- App package check: the C check of the firmware for tests/test_app_match.py
+if(NOT EMSCRIPTEN)
+  add_executable(stapp_tool tools/stapp_tool.c ${COMPONENT_DIR}/stapp/stapp_check.c ${COMPONENT_DIR}/stapp/stapp_vm.c)
+  target_compile_options(stapp_tool PRIVATE ${COMMON_OPTIONS} ${FIRMWARE_WARNINGS})
+  target_link_options(stapp_tool PRIVATE ${COMMON_LINK_OPTIONS})
+endif()
+
+
 # --- Unit tests
 if(STATTRAK_TESTS AND NOT EMSCRIPTEN)
   stattrak_add_program(test_units ${TEST_DIR}/test_units.c)
   target_compile_options(test_units PRIVATE "SHELL:-iquote ${TEST_DIR}")
+
+  # The app engine alone (components/stapp), with a fuzz test of broken packages
+  add_executable(test_stapp ${TEST_DIR}/test_stapp.c ${COMPONENT_DIR}/stapp/stapp_check.c ${COMPONENT_DIR}/stapp/stapp_vm.c)
+  target_compile_options(test_stapp PRIVATE ${COMMON_OPTIONS} ${FIRMWARE_WARNINGS} "SHELL:-iquote ${TEST_DIR}")
+  target_link_options(test_stapp PRIVATE ${COMMON_LINK_OPTIONS})
 
   # The Bluetooth update packet code, with a small stand-in for the NimBLE headers.
   add_executable(test_ble_ota ${TEST_DIR}/test_ble_ota.c ${COMPONENT_DIR}/ble_ota/ble_ota.c)
@@ -264,6 +288,17 @@ if(EMSCRIPTEN)
     set(STATTRAK_IMG_SRC "StatTrakv3.jpg")
     file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/web/StatTrakv3.jpg DESTINATION ${CMAKE_BINARY_DIR})
   endif()
+
+  # The apps of the web updater catalog (updater/apps/*.stapp) go into the page as hex text: the
+  # "Apps" panel installs them. Run "python tools/app.py catalog" first to have the newest ones.
+  file(GLOB SIM_APP_FILES CONFIGURE_DEPENDS ${ROOT_DIR}/updater/apps/*.stapp)
+  set(SIM_APPS_JS "")
+  foreach(app_file ${SIM_APP_FILES})
+    file(READ ${app_file} app_hex HEX)
+    string(APPEND SIM_APPS_JS "\"${app_hex}\",")
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${app_file})
+  endforeach()
+  set(SIM_APPS_JS "[${SIM_APPS_JS}]")
 
   configure_file(${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html.in ${CMAKE_BINARY_DIR}/shell.html)
 

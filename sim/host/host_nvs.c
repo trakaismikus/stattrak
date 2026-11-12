@@ -10,6 +10,7 @@
 /* > Includes *************************************************************************************/
 #include "host.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 #include "nvs_flash.h"
@@ -20,6 +21,10 @@
 /* > Local Variables ******************************************************************************/
 static host_nvs_entry_t s_entries[HOST_NVS_MAX_ENTRIES];
 static uint32_t s_entryCount = 0;
+
+/* Blobs: the data is on the heap of the computer (this is the stand-in, not the firmware) */
+static host_nvs_blob_t s_blobs[HOST_NVS_MAX_BLOBS];
+static uint32_t s_blobCount = 0;
 
 static struct {
   bool open;
@@ -43,6 +48,34 @@ static host_nvs_entry_t* _find(const char* ns, const char* key) {
       return &s_entries[i];
   }
   return NULL;
+}
+
+static host_nvs_blob_t* _findBlob(const char* ns, const char* key) {
+  for(uint32_t i = 0; i < s_blobCount; i++) {
+    if(strcmp(s_blobs[i].ns, ns) == 0 && strcmp(s_blobs[i].key, key) == 0)
+      return &s_blobs[i];
+  }
+  return NULL;
+}
+
+static uint32_t _blobBytes(void) {
+  uint32_t total = 0;
+  for(uint32_t i = 0; i < s_blobCount; i++)
+    total += s_blobs[i].length;
+  return total;
+}
+
+static void _removeBlob(host_nvs_blob_t* blob) {
+  free(blob->data);
+  const uint32_t idx = (uint32_t)(blob - s_blobs);
+  s_blobCount--;
+  memmove(&s_blobs[idx], &s_blobs[idx + 1], (s_blobCount - idx) * sizeof(s_blobs[0]));
+}
+
+static void _removeEntry(host_nvs_entry_t* entry) {
+  const uint32_t idx = (uint32_t)(entry - s_entries);
+  s_entryCount--;
+  memmove(&s_entries[idx], &s_entries[idx + 1], (s_entryCount - idx) * sizeof(s_entries[0]));
 }
 
 static bool _handleValid(nvs_handle_t handle) {
@@ -81,8 +114,48 @@ bool HostNvs_put(const char* ns, const char* key, uint32_t value) {
   return true;
 }
 
+uint32_t HostNvs_getBlobCount(void)    { return s_blobCount; }
+
+const host_nvs_blob_t* HostNvs_getBlob(uint32_t idx) {
+  return (idx < s_blobCount) ? &s_blobs[idx] : NULL;
+}
+
+bool HostNvs_putBlob(const char* ns, const char* key, const uint8_t* data, uint32_t length) {
+  if(strlen(ns) >= sizeof(s_blobs[0].ns) || strlen(key) >= sizeof(s_blobs[0].key) || length > HOST_NVS_MAX_BLOB)
+    return false;
+
+  host_nvs_blob_t* blob = _findBlob(ns, key);
+  const uint32_t others = _blobBytes() - (blob ? blob->length : 0);
+  if(others + length > HOST_NVS_BLOB_SPACE)
+    return false;
+
+  uint8_t* copy = (uint8_t*)malloc(length > 0 ? length : 1);
+  if(copy == NULL)
+    return false;
+  if(length > 0)
+    memcpy(copy, data, length);
+
+  if(blob == NULL) {
+    if(s_blobCount >= HOST_NVS_MAX_BLOBS) {
+      free(copy);
+      return false;
+    }
+    blob = &s_blobs[s_blobCount++];
+    strcpy(blob->ns, ns);
+    strcpy(blob->key, key);
+  } else {
+    free(blob->data);
+  }
+
+  blob->data = copy;
+  blob->length = (uint16_t)length;
+  return true;
+}
+
 void HostNvs_clear(void) {
   s_entryCount = 0;
+  while(s_blobCount > 0)
+    _removeBlob(&s_blobs[s_blobCount - 1]);
 }
 
 /* > ESP-IDF API **********************************************************************************/
@@ -178,5 +251,75 @@ esp_err_t nvs_get_u32(nvs_handle_t handle, const char* key, uint32_t* out_value)
     return ESP_ERR_NVS_NOT_FOUND;
 
   *out_value = entry->value;
+  return ESP_OK;
+}
+
+esp_err_t nvs_set_blob(nvs_handle_t handle, const char* key, const void* value, size_t length) {
+  if(!_handleValid(handle))
+    return ESP_ERR_NVS_INVALID_HANDLE;
+  if(key == NULL || key[0] == '\0')
+    return ESP_ERR_NVS_INVALID_NAME;
+  if(strlen(key) >= NVS_KEY_NAME_MAX_SIZE)
+    return ESP_ERR_NVS_KEY_TOO_LONG;
+  if(value == NULL && length > 0)
+    return ESP_ERR_INVALID_ARG;
+  if(s_failWrites)
+    return ESP_ERR_NVS_NOT_ENOUGH_SPACE;
+
+  if(!HostNvs_putBlob(s_handles[handle - 1].ns, key, (const uint8_t*)value, (uint32_t)length))
+    return ESP_ERR_NVS_NOT_ENOUGH_SPACE;
+
+  s_writeCount++;
+  HostState_markChanged();
+  return ESP_OK;
+}
+
+esp_err_t nvs_get_blob(nvs_handle_t handle, const char* key, void* out_value, size_t* length) {
+  if(!_handleValid(handle))
+    return ESP_ERR_NVS_INVALID_HANDLE;
+  if(key == NULL || length == NULL)
+    return ESP_ERR_INVALID_ARG;
+  if(strlen(key) >= NVS_KEY_NAME_MAX_SIZE)
+    return ESP_ERR_NVS_KEY_TOO_LONG;
+
+  const host_nvs_blob_t* blob = _findBlob(s_handles[handle - 1].ns, key);
+  if(blob == NULL)
+    return ESP_ERR_NVS_NOT_FOUND;
+
+  /* The same as ESP-IDF: NULL asks for the size only, a short buffer is an error */
+  if(out_value == NULL) {
+    *length = blob->length;
+    return ESP_OK;
+  }
+  if(*length < blob->length)
+    return ESP_ERR_NVS_INVALID_LENGTH;
+
+  memcpy(out_value, blob->data, blob->length);
+  *length = blob->length;
+  return ESP_OK;
+}
+
+esp_err_t nvs_erase_key(nvs_handle_t handle, const char* key) {
+  if(!_handleValid(handle))
+    return ESP_ERR_NVS_INVALID_HANDLE;
+  if(key == NULL)
+    return ESP_ERR_INVALID_ARG;
+  if(strlen(key) >= NVS_KEY_NAME_MAX_SIZE)
+    return ESP_ERR_NVS_KEY_TOO_LONG;
+  if(s_failWrites)
+    return ESP_FAIL;
+
+  host_nvs_blob_t* blob = _findBlob(s_handles[handle - 1].ns, key);
+  host_nvs_entry_t* entry = _find(s_handles[handle - 1].ns, key);
+  if(blob == NULL && entry == NULL)
+    return ESP_ERR_NVS_NOT_FOUND;
+
+  if(blob != NULL)
+    _removeBlob(blob);
+  if(entry != NULL)
+    _removeEntry(entry);
+
+  s_writeCount++;
+  HostState_markChanged();
   return ESP_OK;
 }

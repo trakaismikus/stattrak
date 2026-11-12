@@ -29,7 +29,7 @@ the chip.
 | --- | --- |
 | Findings that can brick a device, break the update, or are a safety problem | 4 (2 fixed, 2 open) |
 | Other bugs | 12 (8 fixed, 4 open) |
-| Robustness and code quality notes | 9 (2 fixed, 7 open) |
+| Robustness and code quality notes | 10 (2 fixed, 8 open) |
 | Things to decide before the code is public | 3 |
 | Web update tool (section E) | 12 (11 fixed; open: the page is not at its public address) |
 | Review of the `dev` branch (section F) | 1 change not taken, 2 notes |
@@ -149,6 +149,7 @@ other firmware version, (2) what happens after the accept, and (3) the Bluetooth
 | C7 | `main/time.h` | The file name is the same as the C library header `<time.h>`. This works now because of the include order. A rename is safer. |
 | C8 | `main/eeprom.c:24` | `TAG` is a global symbol (no `static`). `settings_view.c:293`, `stats_view.c:42`, `ssd1307.c:155`, `ble_ota.c:207`, `app_ble.c:28`: compiler warnings for unused variables and functions. |
 | C9 | `sdkconfig.defaults` | `CONFIG_BTDM_CTRL_MODE_*` are not known by ESP-IDF v5.4 for this chip (warning at each build). `CONFIG_ESP_CONSOLE_UART_BAUDRATE=460800` has no effect: the build uses 74880. |
+| C10 | `main/ble_commands.c` (app commands) | In "Apps: SYNC", each app command counts as activity, also one that changes nothing. A phone that sends commands all the time keeps the device on and can write to flash without a limit (order, hidden, settings). The flash wear needs days of this. Open: a rate limit if it is ever a problem. |
 
 ## D. Before the code is public
 

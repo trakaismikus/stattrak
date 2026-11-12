@@ -1,0 +1,133 @@
+{
+  "format": "stattrak-apps",
+  "version": 1,
+  "apps": [
+    {
+      "id": "3b4aad40",
+      "name": "HEADSHOT %",
+      "version": 1,
+      "size": 917,
+      "permissions": [
+        "counters"
+      ],
+      "description": "Counts kills and headshots and shows the headshot percentage. Button 1: kill, button 2: headshot, hold: undo.",
+      "file": "headshot.stapp",
+      "picture": "AAAAAAAAAAAAAIDAwCDAwIAAAAAAAAAAAAAAwAAAAMAAwEBAQEAAwEBAQMAAwEBAQIAAwEBAQEAAwAAAAMAAwEBAQMAAQEDAQEAAAAAAAAAAAAAAAAAEBAAbO3v/jv97OxsABAQAAAAAAADnoaGh5wDnpaWlJADnoaGh5wDnJCQkIwDlpaWlJwDnQYEB5wAnJOQkJwAAAAcAAAAAAAAAAAAAAAAAAAwODg8PDw8PDw8PDw4ODAAAAAAAAAMAAAAAAAMCAgICAAMAAQICAAMCAgICAAMCAgICAAMAAAEDAAAAAwAAAAAAAAAAAAAAAAAA",
+      "settings": []
+    },
+    {
+      "id": "62e49bbb",
+      "name": "REACTION",
+      "version": 2,
+      "size": 1182,
+      "permissions": [
+        "sound"
+      ],
+      "description": "A reaction game: wait for GO, then press a button as fast as you can. It keeps your best time.",
+      "file": "reaction.stapp",
+      "picture": "AAAAAAAAAACA4PDw8HAwEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIDs///388HAQAAAAAAAD+/hIS/uwA/v6SkoKCAPz+EhL+/AB8/oKCxkQAAgL+/gICAIKC/v6CggB8/oKC/nwA/v4MGP7+AAAAAAAAAAAAEAwHAwEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "settings": []
+    },
+    {
+      "id": "cc78e229",
+      "name": "ROUND TIMER",
+      "version": 1,
+      "size": 1086,
+      "permissions": [
+        "sound"
+      ],
+      "description": "Times each round: button 1 starts and pauses, button 2 goes to the next round. It beeps at the end.",
+      "file": "round-timer.stapp",
+      "picture": "AAAAAAAAAAAAAAAAAAAAAAAAgIBAUHBQQICAwAAAAAAAAAAAwEBAQMAAwEBAQMAAwAAAAMAAwIAAAMAAwEBAQIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD4BgEAAAAAPyAgIAABBvgAAAAAAAAnIeMlJQAnJOQkJwDnRIRE5wDnoKGiJwDnpKSk4wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADBAgIEBAQEBAICAQDAAAAAAAAAAAAAwAAAAICAwICAAMAAAADAAMCAgICAAMAAQICAAAAAAAAAAAAAAAAAAAA",
+      "settings": [
+        {
+          "name": "ROUND TIME",
+          "values": [
+            "0:30",
+            "1:00",
+            "1:30",
+            "2:00",
+            "3:00",
+            "5:00"
+          ],
+          "default": 1
+        },
+        {
+          "name": "SOUND",
+          "values": [
+            "ON",
+            "OFF"
+          ],
+          "default": 0
+        }
+      ]
+    },
+    {
+      "id": "09d34cb8",
+      "name": "RUNNER",
+      "version": 3,
+      "size": 2389,
+      "permissions": [
+        "sound"
+      ],
+      "description": "An endless runner: press a button to jump over the cacti. The game gets faster. It keeps your best score.",
+      "file": "runner.stapp",
+      "picture": "AAAAAAAAAAAAAAAAAAAAAADg8NDw8PDgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPvjw+Pj8/v//EzICAgAAAAAAAP7+EhL+7AB+/oCA/n4A/v4MGP7+AP7+DBj+/gD+/pKSgoIA/v4SEv7sAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMfFwMfEQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "settings": [
+        {
+          "name": "SPEED",
+          "values": [
+            "NORMAL",
+            "FAST"
+          ],
+          "default": 0
+        }
+      ]
+    },
+    {
+      "id": "3f20f760",
+      "name": "SLOTS",
+      "version": 1,
+      "size": 2026,
+      "permissions": [
+        "sound"
+      ],
+      "description": "A slot machine: press a button to spin. Three the same wins, with confetti and a song on the buzzer.",
+      "file": "slots.stapp",
+      "picture": "AAAAAAAAAAAAAAAAAAAAAAAAAACAgEBAIOAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwOCw+PTigQDA4LD49+DAAAAAAABc3pKS9mQA/v6AgICAAHz+goL+fAACAv7+AgIAXN6SkvZkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAwcHBwMBAAEDBwcHAwEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "settings": [
+        {
+          "name": "LUCK",
+          "values": [
+            "NORMAL",
+            "LUCKY",
+            "ALWAYS"
+          ],
+          "default": 0
+        }
+      ]
+    },
+    {
+      "id": "91507ac3",
+      "name": "WALLPAPER",
+      "version": 2,
+      "size": 1035,
+      "permissions": [
+        "sound"
+      ],
+      "description": "Looks like the big KILLS counter, but shows your own number. Hold a button to edit, press to change a digit.",
+      "file": "wallpaper.stapp",
+      "picture": "AAAAAAAAgEBAAPgAQECAAAAAAAAAAAAAAADAAIBAQABAQMBAQADAAAAAAADAAAAAAADAQEBAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEBAQ1hEQEAAAkwAAEBAR1hAQEAAAAAAAAOcBAgTkAOSkp6TkAOcEBAQEAOcEBAQEAOWlpaXnAOCgoKDgAOCgoKDgAOCgoKAgAOCgoKDgAAAAAAAAAQIEBAA/AAQEAgEAAAAAAAAAAAAAAQIBAgEAAwAAAAMAAwICAgIAAwICAgIAAwAAAAAAAwAAAAMAAwAAAAAAAwICAgIAAwABAgIA",
+      "settings": [
+        {
+          "name": "BATTERY",
+          "values": [
+            "HIDE",
+            "SHOW"
+          ],
+          "default": 0
+        }
+      ]
+    }
+  ]
+}

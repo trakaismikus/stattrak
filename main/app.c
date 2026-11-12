@@ -15,6 +15,10 @@
 #include "app_view.h"
 #include "ask_view.h"
 #include "settings_view.h"
+#include "launcher_view.h"
+#include "app_host_view.h"
+#include "app_sync_view.h"
+#include "apps.h"
 
 #include "gfx_fx.h"
 
@@ -131,6 +135,9 @@ void App_init(void) {
 
   SettingsView_init();
 
+  // The app list and the installed apps (flash namespace "apps")
+  Apps_init();
+
   s_brightnessSetValue = (SSD1307_MAX_BRIGHTNESS * Eeprom_read(ENTRY_ID__BRIGHTNESS)) / BRIGHTNESS_SETTING_COUNT;
   s_brightnessDimValue = (s_brightnessSetValue * Eeprom_read(ENTRY_ID__DIM_LEVEL)) / 10;
   s_brightness = s_brightnessSetValue;
@@ -149,6 +156,13 @@ void App_update(void) {
 
   // Answer the Bluetooth commands of user features
   BleCommands_update();
+
+  // The app menu opens the selected app after 3 s without a press
+  Launcher_update(now);
+
+  // Installed apps: the tick event, and the flash writes of the app host; the install question
+  AppHost_update(now);
+  AppSync_update(now);
 
   // While firmware is being received, count it as activity, so auto off and dim start after it
   if(Ota_isBusy(otaState)) {
@@ -220,6 +234,7 @@ void App_update(void) {
   // Process Shutdown Request
   if(s_shutdownReq == 1) {
     s_shutdownReq = 2;
+    AppHost_onShutdown();   // The saved values of an open app
     App_click(800);
     GfxFx_startCollapse();
   } else if(s_shutdownReq == 2 && GfxFx_isCollapsed()) {
@@ -294,6 +309,10 @@ void App_updateSetting(uint8_t id, uint32_t value) {
       AppView_set(VIEW_ID__UPDATE);
       break;
 
+    case SETTING_ID__APP_SYNC:
+      AppView_set(VIEW_ID__APP_SYNC);
+      break;
+
     default: break;
   }
 
@@ -320,6 +339,12 @@ void App_requestShutdown(void) {
 void App_click(uint16_t freq) {
   if(Eeprom_read(ENTRY_ID__SOUND) > 0) {
     Buzzer_click(freq);
+  }
+}
+
+void App_tone(uint16_t freq, uint16_t ms) {
+  if(Eeprom_read(ENTRY_ID__SOUND) > 0) {
+    Buzzer_tone(freq, ms);
   }
 }
 
@@ -350,6 +375,8 @@ static void _factoryReset(bool confirm) {
 
   // TODO: Do Factory reset
   if(confirm) {
+    // The app storage is in the same flash: close it before the erase (App_init opens it again)
+    Apps_deinit();
     Eeprom_format(kEntryDefaults);
 
     // TODO: reset!

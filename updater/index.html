@@ -3,9 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>StatTrak™ · Firmware Updater</title>
+  <title>StatTrak™ · Updater</title>
   <link rel="stylesheet" href="css/colors_and_type.css" />
   <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/apps.css" />
 </head>
 <body>
   <div class="app">
@@ -14,8 +15,11 @@
     <header class="topbar">
       <div class="topbar__brand">
         <img src="assets/stattrak-wordmark-white.svg" alt="StatTrak" />
-        <span class="topbar__eyebrow">Firmware Updater</span>
       </div>
+      <nav class="tabs" aria-label="Updater">
+        <a class="tab tab--on" id="tabFirmware" href="#firmware" aria-current="page">Firmware</a>
+        <a class="tab" id="tabApps" href="#apps">Apps</a>
+      </nav>
       <nav class="topbar__meta">
         <a class="topbar__link" href="https://github.com/janiszah/stattrak-fw" target="_blank" rel="noreferrer">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
@@ -42,6 +46,9 @@
         </div>
       </div>
     </div>
+
+    <!-- ================= FIRMWARE TAB ================= -->
+    <div id="firmwareView">
 
     <!-- ================= MESSAGE (file refused, update not complete, firmware confirmed) ================= -->
     <div class="banner banner--error" role="alert" id="noticeBanner" hidden>
@@ -286,6 +293,14 @@
       </div>
     </div>
 
+    </div>
+
+    <!-- ================= APPS TAB (js/apps.js) ================= -->
+    <div id="appsView" hidden>
+      <div class="apps" id="appsMain"></div>
+      <input type="file" id="appsFile" accept=".stapp" hidden />
+    </div>
+
     <!-- ================= FOOTER ================= -->
     <footer class="footer">
       <div>© StatTrak™ is a trademark of Valve Corporation, used in tribute.</div>
@@ -358,6 +373,9 @@
   <script src="js/utils.js"></script>
   <script src="js/ble.js"></script>
   <script src="js/firmware.js"></script>
+  <script src="js/apps-protocol.js"></script>
+  <script src="js/apps-pictures.js"></script>
   <script src="js/main.js"></script>
+  <script src="js/apps.js"></script>
 </body>
 </html>

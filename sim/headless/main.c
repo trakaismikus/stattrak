@@ -18,6 +18,8 @@
  *   ble cmd <id> [hex]       a phone sends a user command (main/ble_commands.h), id in hex
  *   ble response             print the oldest answer of the firmware to a user command
  *   nvs fail <0|1>           make all flash writes fail
+ *   simapp <file>            install an app package like the window / web simulator (sim_apps.h)
+ *   simopen <file>           the same, and the simulator answers yes and opens the app
  *   state                    print the device state as key=value lines
  *   frame                    print the display, 32 lines of 128 characters ('#' = pixel on)
  *   quit                     stop
@@ -31,12 +33,22 @@
 #include <string.h>
 
 #include "host.h"
+#include "sdkconfig.h"
+
+#define YES_UP_MS  (CONFIG_BUTTON_SHORT_PRESS_TIME_MS + 50)   /* Button 2 up this long before the automatic "yes" */
 
 #include "app.h"
 #include "app_view.h"
+#include "launcher_view.h"
+#include "app_host_view.h"
+#include "app_settings_view.h"
+#include "app_sync_view.h"
+#include "apps.h"
 #include "eeprom.h"
 #include "ota.h"
 #include "board.h"
+#include "sim_apps.h"
+#include "stapp.h"
 
 /* > External Variables (main/main.c) *************************************************************/
 extern eeprom_t g_eeprom;
@@ -66,6 +78,8 @@ static void _printState(void) {
   printf("latched=%d\n", HostBoard_isLatched() ? 1 : 0);
   printf("view=%s\n", (view < VIEW_COUNT) ? kViewNames[view] : "INVALID");
   printf("view_id=%d\n", (int)view);
+  printf("view_next=%s\n", (AppView_getNext() < VIEW_COUNT) ? kViewNames[AppView_getNext()] : "INVALID");
+  printf("launcher_sel=%s\n", kViewNames[Launcher_getSelectedView()]);
   printf("brightness=%u\n", (unsigned)HostOled_getBrightness());
   printf("display_on=%d\n", HostOled_isOn() ? 1 : 0);
   printf("frames=%lu\n", (unsigned long)HostOled_getFrameCount());
@@ -82,6 +96,7 @@ static void _printState(void) {
   printf("ota_double_init=%lu\n", (unsigned long)HostOta_getDoubleInitCount());
   printf("ota_pending=%u\n", (unsigned)HostOta_getPendingStage());
   printf("ota_update_allowed=%d\n", HostOta_isUpdateAllowed() ? 1 : 0);
+  printf("ble_name=%s\n", HostOta_getName());
   printf("rolled_back=%d\n", HostOta_wasRolledBack() ? 1 : 0);
   printf("nvs_writes=%lu\n", (unsigned long)HostNvs_getWriteCount());
   printf("nvs_commits=%lu\n", (unsigned long)HostNvs_getCommitCount());
@@ -97,6 +112,52 @@ static void _printState(void) {
     const host_nvs_entry_t* entry = HostNvs_getEntry(i);
     printf("nvs.%s.%s=%lu\n", entry->ns, entry->key, (unsigned long)entry->value);
   }
+  for(uint32_t i = 0; i < HostNvs_getBlobCount(); i++) {
+    const host_nvs_blob_t* blob = HostNvs_getBlob(i);
+    printf("blob.%s.%s=%u\n", blob->ns, blob->key, (unsigned)blob->length);
+  }
+
+  /* Apps (main/apps.c): the list with the hidden apps, the menu, the open app */
+  printf("apps_count=%u\n", (unsigned)Apps_getCount());
+  printf("apps_installed=%u\n", (unsigned)Apps_getInstalledCount());
+  printf("apps_free=%lu\n", (unsigned long)Apps_getFreeBytes());
+  printf("apps_list=");
+  for(uint8_t i = 0; i < Apps_getCount(); i++) {
+    uint32_t id = 0;
+    uint8_t flags = 0;
+    Apps_getEntry(i, &id, &flags);
+    printf("%s%lu", i > 0 ? "," : "", (unsigned long)id);
+  }
+  printf("\n");
+  for(uint8_t i = 0; i < Apps_getCount(); i++) {
+    uint32_t id = 0;
+    uint8_t flags = 0;
+    Apps_getEntry(i, &id, &flags);
+    const char* name = Apps_getName(id);
+    printf("app.%lu.name=%s\n", (unsigned long)id, name ? name : "");
+    printf("app.%lu.flags=%u\n", (unsigned long)id, (unsigned)flags);
+    printf("app.%lu.settings=", (unsigned long)id);
+    for(uint8_t s = 0; s < Apps_getSettingCount(id); s++)
+      printf("%s%u", s > 0 ? "," : "", (unsigned)Apps_getSetting(id, s));
+    printf("\n");
+  }
+  {
+    apps_item_t items[APPS_MENU_MAX];
+    const uint8_t count = Apps_getMenu(items, APPS_MENU_MAX - 1);
+    printf("apps_menu=");
+    for(uint8_t i = 0; i < count; i++)
+      printf("%lu,", (unsigned long)items[i].id);
+    printf("settings\n");
+  }
+  printf("launcher_app=%lu\n", (unsigned long)Launcher_getSelectedAppId());
+  printf("app_running=%lu\n", (unsigned long)(AppHost_isOpen() ? AppHost_getAppId() : 0));
+  printf("app_error=%d\n", (int)AppHost_getError());
+  printf("app_error_text=%s\n", AppHost_getError() == STAPP_OK ? "" : Stapp_resultText(AppHost_getError()));
+  printf("app_install_state=%d\n", (int)AppSync_getState());
+  printf("app_settings_id=%lu\n", (unsigned long)AppSettings_getAppId());
+  printf("app_settings_row=%u\n", (unsigned)AppSettings_getRow());
+  printf("simapp_state=%d\n", (int)SimApps_getState());
+  printf("simapp_text=%s\n", SimApps_getText());
 }
 
 static void _printFrame(void) {
@@ -115,7 +176,7 @@ static void _printFrame(void) {
 
 /* Returns false at the end of the input. */
 static bool _readCommand(void) {
-  char line[128];
+  char line[300];
   char cmd[16] = "";
   char sub[16] = "";
   unsigned long a = 0, b = 0;
@@ -209,6 +270,17 @@ static bool _readCommand(void) {
     } else {
       _reply("err usage: nvs fail <0|1>");
     }
+  } else if(strcmp(cmd, "simapp") == 0 || strcmp(cmd, "simopen") == 0) {
+    char path[sizeof(line)] = "";
+    static uint8_t s_simApp[STAPP_MAX_SIZE + 1];
+    FILE* file = (sscanf(line, "%*s %299[^\r\n]", path) == 1) ? fopen(path, "rb") : NULL;
+    if(file == NULL) {
+      _reply("err usage: simapp <file> | simopen <file>");
+    } else {
+      const size_t size = fread(s_simApp, 1, sizeof(s_simApp), file);
+      fclose(file);
+      _reply(SimApps_start(s_simApp, (uint32_t)size, strcmp(cmd, "simopen") == 0) ? "ok" : "err not started");
+    }
   } else if(strcmp(cmd, "state") == 0) {
     _printState();
     _reply("ok");
@@ -227,6 +299,29 @@ static bool _readCommand(void) {
 static void _idle(void) {
   if(!HostOled_guardsIntact())
     Host_end(HOST_END__ABORT, "the firmware wrote outside the display frame buffer");
+
+  SimApps_update();
+
+  /* simopen: the simulator holds button 2 for the person ("yes"), as the window and the web page do */
+  /* The firmware answers only a hold that starts during the question: button 2 must be up
+   * first, also after the power-on hold of both buttons. YES_UP_MS: after a short press the button
+   * driver waits CONFIG_BUTTON_SHORT_PRESS_TIME_MS for a second click; a hold that starts in that
+   * time never becomes a long press. */
+  static bool s_simHold = false;
+  static uint64_t s_upSinceMs = 0;   /* Button 2 is up since this time (0 = it is down) */
+  if(HostButton_getLevel(1))
+    s_upSinceMs = 0;
+  else if(s_upSinceMs == 0)
+    s_upSinceMs = Host_nowMs() + 1;
+  if(!SimApps_wantsYes()) {
+    if(s_simHold) {
+      s_simHold = false;
+      HostButton_setLevel(1, false);
+    }
+  } else if(!s_simHold && s_upSinceMs != 0 && Host_nowMs() + 1 - s_upSinceMs >= YES_UP_MS) {
+    s_simHold = true;
+    HostButton_setLevel(1, true);
+  }
 
   while(Host_nowMs() >= s_runUntil) {
     if(s_runPending) {

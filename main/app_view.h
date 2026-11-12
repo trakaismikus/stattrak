@@ -44,6 +44,10 @@ Gfx_drawVLine(x + (len * font5x5.x_advance), y, font5x5.height, 1);  \
   VIEW(KILL_DEAD, killDead) \
   VIEW(STATS, stats) \
   VIEW(SETTINGS, settings) \
+  VIEW(LAUNCHER, launcher) \
+  VIEW(APP_HOST, appHost) \
+  VIEW(APP_SETTINGS, appSettings) \
+  VIEW(APP_SYNC, appSync) \
   VIEW(ASK, ask) \
   VIEW(UPDATE, update) \
   VIEW(FW_ACCEPT, fwAccept) \
@@ -54,6 +58,12 @@ Gfx_drawVLine(x + (len * font5x5.x_advance), y, font5x5.height, 1);  \
 
 
 /* > Enumerations *********************************************************************************/
+// Where the new view comes from when the view changes
+typedef enum app_view_from_e {
+  APP_VIEW_FROM__TOP = 0,   // The normal change: the new view comes down from above
+  APP_VIEW_FROM__BOTTOM,    // The new view comes up from below (used to open the app menu)
+} app_view_from_t;
+
 typedef enum view_id_e {
   #define VIEW(_id, _name) VIEW_ID__##_id,
     VIEW_LIST
@@ -74,6 +84,7 @@ void      AppView_update(void);
 void      AppView_show(void);
 bool      AppView_eventHandler(uint16_t event);
 void      AppView_set(view_id_t viewId);
+void      AppView_setFrom(view_id_t viewId, app_view_from_t from, uint32_t durationMs);
 view_id_t AppView_get(void);
 view_id_t AppView_getNext(void);
 bool      AppView_isActive(view_id_t viewId); // Current or pending view

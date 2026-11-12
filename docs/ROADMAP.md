@@ -5,7 +5,18 @@ Product status of the StatTrak firmware. Finding numbers (A1, B7, ...) are from
 
 ## In progress
 
-Nothing.
+- **Apps** (branch `feat/apps`, not shipped). Apps that users install over Bluetooth, like apps
+  on a watch: the app engine (`components/stapp/`), the app list and storage (`main/apps.c`),
+  the app host, app settings and "Apps: SYNC" views, the app manager commands `0x0110` to
+  `0x011C`, the compiler `tools/app.py`, the example apps in `apps/` and 3 sample apps to
+  try on a device (RUNNER, SLOTS, WALLPAPER; `tone()` for notes). Feedback round 1: the device
+  asks "INSTALL <NAME>?" before the app is sent, small YES / NO buttons that fill while held,
+  SYNC MORE and OPEN after the install, a Bluetooth name for "Apps: SYNC", `down1` / `down2`
+  events (package format 2) so RUNNER jumps at once, new WALLPAPER buttons, and
+  `Factory: RESET` after `Firmware: UPDATE` in the settings. The web and window simulators
+  install apps too (an "Apps" panel, `--app FILE`) and play the buzzer in the browser. Specification:
+  [APPS.md](APPS.md). Tested in the simulator only; the install over Bluetooth and the flash
+  use of 24 KB of packages in NVS were not run on a real device.
 
 ## Next up
 
@@ -21,7 +32,8 @@ simulator cannot test.
    directly, before the normal views start. Option: go back to the other firmware slot.
 3. **Restart when the firmware hangs (C1).** Switch on `CONFIG_ESP_TASK_WDT_PANIC` and feed
    the watchdog from the main loop. Check the two `while(1);` loops after power-off first (B12).
-4. **Test this branch on real devices.** The update fixes of the `dev` branch, the Bluetooth
+4. **Test this branch on real devices.** The app menu (speed of the slides on the real
+   display, the way to Settings and to the update mode), the update fixes of the `dev` branch, the Bluetooth
    user commands, the web updater (`updater/`) and the firmware build with the setup tool on
    Windows and macOS were not run on hardware. The test lists are in the pull request.
 
@@ -63,6 +75,11 @@ This repository (`trakaismikus/stattrak`) is private until these are done:
   TRIDOS shop, and sections with screenshots for "Start in 5 minutes", the Screen Designer,
   the Web Updater and the device views (pictures in `docs/images/`). The developer commands
   are in a section that opens on a click.
+- **2026-11: app menu.** Both buttons open a menu of the apps (KILLS, KILLS + DEAD, STATS,
+  SETTINGS) in place of "next view". Each app has a title picture; button 1 / 2 go to the
+  previous / next app, both buttons or 3 seconds without a press open it. The app slides up and
+  the menu comes up from below; a bar at the bottom shows the position. The safety check makes
+  sure that the menu keeps SETTINGS (the way to the firmware update). Not yet tried on a device.
 - **2026-11: one repository, and the web updater.** The web updater is in `updater/`, with
   the fixes for this firmware: "Flash complete" only after the device restarted and confirmed
   the new firmware, clear messages when an update fails, a check of the firmware file before

@@ -34,6 +34,32 @@ OLED_HEIGHT = 32
 # CONFIG_BUTTON_SHORT_PRESS_TIME_MS (180 ms) after the release.
 CLICK_SETTLE_MS = 300
 
+# The rows of the settings view (SETTING_LIST in main/app.h). SHOW_BATTERY and LOW_BAT are not
+# there for the battery types NONE and USB.
+SETTING_ROWS = [
+    "GAME_RESET", "COUNTER", "BATTERY_TYPE", "AUTO_OFF", "SHOW_BATTERY", "LOW_BAT",
+    "BRIGHTNESS", "DIM_SCREEN", "DIM_LEVEL", "SOUND", "APP_SYNC", "FW_UPDATE", "FACTORY_RESET",
+    "VERSION", "SERIAL",
+]
+
+# The app menu has 12 apps at most (main/apps.h)
+APP_MENU_MAX = 12
+
+# App manager commands (main/ble_commands.h, docs/APPS.md section 6)
+APP_CMD_INFO = 0x0110
+APP_CMD_LIST = 0x0111
+APP_CMD_NAME = 0x0112
+APP_CMD_BEGIN = 0x0113
+APP_CMD_DATA = 0x0114
+APP_CMD_END = 0x0115
+APP_CMD_STATUS = 0x0116
+APP_CMD_DELETE = 0x0117
+APP_CMD_SET_ORDER = 0x0118
+APP_CMD_SET_HIDDEN = 0x0119
+APP_CMD_SETTING = 0x011A
+APP_CMD_ASK = 0x011B
+APP_CMD_DEVICE_NAME = 0x011C
+
 
 class SimError(Exception):
     """The simulator refused a command."""
@@ -259,7 +285,7 @@ class Device:
         return self
 
     def click_both(self, hold_ms=80, settle_ms=500):
-        """Short press on the two buttons together (go to the next view)."""
+        """Short press on the two buttons together (app menu, or open the selected app)."""
         self.press(1)
         self.press(2)
         self.run(hold_ms)
@@ -319,6 +345,117 @@ class Device:
                 return int(fields["status"]), bytes.fromhex(fields.get("data", ""))
         return None
 
+    # --- Apps (docs/APPS.md): the app manager of the web updater ---------------------------------
+
+    def open_app_sync(self):
+        """Open Settings > "Apps: SYNC" with the buttons, as a person does. The device must be on."""
+        if self.view == "APP_SYNC":
+            return self
+        if self.view != "SETTINGS":
+            self.click_both()
+            for _ in range(APP_MENU_MAX):
+                if self.state()["launcher_sel"] == "SETTINGS":
+                    break
+                self.click(1)
+            self.click_both()
+        if self.view != "SETTINGS":
+            raise SimError("could not open the settings (view %s)" % self.view)
+        # To the first row, then down to "Apps"
+        battery = self.state()["eeprom.battery_type"] > 1
+        for _ in range(len(SETTING_ROWS)):
+            self.click(1, settle_ms=200)
+        rows = SETTING_ROWS if battery else [r for r in SETTING_ROWS if r not in ("SHOW_BATTERY", "LOW_BAT")]
+        for _ in range(rows.index("APP_SYNC")):
+            self.click(2, settle_ms=200)
+        self.long_press(2)
+        if self.view != "APP_SYNC":
+            raise SimError("could not open Apps: SYNC (view %s)" % self.view)
+        return self
+
+    def ble_commands(self, commands, wait_ms=20):
+        """Send many user commands, 4 at a time (the size of the command queue).
+
+        `commands` = list of (cmd_id, data). Return the list of (status, answer bytes).
+        """
+        answers = []
+        for start in range(0, len(commands), 4):
+            batch = commands[start:start + 4]
+            for cmd_id, data in batch:
+                self.command("ble cmd %04x %s" % (cmd_id, bytes(data).hex()))
+            self.run(wait_ms)
+            for cmd_id, _ in batch:
+                found = None
+                for line in self.command("ble response"):
+                    if line.startswith("response cmd="):
+                        fields = dict(part.split("=", 1) for part in line.split()[1:])
+                        found = (int(fields["status"]), bytes.fromhex(fields.get("data", "")))
+                answers.append(found)
+        return answers
+
+    def install_app(self, package, answer="yes", open_sync=True, crc=None, name=None):
+        """Install a package like the web updater: BEGIN, ASK (the device asks "INSTALL <NAME>?"),
+        the person answers, STATUS, then (after yes) DATA, END and STATUS.
+
+        answer: "yes" (hold button 2), "no" (hold button 1), "wait" (no answer: 30 s timeout) or
+        None (do not answer; the device waits). name: the name field of ASK (16 bytes; default:
+        the name field of the package). Return a dict: step (where it stopped: begin, ask,
+        answer, data, end), status, data, state (the install state of STATUS, or None).
+        """
+        package = bytes(package)
+        if open_sync:
+            self.open_app_sync()
+        app_id = struct.unpack_from("<I", package, 8)[0] if len(package) >= 12 else 0
+        if crc is None:
+            crc = zlib.crc32(package) & 0xFFFFFFFF
+        if name is None:
+            name = package[16:32] if len(package) >= 32 else b""
+        result = {"step": "begin", "status": None, "data": b"", "state": None}
+
+        status, data = self.ble_command(APP_CMD_BEGIN, struct.pack("<IHI", app_id, len(package) & 0xFFFF, crc))
+        result.update(status=status, data=data)
+        if status != 0:
+            return result
+
+        result["step"] = "ask"
+        status, data = self.ble_command(APP_CMD_ASK, bytes(name).ljust(16, b"\0")[:16])
+        result.update(status=status, data=data)
+        if status != 0:
+            return result
+
+        result["step"] = "answer"
+        if answer == "yes":
+            self.long_press(2)
+        elif answer == "no":
+            self.long_press(1)
+        elif answer == "wait":
+            self.run(31000)
+        if answer is None:
+            return result
+        status, data = self.ble_command(APP_CMD_STATUS)
+        result.update(status=status, data=data, state=data[0] if data else None)
+        if status != 0 or result["state"] != 1:
+            return result
+
+        result["step"] = "data"
+        chunks = []
+        for offset in range(0, len(package), 14):
+            chunk = package[offset:offset + 14].ljust(14, b"\0")
+            chunks.append((APP_CMD_DATA, struct.pack("<H", offset) + chunk))
+        for answer_ in self.ble_commands(chunks):
+            if answer_ is None or answer_[0] != 0:
+                result.update(status=None if answer_ is None else answer_[0], data=b"" if answer_ is None else answer_[1])
+                return result
+
+        result["step"] = "end"
+        status, data = self.ble_command(APP_CMD_END)
+        result.update(status=status, data=data)
+        if status != 0:
+            return result
+
+        status, data = self.ble_command(APP_CMD_STATUS)
+        result.update(status=status, data=data, state=data[0] if data else None)
+        return result
+
     def nvs_fail(self, fail=True):
         """Make all flash writes fail (or work again)."""
         self.command("nvs fail %d" % (1 if fail else 0))
@@ -352,17 +489,51 @@ class Device:
 
     # --- Flash content while the device is off ---------------------------------------------------
 
-    def read_flash(self):
-        """Return the saved flash values as a dict: {"total_kills": 3, ...}."""
-        values = {}
+    def _state_lines(self):
         if not os.path.isfile(self.state_file):
-            return values
+            return []
         with open(self.state_file, "r", encoding="utf-8") as handle:
-            for line in handle:
-                parts = line.split()
-                if len(parts) == 4 and parts[0] == "nvs":
-                    values[parts[2]] = int(parts[3])
+            return [line.rstrip("\r\n") for line in handle]
+
+    def read_flash(self, namespace="eeprom"):
+        """Return the saved number values of one flash namespace as a dict: {"total_kills": 3, ...}."""
+        values = {}
+        for line in self._state_lines():
+            parts = line.split()
+            if len(parts) == 4 and parts[0] == "nvs" and parts[1] == namespace:
+                values[parts[2]] = int(parts[3])
         return values
+
+    def read_blobs(self, namespace="apps"):
+        """Return the saved byte arrays (blobs) of one flash namespace: {"list": b"...", ...}."""
+        blobs = {}
+        for line in self._state_lines():
+            parts = line.split()
+            if len(parts) == 4 and parts[0] == "blob" and parts[1] == namespace:
+                blobs[parts[2]] = b"" if parts[3] == "-" else bytes.fromhex(parts[3])
+        return blobs
+
+    def write_blobs(self, blobs, namespace="apps", remove=()):
+        """Change saved byte arrays while the device is off. `blobs` = {key: bytes}. Other lines stay."""
+        if self._proc is not None and self.ended is None:
+            raise SimError("Switch the device off before you change the flash content.")
+        pending = self.read_pending()
+        lines = []
+        for line in self._state_lines():
+            parts = line.split()
+            if parts and parts[0] == "ota":
+                continue
+            if len(parts) >= 3 and parts[0] == "blob" and parts[1] == namespace and \
+                    (parts[2] in blobs or parts[2] in remove):
+                continue
+            lines.append(line)
+        for key, data in blobs.items():
+            lines.append("blob %s %s %s" % (namespace, key, bytes(data).hex() or "-"))
+        lines.append("ota pending %d" % pending)
+        with open(self.state_file, "w", encoding="utf-8", newline="\n") as handle:
+            for line in lines:
+                handle.write(line + "\n")
+        return self
 
     def read_pending(self):
         """Return the firmware-update stage in the state file (0, 1 or 2)."""
@@ -383,17 +554,29 @@ class Device:
         if self._proc is not None and self.ended is None:
             raise SimError("Switch the device off before you change the flash content.")
 
-        current = self.read_flash()
+        current = self.read_flash(namespace)
         current.update(values)
         for key in remove:
             current.pop(key, None)
         if pending is None:
             pending = self.read_pending()
 
+        # The lines of the other namespaces and the blobs stay as they are
+        others = []
+        for line in self._state_lines():
+            parts = line.split()
+            if not parts or line.startswith("#") or (parts[0] == "nvs" and len(parts) > 1 and parts[1] == namespace):
+                continue
+            if parts[0] == "ota":
+                continue
+            others.append(line)
+
         with open(self.state_file, "w", encoding="utf-8", newline="\n") as handle:
             handle.write("# StatTrak simulator: saved device state (flash content)\n")
             for key, value in current.items():
                 handle.write("nvs %s %s %d\n" % (namespace, key, value & 0xFFFFFFFF))
+            for line in others:
+                handle.write(line + "\n")
             handle.write("ota pending %d\n" % pending)
         return self
 

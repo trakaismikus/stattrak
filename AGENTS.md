@@ -109,7 +109,9 @@ the update mode and the start sequence.
 | Switch the device off for a low battery while firmware is received | A device that reads a wrong battery level could never get a new firmware. |
 | Rename, reuse or change the meaning of a flash value in `ENTRY_LIST` (`main/app.h`) | Users lose their counters, or an other firmware version reads a wrong value. |
 | Block the main loop: `while(1)` or a long delay without `vTaskDelay()`, slow code in a `draw` function | Buttons, the display and the update mode stop. The user cannot switch off. |
-| Handle `EVENT__PRESS_BOTH` or `EVENT__LONG_PRESS_B` in a different way in normal views | "Both short" = next view (the way to Settings and to the update). "Both long" = power off. |
+| Handle `EVENT__PRESS_BOTH` or `EVENT__LONG_PRESS_B` in a different way in normal views, or remove `SETTINGS` from the app menu (the last line of `_buildMenu()` in `main/views/launcher_view.c`) | "Both short" = app menu, and the app menu always ends with SETTINGS (the way to the update). "Both long" = power off. SETTINGS is added in code, never from the app list in flash: no app, no flash content and no Bluetooth command can remove it. |
+| Let the app commands (`0x0110` to `0x011A` in `main/ble_commands.c`) work outside the view "Apps: SYNC" (`AppSync_isActive()`) | Only there the person sees the install question, and only there the device refuses new firmware while the phone talks to it. |
+| Write to flash in a `draw` function, also in the app host (`main/views/app_host_view.c`): app errors and saved values are written later, in `AppHost_update()` | The draw function runs each 10 ms. Flash wears out, and a slow write stops the buttons and the display. |
 | Tell the user to run `idf.py flash`, `idf.py erase-flash` or `esptool` | These need a wired connection and replace the bootloader. Only do it if the user asks for it and says that the device has a serial (UART) connection. |
 
 `python tools/check_safety.py` finds most of these changes automatically.
@@ -282,7 +284,7 @@ logic) for the computer. Only the hardware and ESP-IDF are replaced (`sim/host/`
 ```sh
 python tools/check.py --build-only            # build it (folder build-host/)
 python tools/sim.py boot click1 click1 frame  # 2 kills, print the display as text
-python tools/sim.py boot both both both png:settings state
+python tools/sim.py boot both click1 both png:settings state   # menu, SETTINGS, open
 python tools/sim.py --tour                    # a picture of each main view in out/
 python tools/sim.py --help                    # all actions
 ```
@@ -315,6 +317,8 @@ get answers. Read `docs/BLUETOOTH.md` before you use it. The short version:
   a firmware while the user plays. Bluetooth uses battery power: keep it off when the feature
   does not need it.
 - Test each command in the simulator: `tests/test_bluetooth.py` and `python tools/sim.py ... ble:0100`.
+- The app manager of the web updater uses the commands `0x0110` to `0x011A` (`docs/APPS.md`,
+  section 6). They work only in the view Settings > "Apps: SYNC". Do not use these numbers.
 - The other side (a web page or an app) uses the Bluetooth service `0x8018`, characteristic
   `0x8023`. `docs/BLUETOOTH.md` has the packet format and a JavaScript example.
 
@@ -325,7 +329,9 @@ main/main.c              start sequence + main loop. HIGH RISK, see section 3
 main/app.c, app.h        settings logic, dim, auto-off, battery warnings, lists of values
 main/app_view.c, .h      list of views (VIEW_LIST) and the change between views
 main/views/*.c           one file for each view
-main/ble_commands.c, .h  Bluetooth commands for user features
+main/ble_commands.c, .h  Bluetooth commands for user features, and the app manager commands
+main/apps.c, .h          the app list (built-in + installed apps) and their storage in flash (docs/APPS.md)
+main/views/app_*_view.c  app host (runs an installed app), app settings, app sync ("Apps: SYNC")
 main/eeprom.c            values in flash (NVS), with a copy in RAM
 main/battery.c           battery level and critical level for each battery type
 main/board.c, board/     hardware drivers (pins, buttons, display, ADC, buzzer). HIGH RISK
@@ -336,6 +342,7 @@ components/gui/          animation engine
 components/ssd1307/      display driver
 components/app_ble/      Bluetooth start. HIGH RISK
 components/ble_ota/      firmware update over Bluetooth. HIGH RISK
+components/stapp/        the app engine: checks an app package and runs it with limits (docs/APPS.md)
 partitions.csv           flash layout. NEVER CHANGE
 sdkconfig.defaults       SDK settings. HIGH RISK
 designs/                 screen design files (docs/DESIGNS.md)
@@ -370,17 +377,32 @@ Button events (`event_t` in `main/app.h`):
 | `EVENT__LONG_PRESS_1`, `_2` | The button is held for 700 ms. |
 | `EVENT__LONG_HOLD_1`, `_2` | Each 500 ms after that, while the button is held. |
 | `EVENT__RAW_PRESS_x`, `EVENT__RAW_RELEASE_x` | Immediately. Use them only to show a pressed button. |
-| `EVENT__PRESS_BOTH`, `EVENT__LONG_PRESS_B` | Handled in `main/main.c`: next view / power off. Not for views. |
+| `EVENT__PRESS_BOTH`, `EVENT__LONG_PRESS_B` | Handled in `main/main.c`: app menu / power off. Not for views. |
+
+The app menu (`main/views/launcher_view.c`): both buttons in an app open it. Button 1 = previous
+app, button 2 = next app (it wraps around). Both buttons, or 3 seconds without a press, open the
+selected app. Hold button 2: the settings of the selected installed app. Each title picture is
+80 x 24 pixels (icons in `main/resources/app_icons.c`, installed apps have it in the package).
+
+The menu is built each time it opens (`_buildMenu()`): the apps of `main/apps.c` (the built-in
+apps KILLS, KILLS + DEAD, STATS and the installed apps, in the saved order, without the hidden
+ones), then SETTINGS, always, as the last app. Installed apps come over Bluetooth (Settings >
+"Apps: SYNC"); `docs/APPS.md` describes the package, the engine and the commands.
 
 To add a view:
 
 1. Make `main/views/my_view.c` with `view_t g_myView = { ... };`. Copy a small view, for
    example `stats_view.c`. The draw code can come from a design file (section 5).
-2. Add `VIEW(MY, my)` to `VIEW_LIST` in `main/app_view.h`. Views between `TOTAL` and `SETTINGS`
-   are in the "both buttons" cycle. Put special views after `SETTINGS`.
+2. Add `VIEW(MY, my)` to `VIEW_LIST` in `main/app_view.h`, after `LAUNCHER`. To show it in the
+   app menu as a built-in app: add it to `kBuiltin` in `main/apps.c` with a new id (4 to 255),
+   make `APPS_BUILTIN_COUNT` larger, and draw its title picture (80 x 24) in `_drawCover()` of
+   `main/views/launcher_view.c`. `SETTINGS` stays the last app; do not add it to a list.
 3. Add the file to `main/CMakeLists.txt` (`SRC_FILES`) **and** to `sim/CMakeLists.txt`
    (`FIRMWARE_SOURCES`).
-4. Update `MAIN_VIEWS` in `tests/helpers.py` if the view is in the cycle. Add a test.
+4. Update `MAIN_VIEWS` in `tests/helpers.py` if the view is in the app menu. Add a test.
+
+An app that users install (and share without a firmware update) is often the better choice
+than a new built-in view: `docs/APPS.md`, `apps/`, `python tools/app.py`.
 
 ### Drawing
 

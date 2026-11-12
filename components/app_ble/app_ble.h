@@ -2,6 +2,7 @@
 #define _APP_BLE_H
 
 #include "host/ble_hs.h"
+#include "app_ble_name.h"
 
 
 typedef struct {

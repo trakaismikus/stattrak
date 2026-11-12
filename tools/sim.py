@@ -5,7 +5,7 @@ The simulator runs the real firmware code on this computer. You give it a list o
 It prints the display as text and can save it as a PNG picture.
 
     python tools/sim.py boot click1 click1 frame
-    python tools/sim.py boot both both both png:settings state
+    python tools/sim.py boot both click1 both png:settings state
     python tools/sim.py --tour                     (a picture of each main view in out/)
 
 Build the simulator first: python tools/check.py --build-only
@@ -14,7 +14,7 @@ Actions (done from left to right):
     boot              power on: hold both buttons, release them, wait for the start animation
     boot:MS           power on and keep both buttons held for MS milliseconds (10600 = update mode)
     click1 click2     short press on button 1 (kill) or button 2 (death)
-    both              short press on the two buttons (next view)
+    both              short press on the two buttons (app menu / open the selected app)
     long1 long2       long press on button 1 or 2 (in settings: change the value)
     long1:MS          long press with a hold time in milliseconds
     longboth          long press on the two buttons (power off)
@@ -25,6 +25,8 @@ Actions (done from left to right):
     accept            a phone accepts the new firmware
     ble:ID            a phone sends a Bluetooth user command (ID in hex, example: ble:0100)
     ble:ID:HEX        the same, with data bytes as hex text (example: ble:0101:05ff)
+    app:FILE          install an app package (.stapp) like the web updater: opens Settings >
+                      "Apps: SYNC", sends it, holds button 2 ("yes"). Then both buttons = app menu
     cut               remove the power immediately
     frame             print the display as text ('#' = pixel on)
     png:NAME          save the display as out/NAME.png
@@ -89,6 +91,16 @@ def do_action(dev, action, out_dir, voltage):
             print("ble %s: no answer" % cmd_id)
         else:
             print("ble %s: status=%d data=%s" % (cmd_id, answer[0], answer[1].hex() or "(none)"))
+    elif name == "app":
+        with open(arg, "rb") as handle:
+            package = handle.read()
+        result = dev.install_app(package)
+        states = {3: "installed", 4: "refused", 5: "timeout"}
+        if result["state"] in states:
+            print("app %s: %s" % (arg, states[result["state"]]))
+        else:
+            print("app %s: not installed, %s answered status %s %s" % (
+                arg, result["step"].upper(), result["status"], result["data"].hex()))
     elif name == "cut":
         dev.power_cut()
     elif name == "frame":
@@ -112,16 +124,24 @@ def do_action(dev, action, out_dir, voltage):
 
 
 def tour(dev, out_dir):
-    """Save a picture of each main view."""
+    """Save a picture of each main view and of the app menu."""
     dev.boot()
     for _ in range(3):
         dev.click(1)
-    for view in ("total", "kill_dead", "stats", "settings"):
+    for index, view in enumerate(("total", "kill_dead", "stats", "settings")):
+        if index > 0:
+            dev.click_both()   # app menu
+            dev.click(2)       # next app
+            dev.run(300)
+            if index == 1:
+                print("--- menu (view %s)" % dev.view)
+                print(dev.frame_text())
+                print("saved %s" % dev.save_png(os.path.join(out_dir, "tour_menu.png")))
+            dev.click_both()   # open it
         dev.run(400)
         print("--- %s (view %s)" % (view, dev.view))
         print(dev.frame_text())
         print("saved %s" % dev.save_png(os.path.join(out_dir, "tour_%s.png" % view)))
-        dev.click_both()
 
 
 def main():

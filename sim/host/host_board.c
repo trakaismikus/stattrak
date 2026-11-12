@@ -9,6 +9,9 @@
 #include "host.h"
 
 #include <stdio.h>
+#ifdef __EMSCRIPTEN__
+  #include <emscripten.h>
+#endif
 #include <string.h>
 
 #include "board.h"
@@ -146,9 +149,27 @@ static void _update(uint8_t* buf) {
 
 /* > Buzzer ***************************************************************************************/
 
+// The web page plays the buzzer with the browser sound (Module.simBeep in sim/web/shell.html.in).
+// The window and the headless simulators have no sound.
+static void _sound(uint16_t freq, uint16_t ms) {
+#ifdef __EMSCRIPTEN__
+  EM_ASM({ if(Module.simBeep) Module.simBeep($0, $1); }, freq, ms);
+#else
+  (void)freq;
+  (void)ms;
+#endif
+}
+
 void Buzzer_click(uint16_t freq) {
   s_clickCount++;
   s_lastFreq = freq;
+  _sound(freq, 10);
+}
+
+void Buzzer_tone(uint16_t freq, uint16_t ms) {
+  s_clickCount++;   // The tests count a note like a click
+  s_lastFreq = freq;
+  _sound(freq, ms);
 }
 
 void Buzzer_beep(uint16_t freq, uint8_t duty) {

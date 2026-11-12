@@ -151,6 +151,7 @@ function activeStepNumber() {
 
 // --- Render -----------------------------------------------------------
 function render() {
+  if (typeof renderTabs === "function") renderTabs(); // js/apps.js: no tab change during an update
   renderBanner();
   renderNotice();
   renderSteps();

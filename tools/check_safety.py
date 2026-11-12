@@ -129,7 +129,9 @@ RULES = [
      "These are the ways to repair a device with a bad firmware."),
     ("update-views",
      "The update view and the accept view must start the Bluetooth update service, and nothing there or "
-     "in the start code can refuse new firmware.",
+     "in the start code can refuse new firmware. 'Both buttons' must open the app menu, and the app menu "
+     "must always end with SETTINGS (the way to 'Firmware: UPDATE'): _buildMenu() in launcher_view.c adds it "
+     "in code, never from flash.",
      "Without Bluetooth in these views the phone cannot send or accept firmware. Ota_setUpdateAllowed(false) "
      "is for views of user features only: in the update path it makes the device refuse each new firmware."),
     ("nvs-keys",
@@ -137,9 +139,11 @@ RULES = [
      "A renamed value is lost for users (counters go to zero). A name that is too long is never stored."),
     ("bluetooth-identity",
      "The Bluetooth name, the update service numbers, the update command numbers and the sector size "
-     "must not change.",
+     "must not change. Only main/views/app_sync_view.c may give Bluetooth an other name for one start "
+     "(AppBle_setNextName), and AppBle_init() must forget that name after it used it.",
      "The web updater finds the device and talks to it with them. If they change, it cannot update or accept "
-     "firmware. Command numbers for user features start at 0x0100."),
+     "firmware. Command numbers for user features start at 0x0100. A name of the person in the update view "
+     "or the accept view would hide the device from the web updater."),
 ]
 
 
@@ -381,6 +385,77 @@ class Checker:
                 if not re.search(r"VIEW\(\s*%s\s*," % view, view_list):
                     self.fail("update-views", "main/app_view.h: the view %s is not in VIEW_LIST." % view)
 
+        # The way to Settings: "both buttons" opens the app menu, and the app menu has SETTINGS
+        main_c = self.read("main/main.c", "update-views")
+        if main_c is not None:
+            both = re.search(r"case\s+EVENT__PRESS_BOTH\s*:(.*?)\bbreak\s*;\s*\}", self.strip_comments(main_c), flags=re.S)
+            if not both or not re.search(r"\bLauncher_onBothButtons\s*\(\s*\)", both.group(1)):
+                self.fail("update-views", "main/main.c: 'both buttons' (EVENT__PRESS_BOTH) must call "
+                          "Launcher_onBothButtons(), the way to the app menu and to Settings.")
+        launcher = self.read("main/views/launcher_view.c", "update-views")
+        if launcher is not None:
+            self.check_menu_has_settings(self.strip_comments(launcher))
+
+        # The app manager commands work only in the view "Apps: SYNC" (there the firmware is refused
+        # and the person answers the install question)
+        commands = self.read("main/ble_commands.c", "update-views")
+        if commands is not None:
+            code = self.strip_comments(commands)
+            body = self.body_text(code, "_handleApp")
+            if body is None or not re.match(r"\s*(const\s+uint8_t\s*\*\s*d\s*=\s*cmd->data\s*;\s*)?"
+                                            r"if\s*\(\s*!\s*AppSync_isActive\s*\(\s*\)\s*\)\s*"
+                                            r"return\s+BLE_COMMAND_STATUS__NOT_IN_APP_SYNC\s*;", body):
+                self.fail("update-views", "main/ble_commands.c: _handleApp() must start with "
+                          "'if(!AppSync_isActive()) return BLE_COMMAND_STATUS__NOT_IN_APP_SYNC;'.")
+            handle = self.body_text(code, "_handle")
+            if handle is None or re.search(r"case\s+BLE_COMMAND__APP_", handle):
+                self.fail("update-views", "main/ble_commands.c: the app commands are handled only in _handleApp().")
+
+    def body_text(self, code, name):
+        """The text between the braces of the C function `name`, or None."""
+        span = self.function_body(code, name)
+        return code[span[0]:span[1]] if span else None
+
+    def check_menu_has_settings(self, code):
+        """The app menu is built from flash (main/apps.c), but SETTINGS is added in code: as the last,
+        unconditional statement of _buildMenu(), after at most APPS_MENU_MAX - 1 other apps."""
+        where = "main/views/launcher_view.c"
+        body = self.body_text(code, "_buildMenu")
+        if body is None:
+            self.fail("update-views", "%s: the function _buildMenu() (it builds the app menu) is missing." % where)
+            return
+
+        # The last statement at the top level of the function body
+        depth = 0
+        last_start = 0
+        for pos, char in enumerate(body):
+            if char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                # The end of a block ("if(...) { }"), not of a value ("(apps_item_t){ ... };")
+                if depth == 0 and body[pos + 1:].lstrip()[:1] not in (";", ",", ")"):
+                    last_start = pos + 1
+            elif char == ";" and depth == 0 and pos < len(body.rstrip()) - 1:
+                last_start = pos + 1
+        last = body[last_start:].strip()
+
+        if not re.match(r"s_items\s*\[\s*s_count\s*\+\+\s*\]\s*=\s*\(\s*apps_item_t\s*\)\s*\{\s*VIEW_ID__SETTINGS\b", last) or \
+                re.search(r"\b(return|goto)\b", body):
+            self.fail("update-views", "%s: _buildMenu() must end with the line that adds VIEW_ID__SETTINGS, with no "
+                      "condition and no return before it. SETTINGS is the way to 'Firmware: UPDATE'." % where)
+        if not re.search(r"\bApps_getMenu\s*\(\s*s_items\s*,\s*APPS_MENU_MAX\s*-\s*1\s*\)", body):
+            self.fail("update-views", "%s: _buildMenu() must leave one place for SETTINGS: "
+                      "Apps_getMenu(s_items, APPS_MENU_MAX - 1)." % where)
+
+        # Nothing else changes the menu
+        outside = re.sub(r"static\s+int8_t\s+s_count\s*=\s*0\s*;", "", code.replace(body, ""))
+        if re.search(r"\bs_count\s*(=[^=]|\+\+|--|\+=|-=)|\bs_items\s*\[[^\]]*\]\s*(\.\w+\s*)?=[^=]", outside):
+            self.fail("update-views", "%s: only _buildMenu() can change the app menu (s_items, s_count)." % where)
+        both = self.body_text(code, "Launcher_onBothButtons")
+        if both is None or not re.search(r"\b_buildMenu\s*\(\s*\)", both):
+            self.fail("update-views", "%s: Launcher_onBothButtons() must build the menu (_buildMenu())." % where)
+
     def check_nvs_keys(self):
         text = self.read("main/app.h", "nvs-keys")
         if text is None:
@@ -405,9 +480,32 @@ class Checker:
         if app_ble is not None:
             if not re.search(r'#define\s+GAP_NAME\s+"StatTrak"', app_ble):
                 self.fail("bluetooth-identity", 'components/app_ble/app_ble.c: GAP_NAME must be "StatTrak".')
+            # The name of AppBle_setNextName() is for one start only: AppBle_init() clears it
+            init = re.search(r"void\s+AppBle_init\s*\(.*?\n}", self.strip_comments(app_ble), flags=re.S)
+            if init is None or not re.search(r"s_nextName\[0\]\s*=\s*'\\0'\s*;", init.group(0)):
+                self.fail("bluetooth-identity", "components/app_ble/app_ble.c: AppBle_init() must clear the "
+                                                "name of AppBle_setNextName() after it used it.")
             uuid = "0x00, 0xC7, 0xC4, 0x4E, 0xE3, 0x6C, 0x51, 0xA7, 0x33, 0x4B, 0xE8, 0xED, 0x5A, 0x0E, 0xB8, 0x03"
             if uuid not in app_ble:
                 self.fail("bluetooth-identity", "components/app_ble/app_ble.c: the advertised service UUID changed.")
+
+        # Only "Apps: SYNC" gives Bluetooth the name of the person
+        allowed = ("main/views/app_sync_view.c", "components/app_ble/app_ble.c", "components/app_ble/app_ble_name.h",
+                   "components/app_ble/app_ble.h")
+        for relative in self.source_files():
+            if relative in allowed:
+                continue
+            text = self.read(relative)
+            if text is not None and re.search(r"\bAppBle_setNextName\s*\(", self.strip_comments(text)):
+                self.fail("bluetooth-identity", "%s: only main/views/app_sync_view.c may call AppBle_setNextName()."
+                          % relative)
+        # And it forgets the name right after Ota_init(): Ota_init() can return before AppBle_init()
+        sync = self.read("main/views/app_sync_view.c")
+        if sync is not None and re.search(r"\bAppBle_setNextName\s*\(", self.strip_comments(sync)):
+            if not re.search(r"\bOta_init\s*\(\s*\)\s*;\s*AppBle_setNextName\s*\(\s*NULL\s*\)\s*;",
+                             self.strip_comments(sync)):
+                self.fail("bluetooth-identity", "main/views/app_sync_view.c: call AppBle_setNextName(NULL) right "
+                                                "after Ota_init().")
 
         ble_ota = self.read("components/ble_ota/ble_ota.c", "bluetooth-identity")
         if ble_ota is not None:

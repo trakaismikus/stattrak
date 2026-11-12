@@ -35,6 +35,9 @@ extern "C" {
 #define HOST_STEP_MS        (5)
 
 #define HOST_NVS_MAX_ENTRIES  (64)
+#define HOST_NVS_MAX_BLOBS    (64)
+#define HOST_NVS_MAX_BLOB     (4096)          /* Bytes in one blob (the app packages are 4096 at most) */
+#define HOST_NVS_BLOB_SPACE   (40 * 1024)     /* All blobs together: the NVS partition is 48 KB */
 
 /* > Type Definitions *****************************************************************************/
 
@@ -71,6 +74,13 @@ typedef struct {
   char     key[16];
   uint32_t value;
 } host_nvs_entry_t;
+
+typedef struct {
+  char     ns[16];
+  char     key[16];
+  uint16_t length;
+  uint8_t* data;
+} host_nvs_blob_t;
 
 /* > Function Declarations ************************************************************************/
 
@@ -125,6 +135,9 @@ uint32_t    HostNvs_getEraseCount(void);
 uint32_t    HostNvs_getEntryCount(void);
 const host_nvs_entry_t* HostNvs_getEntry(uint32_t idx);
 bool        HostNvs_put(const char* ns, const char* key, uint32_t value);
+uint32_t    HostNvs_getBlobCount(void);
+const host_nvs_blob_t* HostNvs_getBlob(uint32_t idx);
+bool        HostNvs_putBlob(const char* ns, const char* key, const uint8_t* data, uint32_t length);
 void        HostNvs_clear(void);
 
 /* --- Firmware update stand-in (replaces components/ble_ota/ota.c) */
@@ -136,6 +149,7 @@ void        HostOta_boot(void);               /* Does what the bootloader does a
 bool        HostOta_wasRolledBack(void);      /* true: this start is a rollback to the old firmware */
 bool        HostOta_isPendingVerify(void);
 bool        HostOta_isActive(void);           /* true between Ota_init() and Ota_deinit() */
+const char* HostOta_getName(void);            /* The Bluetooth name of the last Ota_init() */
 uint32_t    HostOta_getInitCount(void);
 uint32_t    HostOta_getDeinitCount(void);
 uint32_t    HostOta_getDoubleInitCount(void); /* Ota_init() calls while already active */

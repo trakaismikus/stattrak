@@ -185,7 +185,12 @@ More about the page: [updater/README.md](updater/README.md).
 | Action | Result |
 | --- | --- |
 | Hold both buttons | Power on / power off |
-| Short press on both buttons | Next view: total, kill/death, statistics, settings |
+| Short press on both buttons | App menu: KILLS, KILLS + DEAD, STATS, your installed apps, SETTINGS |
+| App menu: button 1 / button 2 | Previous / next app |
+| App menu: both buttons, or wait 3 seconds | Open the selected app |
+| App menu: hold button 2 | The settings of the selected installed app (if it has settings) |
+| Settings: `Apps: SYNC`, hold button 2 | Connect to the "Apps" part of the web updater: install, delete, sort and hide apps, and give the device its own Bluetooth name (8 characters). A new app asks "INSTALL <NAME>?" before it is sent: hold button 2 = yes, hold button 1 = no (the button fills while you hold it). After the install: button 1 = SYNC MORE, button 2 = OPEN the app |
+| App: a fast game (RUNNER) | It reacts when the button goes down. Other apps get a press after the release |
 | Total view: short press | +1 kill. Long press: -1 kill |
 | Kill/death view: button 1 / button 2 | +1 kill / +1 death. Long press: -1 |
 | Settings: short press button 1 / 2 | Up / down |

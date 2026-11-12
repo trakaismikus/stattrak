@@ -1,0 +1,132 @@
+# WALLPAPER: looks the same as the big KILLS counter, but the number is yours.
+#   It does not count. Set each digit yourself:
+#   Hold button 1 or button 2: start to edit (the left digit blinks).
+#   While you edit: short press 2 = the digit + 1, short press 1 = the digit - 1.
+#   Hold 2 = the next digit to the right, hold 1 = the next digit to the left (it repeats while you hold).
+#   3 seconds without a button: the number is kept and the edit stops.
+#   Setting BATTERY: SHOW draws the battery bar like KILLS does when "Show battery" is on.
+
+app "WALLPAPER"
+version 2
+description "Looks like the big KILLS counter, but shows your own number. Hold a button to edit, press to change a digit."
+picture icon crosshair "KILLS" "WALLPAPER"
+permission sound
+
+setting battery_bar "BATTERY" "HIDE" "SHOW"
+
+saved number = 1337
+
+var editing = 0
+var cursor = 0           # 0 = the left digit
+var last_input = 0
+var entry_hold = 0       # 1 = the hold that started the edit is still down: its repeats do nothing
+
+bitmap corner {          # kTriangleBmp of the KILLS screen
+  "..#"
+  ".##"
+  "###"
+}
+
+func power(n) {
+  var p = 1
+  while n > 0 { p = p * 10; n -= 1 }
+  return p
+}
+
+# The selected digit + delta (0 .. 9 around)
+func change(delta) {
+  last_input = time()
+  var p = power(4 - cursor)
+  var d = number / p % 10
+  number += ((d + delta + 10) % 10 - d) * p
+  click(1000)
+}
+
+# The selection moves (around at the ends)
+func move(delta) {
+  last_input = time()
+  cursor = (cursor + delta + 5) % 5
+  click(800)
+}
+
+func hold(delta) {
+  if !editing {
+    editing = 1
+    cursor = 0
+    entry_hold = 1
+    last_input = time()
+    click(800)
+  } else if entry_hold {
+    last_input = time()      # Still the first hold: wait for the release
+  } else {
+    move(delta)
+  }
+}
+
+# A new push of a button: the hold that started the edit has ended. A push is input: a hold
+# that starts near the end of the 3 s keeps the edit open.
+func pushed() {
+  entry_hold = 0
+  if editing { last_input = time() }
+}
+on down1 { pushed() }
+on down2 { pushed() }
+
+on long1 { hold(-1) }
+on long2 { hold(1) }
+on press1 { if editing { change(-1) } }
+on press2 { if editing { change(1) } }
+
+on tick {
+  if editing && time() - last_input > 3000 {
+    editing = 0
+    save()
+    click(600)
+  }
+}
+
+on close {
+  editing = 0
+}
+
+# The battery bar of the KILLS screen (main/views/total_view.c)
+func draw_battery(level) {
+  var index = 100 * level / 357
+  var row = index >> 2
+  var col = index & 3
+  var i = 0
+  while i < 7 {
+    var y = 26 - i * 4
+    if row == i {
+      if col == 3 { fill(119, y, 3, 3, on) }
+      if col == 2 { bitmap(119, y, corner, on) }
+      if col >= 1 { fill(123, y, 3, 3, on) }
+      if col == 0 { bitmap(123, y, corner, on) }
+    } else if row > i {
+      fill(119, y, 3, 3, on)
+      fill(123, y, 3, 3, on)
+    }
+    i += 1
+  }
+}
+
+on draw {
+  var x = 6
+  var step = 24
+  var level = battery()
+  if setting(battery_bar) == 1 && level >= 0 {
+    x = 4
+    step = 22
+    draw_battery(level)
+  }
+  var blink = (time() / 250) % 2
+  var i = 0
+  while i < 5 {
+    var dx = x + step * i
+    if !(editing && i == cursor && blink) {
+      bignum(dx, 2, number / power(4 - i) % 10, 1, 4, on)
+    }
+    if editing && i == cursor { hline(dx, 31, 20, on) }
+    i += 1
+  }
+}
