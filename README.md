@@ -188,7 +188,7 @@ More about the page: [updater/README.md](updater/README.md).
 
 ## 🧩 Apps and App Sync
 
-Your StatTrak can run **apps**, like a watch. An app is a small file (1 to 4 KB): a game, a
+Your StatTrak can run **apps**, like a watch. An app is a small file (up to 4 KB): a game, a
 timer, a different counter. You install it over Bluetooth from your browser, in the **Apps**
 tab of the Web Updater. The firmware stays the same, so an app install takes a few seconds. The
 firmware checks each app, and an app runs in a closed box: it cannot touch the firmware update,
@@ -210,7 +210,7 @@ Bluetooth or the power.
    **Connect** and pick your StatTrak.
 3. Click **Install** next to an app.
 4. **Answer on the StatTrak.** It asks `INSTALL <NAME>?`. Hold button 2 for yes, or button 1 for
-   no. The page sends nothing before your yes.
+   no. The page sends the app only after your yes.
 
 <table>
   <tr>
@@ -229,7 +229,8 @@ The Apps tab shows all apps on your StatTrak, in the order of the app menu. You 
 
 - move an app up or down (drag it, or use the arrows),
 - hide an app from the menu, or show it again,
-- change the settings of an app (the gear),
+- change the settings of an app where you see a gear. On the StatTrak: in the app menu, hold
+  button 2 on the app,
 - delete an app (the bin). The built-in apps stay.
 - give your StatTrak its own Bluetooth name, so you find it fast when there are more StatTraks.
 
