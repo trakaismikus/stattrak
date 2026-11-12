@@ -105,15 +105,15 @@ void Diag_refresh(void) {
   char text[64];
   uint32_t freeBytes, biggest, minimum;
   _heap(&freeBytes, &biggest, &minimum);
-  // KB: free / largest block / lowest free since power-on
-  snprintf(text, sizeof(text), "%lu/%lu/%lu", (unsigned long)(freeBytes / 1024),
+  // KB: free, the biggest free block, the lowest free since power-on
+  snprintf(text, sizeof(text), "%lu %lu %lu", (unsigned long)(freeBytes / 1024),
            (unsigned long)(biggest / 1024), (unsigned long)(minimum / 1024));
   _set(g_diagNow, text);
-  // count x before free/largest > after free
-  snprintf(text, sizeof(text), "%ux%lu/%lu>%lu", s_diag.okCount, (unsigned long)(s_diag.okFree / 1024),
+  // count, free and biggest block before the start, free after the start
+  snprintf(text, sizeof(text), "%u %lu %lu %lu", s_diag.okCount, (unsigned long)(s_diag.okFree / 1024),
            (unsigned long)(s_diag.okBig / 1024), (unsigned long)(s_diag.okAfterFree / 1024));
   _set(g_diagOk, text);
-  snprintf(text, sizeof(text), "%ux%lu/%lu", s_diag.failCount, (unsigned long)(s_diag.failFree / 1024),
+  snprintf(text, sizeof(text), "%u %lu %lu", s_diag.failCount, (unsigned long)(s_diag.failFree / 1024),
            (unsigned long)(s_diag.failBig / 1024));
   _set(g_diagFail, text);
 }
