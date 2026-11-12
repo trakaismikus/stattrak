@@ -49,7 +49,8 @@ class SimAppsTest(AppTestCase):
         state = self.dev.state()
         self.assertEqual(state["simapp_state"], DONE, state["simapp_text"])
         self.assertEqual(self.apps_list(), [KILLS, KILL_DEAD, STATS, app_id])
-        self.dev.long_press(1)                       # leave Apps: SYNC: back to the view before it
+        self.dev.long_press(1)                       # SYNC MORE
+        self.dev.long_press(1)                       # BACK: leave Apps: SYNC, back to the view before it
         self.assertEqual(self.dev.view, "TOTAL")
         self.open_app(app_id)
         self.assertEqual(self.dev.state()["app_running"], app_id)

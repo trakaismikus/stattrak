@@ -167,7 +167,7 @@ The Web Updater puts a firmware file on your StatTrak over Bluetooth. It is a we
   </tr>
   <tr>
     <td><b>3. Flash.</b> Click <b>Flash firmware</b> and confirm. Keep the device near the computer and the page open.</td>
-    <td><b>4. Done.</b> The StatTrak restarts and shows <code>Verifying...</code>. If the display stays off, switch the device on. The page connects again and confirms the firmware. The display shows <code>Complete</code>. Press a button.</td>
+    <td><b>4. Done.</b> The StatTrak restarts and shows <code>Verifying...</code>. If the display stays off, switch the device on. The page connects again and confirms the firmware. The display shows <code>Complete</code>. Hold a button for OK.</td>
   </tr>
 </table>
 
@@ -219,7 +219,7 @@ Bluetooth or the power.
   </tr>
   <tr>
     <td><b>The question.</b> The page shows what your StatTrak shows. The button to hold is orange.</td>
-    <td><b>Installed.</b> On the StatTrak: <b>SYNC MORE</b> (button 1) to install one more app, or <b>OPEN</b> (button 2) to play now.</td>
+    <td><b>Installed.</b> On the StatTrak: hold button 1 for <b>SYNC MORE</b> (install one more app), or hold button 2 for <b>OPEN</b> (play now).</td>
   </tr>
 </table>
 
@@ -282,6 +282,8 @@ The details for AI tools and developers: [docs/APPS.md](docs/APPS.md).
 | Kill/death view: button 1 / button 2 | +1 kill / +1 death. Long press: -1 |
 | Settings: short press button 1 / 2 | Up / down |
 | Settings: long press button 1 / 2 | Previous / next value, or start the action |
+| A button on the display (YES, NO, BACK, OK, CANCEL, DISMISS, SYNC MORE, OPEN) | Hold the round button under it for 0.7 s; the button fills while you hold it. A short press does nothing. A button in the middle: either round button |
+| A button on the display (YES, NO, BACK, OK, CANCEL, DISMISS, SYNC MORE, OPEN) | Hold the round button under it for 0.7 s; the button fills while you hold it. A short press does nothing. A button in the middle: either round button |
 | Hold both buttons for 10 seconds at power-on | Firmware update mode |
 
 ---

@@ -173,7 +173,7 @@ const AppsTab = (() => {
       h += '<div class="row__panel" id="donepanel"><div class="inst">' +
         device(AppPictures.screen("installed", app.name), "StatTrak screen: APP INSTALLED, SYNC MORE, OPEN") +
         `<div class="inst__text"><div class="inst__big inst__big--ok">${icon("check", 20)} Installed</div>` +
-        '<div class="inst__hint">On StatTrak: SYNC MORE (button 1) or OPEN (button 2). OPEN closes this connection.</div></div></div></div>';
+        '<div class="inst__hint">On StatTrak: hold button 1 = SYNC MORE, hold button 2 = OPEN. OPEN closes this connection.</div></div></div></div>';
     }
     if (edit && settings) {
       const values = A.values[app.id];

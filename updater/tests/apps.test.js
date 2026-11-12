@@ -566,13 +566,18 @@ test("section 6.1: the transfer stops after 10 s without DATA, or by a hold of b
   t.ota.disconnect();
 });
 
-test("section 6.1: after the install: SYNC MORE (press 1) waits for the next app; OPEN (press 2) opens it, Bluetooth goes off", async () => {
+test("section 6.1: after the install: SYNC MORE (hold 1) waits for the next app; OPEN (hold 2) opens it, Bluetooth goes off", async () => {
   const t = await connect({});
   const bytes = catalogFile("REACTION");
   await beginAskYes(t, bytes);
   await sendAll(t, bytes);
   assert.equal((await raw(t, END)).status, 0);
+  // A short press does nothing: the buttons on the display answer a hold
   t.device.press(1);
+  t.device.press(2);
+  assert.equal(await state(t), 3);
+  assert.equal(t.device.screen, "appsync");
+  t.device.holdButton1();
   assert.equal(await state(t), 0);
   assert.equal(t.device.display, "Waiting...");
   const timer = catalogFile("ROUND TIMER");
@@ -580,7 +585,7 @@ test("section 6.1: after the install: SYNC MORE (press 1) waits for the next app
   await sendAll(t, timer);
   assert.equal((await raw(t, END)).status, 0);
   const lost = once(t.ota, "bleDisconnected");
-  t.device.press(2);
+  t.device.holdButton2();
   await lost;
   assert.equal(t.device.screen, "app");
   assert.equal(t.device.openedApp, T);

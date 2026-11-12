@@ -13,6 +13,7 @@
 #include "img.h"
 #include "time.h"
 #include "animation.h"
+#include "hold_button.h"
 
 /* > Local Function Declarations ******************************************************************/
 static bool _eventHandler(uint16_t event);
@@ -40,34 +41,24 @@ view_t g_batteryLowView = {
 
 
 /* > Local Variables ******************************************************************************/
-static uint8_t s_dismiss = 0;
+static hold_buttons_t s_hold;    // DISMISS: a hold of either button (main/views/hold_button.h)
 
 /* > Local Function Definitions *******************************************************************/
 
 static void _init(void) {
-  s_dismiss = 0;
+  HoldButtons_reset(&s_hold);
   App_click(800);
 }
 
 static bool _eventHandler(uint16_t event) {
+  HoldButtons_event(&s_hold, event);
 
   switch(event) {
-    case EVENT__PRESS_1:
-    case EVENT__PRESS_2:
+    // DISMISS: a hold of either button that started on this screen
     case EVENT__LONG_PRESS_1:
     case EVENT__LONG_PRESS_2:
-    case EVENT__PRESS_BOTH:
-      AppView_set(AppView_getPrevious());
-      return true;
-
-    case EVENT__RAW_PRESS_1:
-    case EVENT__RAW_PRESS_2:
-      s_dismiss = 1;
-      return true;
-
-    case EVENT__RAW_RELEASE_1:
-    case EVENT__RAW_RELEASE_2:
-      s_dismiss = 0;
+      if(HoldButtons_isHeld(&s_hold, (event == EVENT__LONG_PRESS_1) ? 0 : 1))
+        AppView_set(AppView_getPrevious());
       return true;
 
     default: break;
@@ -106,7 +97,7 @@ static void _draw(void) {
   Gfx_drawStringAligned(112, 11, str, &font5x5, 1, 0, GFX_ALIGN__CENTER, GFX_ROTATION__0);
   _drawBattery(6, 4, state);
 
-  GUI_DRAW_BTN((Gfx_getWidth() - 51)/2, 20, 51, 11, "DISMISS", s_dismiss == 1);
+  HoldButton_draw(HOLD_BUTTON_CENTER_X(34), 34, "DISMISS", HoldButtons_fillAny(&s_hold));
 }
 
 

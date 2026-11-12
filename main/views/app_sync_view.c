@@ -8,9 +8,10 @@
  *
  * An install: BEGIN, then ASK shows "INSTALL <NAME>?" before any data comes. Hold button 2 = yes:
  * then the page sends the data, and END checks it and writes it to flash. Hold button 1 = no.
- * Only a hold that starts while the question shows counts, and the button fills while it is held.
- * After the install: press 1 = SYNC MORE (wait for the next app), press 2 = OPEN (the app opens,
- * and Bluetooth goes off with this view). Long press 1 at other times = back.
+ * The buttons on the display answer a hold (main/views/hold_button.h): only a hold that starts
+ * while the screen shows counts, and the button fills while it is held.
+ * After the install: hold 1 = SYNC MORE (wait for the next app), hold 2 = OPEN (the app opens,
+ * and Bluetooth goes off with this view). Hold 1 at other times = BACK.
  **************************************************************************************************/
 
 /* > Includes *************************************************************************************/
@@ -29,15 +30,11 @@
 #include "time.h"
 #include "ota.h"
 #include "app_ble_name.h"
-#include "sdkconfig.h"
+#include "hold_button.h"
 #include "esp_log.h"
 
 /* > Defines **************************************************************************************/
 #define SCREEN_W        128
-#define BUTTON_H        9
-#define BUTTON_Y        21
-#define BUTTON_MARGIN   4
-#define HOLD_MS         CONFIG_BUTTON_LONG_PRESS_TIME_MS   // The fill is full when the long press comes
 
 /* > Local Function Declarations ******************************************************************/
 static void _init(void);
@@ -46,8 +43,7 @@ static void _draw(void);
 static bool _eventHandler(uint16_t event);
 static void _reset(void);
 static void _answer(bool yes);
-static void _drawButton(int16_t x, int16_t w, const char* text, uint8_t fill);
-static uint8_t _holdFill(uint8_t button);
+static void _checkScreen(void);
 
 /* > Local Variables ******************************************************************************/
 static const char* TAG = "AppSync";
@@ -70,10 +66,10 @@ static uint32_t     s_questionStart = 0;
 static uint32_t     s_lastDataMs = 0;     // A transfer that stops (page closed, out of range) ends after APP_SYNC_DATA_MS
 static stapp_info_t s_info;
 static char         s_name[STAPP_MAX_NAME + 1];
-static uint8_t      s_cancel = 0;
-// A hold of button 1 / 2 that started while the question shows (others do not answer it)
-static bool         s_holding[2] = { false, false };
-static uint32_t     s_holdStart[2] = { 0, 0 };
+// The buttons on the display. A new screen (install state) resets them: only a hold that starts
+// while a screen shows answers it.
+static hold_buttons_t s_hold;
+static int16_t      s_shownScreen = -1;
 
 /* > Function Definitions *************************************************************************/
 
@@ -122,7 +118,6 @@ app_sync_result_t AppSync_ask(const uint8_t* name, uint8_t length) {
   memcpy(s_name, name, STAPP_MAX_NAME);
   s_name[STAPP_MAX_NAME] = '\0';
   s_begun = false;
-  s_holding[0] = s_holding[1] = false;
   s_questionStart = Time_getMillis();
   s_state = APP_SYNC_STATE__WAITING;
   App_click(1000);
@@ -215,7 +210,8 @@ void AppSync_update(uint32_t now) {
 static void _init(void) {
   _reset();
   s_failed = false;
-  s_cancel = 0;
+  HoldButtons_reset(&s_hold);
+  s_shownScreen = -1;
 
   // The name that the person gave this device (Bluetooth name, docs/APPS.md section 6), for this
   // Bluetooth start only. The update view and the accept view are always "StatTrak".
@@ -241,14 +237,12 @@ static void _reset(void) {
   s_begun = false;
   s_received = 0;
   s_size = 0;
-  s_holding[0] = s_holding[1] = false;
 }
 
 static void _answer(bool yes) {
   if(s_state != APP_SYNC_STATE__WAITING)
     return;
 
-  s_holding[0] = s_holding[1] = false;
   if(!yes) {
     s_state = APP_SYNC_STATE__REFUSED;
     App_click(800);
@@ -262,96 +256,67 @@ static void _answer(bool yes) {
   App_click(1200);
 }
 
+// A new screen (an other install state, or "NOT INSTALLED"): holds that started before do not count
+static void _checkScreen(void) {
+  const int16_t screen = (int16_t)(s_state * 2 + (s_failed ? 1 : 0));
+  if(screen != s_shownScreen) {
+    s_shownScreen = screen;
+    HoldButtons_reset(&s_hold);
+  }
+}
+
 static bool _eventHandler(uint16_t event) {
+  _checkScreen();
+  HoldButtons_event(&s_hold, event);
+
   switch(event) {
     case EVENT__PRESS_1:
-      if(s_state == APP_SYNC_STATE__INSTALLED)
-        s_state = APP_SYNC_STATE__IDLE;   // SYNC MORE: wait for the next app
-      s_failed = false;
-      return true;
-
     case EVENT__PRESS_2:
-      if(s_state == APP_SYNC_STATE__INSTALLED) {
-        // OPEN: as the app menu opens an app. Bluetooth goes off with this view (_deinit).
-        AppHost_setApp(s_id);
-        AppView_set(VIEW_ID__APP_HOST);
-      }
-      s_failed = false;
-      return true;
+      return true;   // The buttons on the display answer a hold only
 
     case EVENT__LONG_PRESS_1:
+      if(!HoldButtons_isHeld(&s_hold, 0))
+        return true;
       if(s_state == APP_SYNC_STATE__WAITING) {
-        if(s_holding[0])
-          _answer(false);
+        _answer(false);                                     // NO
       } else if(s_state == APP_SYNC_STATE__RECEIVING) {
         _reset();   // Stop this transfer; the page must start again with BEGIN
         s_failed = true;
+      } else if(s_state == APP_SYNC_STATE__INSTALLED) {
+        s_state = APP_SYNC_STATE__IDLE;                     // SYNC MORE: wait for the next app
       } else {
-        AppView_set(AppView_getPrevious());
+        AppView_set(AppView_getPrevious());                 // BACK
       }
       return true;
 
     case EVENT__LONG_PRESS_2:
-      if(s_state == APP_SYNC_STATE__WAITING && s_holding[1])
-        _answer(true);
-      return true;
-
-    case EVENT__RAW_PRESS_1:
-    case EVENT__RAW_PRESS_2: {
-      const uint8_t button = (event == EVENT__RAW_PRESS_1) ? 0 : 1;
-      if(button == 0)
-        s_cancel = 1;
+      if(!HoldButtons_isHeld(&s_hold, 1))
+        return true;
       if(s_state == APP_SYNC_STATE__WAITING) {
-        s_holding[button] = true;
-        s_holdStart[button] = Time_getMillis();
+        _answer(true);                                      // YES
+      } else if(s_state == APP_SYNC_STATE__INSTALLED) {
+        // OPEN: as the app menu opens an app. Bluetooth goes off with this view (_deinit).
+        AppHost_setApp(s_id);
+        AppView_set(VIEW_ID__APP_HOST);
       }
-    } break;
-
-    case EVENT__RAW_RELEASE_1:
-    case EVENT__RAW_RELEASE_2: {
-      const uint8_t button = (event == EVENT__RAW_RELEASE_1) ? 0 : 1;
-      if(button == 0)
-        s_cancel = 0;
-      s_holding[button] = false;
-    } break;
+      return true;
 
     default: break;
   }
   return false;
 }
 
-// 0 .. 100: how much of the hold is done (100 when the long press comes)
-static uint8_t _holdFill(uint8_t button) {
-  if(!s_holding[button])
-    return 0;
-  const uint32_t held = Time_getMillis() - s_holdStart[button];
-  return (held >= HOLD_MS) ? 100 : (uint8_t)((held * 100u) / HOLD_MS);
-}
-
-// A small button: the frame of GUI_DRAW_BTN, 9 pixels high, text in font3x5. `fill` (0 .. 100)
-// inverts the button from the left: the hold animation. 100 = the look of a pressed button.
-static void _drawButton(int16_t x, int16_t w, const char* text, uint8_t fill) {
-  const int16_t y = BUTTON_Y;
-  Gfx_drawVLine(x, y + 1, BUTTON_H - 2, 1);
-  Gfx_drawVLine(x + w - 1, y + 1, BUTTON_H - 2, 1);
-  Gfx_drawHLine(x + 1, y, w - 2, 1);
-  Gfx_drawHLine(x + 1, y + BUTTON_H - 1, w - 2, 1);
-  Gfx_drawStringAligned(x + w / 2, y + 2, text, &font3x5, 1, 0, GFX_ALIGN__CENTER, GFX_ROTATION__0);
-
-  const int16_t width = (int16_t)(((w - 2) * fill + 50) / 100);
-  if(width > 0)
-    Gfx_invertRect(x + 1, y + 1, width, BUTTON_H - 2);
-}
-
 static void _draw(void) {
   char str[32];
+
+  _checkScreen();
 
   if(s_state == APP_SYNC_STATE__INSTALLED) {
     GUI_DRAW_TITLE((SCREEN_W - 13 * font5x5.x_advance) / 2, 1, 13, "APP INSTALLED");
     Gfx_drawStringAligned(SCREEN_W / 2, 11, s_name, &font5x5, 1, 0, GFX_ALIGN__CENTER, GFX_ROTATION__0);
     // Each button over its round button: button 1 is the left one, button 2 the right one
-    _drawButton(BUTTON_MARGIN, 40, "SYNC MORE", 0);
-    _drawButton(SCREEN_W - BUTTON_MARGIN - 22, 22, "OPEN", 0);
+    HoldButton_draw(HOLD_BUTTON_MARGIN, 40, "SYNC MORE", HoldButtons_fill(&s_hold, 0));
+    HoldButton_draw(HOLD_BUTTON_RIGHT_X(HOLD_BUTTON_W), HOLD_BUTTON_W, "OPEN", HoldButtons_fill(&s_hold, 1));
     return;
   }
 
@@ -372,14 +337,14 @@ static void _draw(void) {
       const gfx_font_t* font = (Gfx_getStringWidth(str, &font5x5) > SCREEN_W - 4) ? &font3x5 : &font5x5;
       Gfx_drawStringAligned(SCREEN_W / 2, 11, str, font, 1, 0, GFX_ALIGN__CENTER, GFX_ROTATION__0);
       // NO over button 1 (left), YES over button 2 (right). They fill while they are held.
-      _drawButton(BUTTON_MARGIN, 22, "NO", _holdFill(0));
-      _drawButton(SCREEN_W - BUTTON_MARGIN - 22, 22, "YES", _holdFill(1));
+      HoldButton_draw(HOLD_BUTTON_MARGIN, HOLD_BUTTON_W, "NO", HoldButtons_fill(&s_hold, 0));
+      HoldButton_draw(HOLD_BUTTON_RIGHT_X(HOLD_BUTTON_W), HOLD_BUTTON_W, "YES", HoldButtons_fill(&s_hold, 1));
     } break;
 
     case APP_SYNC_STATE__REFUSED:
     case APP_SYNC_STATE__TIMEOUT:
       Gfx_drawStringAligned(SCREEN_W / 2, 12, "REFUSED", &font5x5, 1, 0, GFX_ALIGN__CENTER, GFX_ROTATION__0);
-      GUI_DRAW_BTN(12, 20, 42, 11, "BACK", s_cancel == 1);
+      HoldButton_draw(HOLD_BUTTON_MARGIN, HOLD_BUTTON_W, "BACK", HoldButtons_fill(&s_hold, 0));
       break;
 
     case APP_SYNC_STATE__IDLE:
@@ -390,7 +355,7 @@ static void _draw(void) {
         snprintf(str, sizeof(str), "Waiting%.*s", (int)((Time_getMillis() >> 9) & 3), "...");
         Gfx_drawStringAligned((SCREEN_W - 7 * font5x5.x_advance) / 2, 12, str, &font5x5, 1, 0, GFX_ALIGN__LEFT, GFX_ROTATION__0);
       }
-      GUI_DRAW_BTN(12, 20, 42, 11, "BACK", s_cancel == 1);
+      HoldButton_draw(HOLD_BUTTON_MARGIN, HOLD_BUTTON_W, "BACK", HoldButtons_fill(&s_hold, 0));
       break;
   }
 }
