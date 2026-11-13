@@ -156,17 +156,25 @@ class Maker:
         self.dev.ble_commands(chunks)
 
 
-def main():
+ABOUT = ("The display of Settings > Apps: SYNC on the firmware (main/views/app_sync_view.c), from the headless "
+         "simulator (tests/make_sync_screens.py). Each row: 128 pixels as 32 hex digits, the left pixel is the "
+         "high bit. A fill is the part of a hold of the button (0..100): no = button 1, yes = button 2. "
+         "Make it again after a change to _draw() or to main/views/hold_button.c.")
+
+
+def build():
+    """The screens of the firmware now, as the dict of sync-screens.json"""
     maker = Maker()
     maker.run()
-    about = ("The display of Settings > Apps: SYNC on the firmware (main/views/app_sync_view.c), from the headless "
-             "simulator (tests/make_sync_screens.py). Each row: 128 pixels as 32 hex digits, the left pixel is the "
-             "high bit. A fill is the part of a hold of the button (0..100): no = button 1, yes = button 2. "
-             "Make it again after a change to _draw() or to main/views/hold_button.c.")
+    return {"about": ABOUT, "screens": maker.screens}
+
+
+def main():
+    data = build()
     with open(OUT, "w", encoding="utf-8", newline="\n") as handle:
-        json.dump({"about": about, "screens": maker.screens}, handle, indent=1)
+        json.dump(data, handle, indent=1)
         handle.write("\n")
-    print("Wrote %s: %d screens" % (OUT, len(maker.screens)))
+    print("Wrote %s: %d screens" % (OUT, len(data["screens"])))
 
 
 if __name__ == "__main__":

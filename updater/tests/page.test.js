@@ -535,6 +535,22 @@ test("the page tells if the file is an official release", { skip: SKIP }, async 
   assert.equal(await page.evaluate(`document.querySelector("[data-unofficial]").hidden`), false);
 });
 
+test("step 1 plays the way to the update mode of firmware 1.0.1 on the device picture", { skip: SKIP }, async (t) => {
+  const page = await open(t);
+  const dev = `document.querySelector("#step1Before st-device")`;
+  await page.waitFor(`${dev}.dataset.frame !== undefined && ${dev}.querySelector("img").naturalWidth > 0`);
+  assert.equal(await page.evaluate(`${dev}.querySelector("img").naturalWidth`), 1896);
+  assert.match(await page.evaluate(`${dev}.getAttribute("aria-label")`), /hold button 2/);
+  // The display has lit pixels
+  const lit = await page.evaluate(`(() => { const c = ${dev}.querySelector("canvas");
+    const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data; let n = 0;
+    for (let i = 3; i < d.length; i += 4) if (d[i]) n++; return n; })()`);
+  assert.ok(lit > 100, "lit pixels: " + lit);
+  // It plays: both buttons (to Settings), then button 2 held (the update mode)
+  await page.waitFor(`${dev}.dataset.press === "B"`);
+  await page.waitFor(`${dev}.dataset.press === "H2"`, 20000);
+});
+
 test("the fonts of the page load, and all files come from the page's own address", { skip: SKIP }, async (t) => {
   const page = await open(t, {});
   // load() gives the declared faces that it loaded. A family that is not declared gives none.

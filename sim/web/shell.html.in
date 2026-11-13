@@ -44,11 +44,10 @@
 
     #screen-container {
       position: relative;          /* REQUIRED */
-      background-color: black;
       padding: 0;                  /* remove padding for pixel-perfect overlay */
-      /* width: 1080px;
-      height: 1440px; */
-      aspect-ratio: 3/4;              /* your native resolution ratio */
+      /* The picture: the front of the 3D model, the device plus 2 mm on each side (63.2 x 34.133 mm),
+         the same file as the web updater (updater/assets/device.webp, tools/device_art/README.md) */
+      aspect-ratio: 1896 / 1024;
       width: min(90vw, 800px);
       height: auto;
     }
@@ -62,15 +61,17 @@
       height: 100%;
     }
 
+    /* The display: at the place of the real 128 x 32 pixels in the picture (the same numbers as
+       .st-dev__screen in updater/css/main.css; updater/tests/device.test.js checks it). Black pixels
+       of the canvas let the glass of the picture show through. */
     #screen-container canvas {
       position: absolute;
-      top: 40%;
-      left: 15%;
-      /* width: 47.4%;
-      height: 8.88%; */
-      width: 61.62%;
-      height: 11.84%;
-      opacity: 1.0;
+      left: 11.946%;
+      top: 22.969%;
+      width: 65.823%;
+      height: 30.469%;
+      mix-blend-mode: screen;
+      image-rendering: pixelated;
     }
 
     /* Image behind */

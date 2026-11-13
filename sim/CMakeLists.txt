@@ -277,18 +277,18 @@ if(EMSCRIPTEN)
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
     execute_process(
       COMMAND ${Python3_EXECUTABLE} -c "import base64,sys;sys.stdout.write(base64.b64encode(open(sys.argv[1],'rb').read()).decode())"
-              ${CMAKE_CURRENT_SOURCE_DIR}/web/StatTrakv3.jpg
+              ${ROOT_DIR}/updater/assets/device.webp
       OUTPUT_VARIABLE STATTRAK_IMG_BASE64
       OUTPUT_STRIP_TRAILING_WHITESPACE
       RESULT_VARIABLE STATTRAK_IMG_RESULT
     )
     if(NOT STATTRAK_IMG_RESULT EQUAL 0)
-      message(FATAL_ERROR "Cannot read sim/web/StatTrakv3.jpg")
+      message(FATAL_ERROR "Cannot read updater/assets/device.webp")
     endif()
-    set(STATTRAK_IMG_SRC "data:image/jpeg;base64,${STATTRAK_IMG_BASE64}")
+    set(STATTRAK_IMG_SRC "data:image/webp;base64,${STATTRAK_IMG_BASE64}")
   else()
-    set(STATTRAK_IMG_SRC "StatTrakv3.jpg")
-    file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/web/StatTrakv3.jpg DESTINATION ${CMAKE_BINARY_DIR})
+    set(STATTRAK_IMG_SRC "device.webp")
+    file(COPY ${ROOT_DIR}/updater/assets/device.webp DESTINATION ${CMAKE_BINARY_DIR})
   endif()
 
   # The apps of the web updater catalog (updater/apps/*.stapp) go into the page as hex text: the

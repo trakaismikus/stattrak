@@ -180,7 +180,10 @@ test("install from the catalog: the question on the device first, then the trans
   assert.equal(await page.evaluate(`document.getElementById("appsList").classList.contains("list--busy")`), true);
   assert.equal(await page.evaluate(`document.getElementById("tabFirmware").getAttribute("aria-disabled")`), "true");
   assert.match(await page.evaluate(`document.getElementById("instpanel").textContent`), /Answer on StatTrak.*Hold button 2 = yes, hold button 1 = no\./);
-  assert.equal(await page.evaluate(`document.querySelector("#instpanel img").alt`), "StatTrak screen: INSTALL REACTION?");
+  // The device picture plays the question and a hold of button 2 (js/device.js)
+  assert.deepEqual(await page.evaluate(`(() => { const d = document.querySelector("#instpanel st-device"); return [d.getAttribute("anim"), d.getAttribute("arg"), d.getAttribute("aria-label")]; })()`),
+    ["sync-question", "REACTION", "StatTrak screen: INSTALL REACTION? Hold button 2 = yes"]);
+  await page.waitFor(`document.querySelector("#instpanel st-device").dataset.frame !== undefined`);
   assert.equal(await device(page, "display"), "INSTALL REACTION?");
   assert.equal(await device(page, "appCommands.includes(0x0114)"), false, "no data before the answer");
   assert.equal(await page.evaluate(`!!document.querySelector("#instpanel .prog")`), false);
@@ -196,7 +199,8 @@ test("install from the catalog: the question on the device first, then the trans
   // What the device shows now, and what the buttons do
   assert.match(await page.evaluate(`document.getElementById("donepanel").textContent`),
     /Installed.*On StatTrak: hold button 1 = SYNC MORE, hold button 2 = OPEN\. OPEN closes this connection\./);
-  assert.equal(await page.evaluate(`document.querySelector("#donepanel img").alt`), "StatTrak screen: APP INSTALLED, SYNC MORE, OPEN");
+  assert.deepEqual(await page.evaluate(`(() => { const d = document.querySelector("#donepanel st-device"); return [d.getAttribute("anim"), d.getAttribute("arg"), d.getAttribute("aria-label")]; })()`),
+    ["sync-installed", "REACTION", "StatTrak screen: APP INSTALLED, SYNC MORE, OPEN"]);
   assert.equal(await device(page, "display"), "APP INSTALLED");
   assert.equal(await page.evaluate(`!!${catRow("REACTION")}`), false);
   assert.equal(await page.evaluate(`document.getElementById("tabFirmware").getAttribute("aria-disabled")`), null);

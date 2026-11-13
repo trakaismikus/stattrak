@@ -5,11 +5,7 @@ Product status of the StatTrak firmware. Finding numbers (A1, B7, ...) are from
 
 ## In progress
 
-- **One web site** (branch `feat/web-site`, not shipped). Firmware, Apps and the Screen Designer
-  on `stattrak.tridos.design` with one menu, and a new "Get started" page: what StatTrak is, how
-  to update, install apps, design screens and make your own app. The designer moved from
-  `tools/designer/` to `updater/designer/` (it still opens from a disk). Needs: the Vercel
-  project `stattrak` connected to this repository, the domain moved to it, and the DNS record.
+Nothing at the moment.
 
 ## Next up
 
@@ -64,6 +60,18 @@ This repository (`trakaismikus/stattrak`) is private until these are done:
 
 ## Shipped
 
+- **2026-11: new device picture for the web updater and the web simulator.** A render of the 3D model
+  (matte black anodised aluminium, etched text, a glass that fills the rounded pocket) that looks
+  right on black and on white pages, with a live display on top (`updater/js/device.js`, plain pixels with no drawn gaps). Step 1
+  of the firmware update plays the way to the update mode of firmware 1.0.1 (made by the 1.0.1
+  simulator) in place of the old video; the Apps tab plays the "Apps: SYNC" screens (waiting, the
+  hold of YES, installed). A firmware check (`tests/test_updater_screens.py`) fails when the device
+  screens change and the page was not made again. Tools: `tools/device_art/`.
+- **2026-11: one web site (PR #8).** Firmware, Apps and the Screen Designer with one menu, and a
+  new "Get started" page: what StatTrak is, how to update, install apps, design screens and make
+  your own app. The designer moved from `tools/designer/` to `updater/designer/` (it still opens
+  from a disk). Not online yet: the Vercel project `stattrak` must be connected to this
+  repository, the domain `stattrak.tridos.design` moved to it, and the DNS record made.
 - **2026-11: apps (firmware 1.2.0-b1, a beta for testers).** Apps that users install over Bluetooth, like apps
   on a watch: the app engine (`components/stapp/`), the app list and storage (`main/apps.c`),
   the app host, app settings and "Apps: SYNC" views, the app manager commands `0x0110` to
