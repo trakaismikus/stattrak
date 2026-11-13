@@ -20,7 +20,8 @@ python tools/device_art/finish_render.py render.png updater/assets/device.webp
 ```
 
 The 3D model (`StatTrak model.blend`, the exact geometry of the device) is not in this repository:
-TRIDOS keeps it. Blender 5.x. About 40 seconds on a desktop computer.
+TRIDOS keeps it on the shared Google Drive "TRIDOS.DESIGN - Media", folder `3D assets`.
+Blender 5.x. About 40 seconds on a desktop computer.
 
 The look: matte black anodised aluminium (not metallic, rough, a fine grain), laser etched text in
 light grey, a soft light from above and faint rim lights, so the black body shows on a black page
