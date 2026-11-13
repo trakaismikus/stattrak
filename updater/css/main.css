@@ -21,21 +21,7 @@ body {
   padding: 24px 32px 80px;
 }
 
-.topbar {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 18px 0 28px;
-  border-bottom: 1px solid var(--stroke-1);
-}
-.topbar__brand { display: flex; align-items: center; gap: 14px; }
-.topbar__brand img { height: 22px; display: block; }
-.topbar__eyebrow {
-  font-family: var(--font-body); font-weight: 700;
-  font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
-  color: var(--fg3);
-  border-left: 1px solid var(--stroke-2);
-  padding-left: 14px; margin-left: 4px;
-}
-.topbar__meta { display: flex; gap: 18px; align-items: center; }
+/* The header is in site.css; these are the parts in its right side. */
 .topbar__link {
   font-size: 13px; color: var(--fg2); text-decoration: none;
   display: inline-flex; align-items: center; gap: 6px;
@@ -752,8 +738,6 @@ body {
 /* --- responsive tweaks ---------------------------------------------- */
 @media (max-width: 700px) {
   .app { padding: 16px 20px 60px; }
-  .topbar { flex-wrap: wrap; gap: 10px; padding: 14px 0 20px; }
-  .topbar__meta { gap: 8px; }
   .connect-row { grid-template-columns: 1fr; }
   .flash-summary { grid-template-columns: 1fr; }
   .flash-summary__arrow { transform: rotate(90deg); justify-self: center; }

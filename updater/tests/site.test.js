@@ -21,7 +21,7 @@ const strip = (html) => html.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim()
 
 function menuOf(page) {
   const html = read(page);
-  const nav = html.match(/<nav class="(?:tabs|site-nav)" aria-label="StatTrak tools">([\s\S]*?)<\/nav>/);
+  const nav = html.match(/<nav class="site-nav" aria-label="StatTrak tools">([\s\S]*?)<\/nav>/);
   assert.ok(nav, `${page}: no site menu`);
   return [...nav[1].matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/g)].map((m) => ({
     href: m[1].match(/href="([^"]*)"/)[1],
@@ -57,6 +57,17 @@ test("every local link, picture, script and style of each page exists", () => {
       const file = fromRoot(page, ref).split("#")[0];
       assert.ok(fs.existsSync(path.join(SITE, file)), `${page}: ${ref} does not exist`);
     }
+  }
+});
+
+test("every page has the same header: the logo, then the menu (css/site.css)", () => {
+  for (const page of PAGES) {
+    const html = read(page);
+    assert.match(html, /<link rel="stylesheet" href="(?:\.\.\/)?css\/site\.css"/, page);
+    const head = html.match(/<header class="site-header">\s*<div class="site-header__in">\s*<a class="site-header__brand" href="([^"]+)"><img src="([^"]+)"/);
+    assert.ok(head, `${page}: no site header`);
+    assert.equal(fromRoot(page, head[1]), "index.html", page);
+    assert.equal(fromRoot(page, head[2]), "assets/stattrak-wordmark-white.svg", page);
   }
 });
 

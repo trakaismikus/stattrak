@@ -1,0 +1,41 @@
+/* The header of the StatTrak web site: the same on every page (index.html, start/, designer/).
+ * The logo and the menu are always at the same place: a full-width bar, its content in the
+ * page column (1200 px). The right side is for the page (Console, links).
+ * Uses only tokens that colors_and_type.css and the designer page both define. */
+
+.site-header {
+  background: var(--bg);
+  border-bottom: 1px solid var(--stroke-1);
+  position: relative; z-index: 5;
+}
+.site-header__in {
+  max-width: 1200px; margin: 0 auto; padding: 0 32px;
+  height: 64px; display: flex; align-items: stretch; gap: 28px;
+}
+.site-header__brand { display: flex; align-items: center; flex-shrink: 0; }
+.site-header__brand img { height: 22px; display: block; }
+.site-header__meta { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+
+.site-nav { display: flex; gap: 4px; }
+.site-nav .tab {
+  position: relative; display: flex; align-items: center; padding: 0 12px;
+  font-family: var(--font-display); font-weight: 800; font-style: italic; font-size: 18px;
+  text-transform: uppercase; letter-spacing: 0.02em; white-space: nowrap;
+  color: var(--fg3); text-decoration: none;
+}
+.site-nav .tab:hover { color: var(--fg1); }
+.site-nav .tab--on { color: var(--fg1); }
+.site-nav .tab--on::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--accent); }
+.site-nav .tab--start { color: var(--accent); }
+.site-nav .tab--start:hover { color: var(--accent-hover); }
+.site-nav .tab[aria-disabled="true"] { opacity: 0.4; cursor: not-allowed; }
+.site-nav .tab[aria-disabled="true"]:hover { color: var(--fg3); }
+
+@media (max-width: 700px) {
+  .site-header__in { height: auto; flex-wrap: wrap; padding: 0 20px; gap: 0 16px; }
+  .site-header__brand { height: 52px; }
+  /* The right side stays on the logo row, so the menu is at the same place on every page */
+  .site-header__meta .topbar__link { display: none; }
+  .site-nav { order: 3; width: 100%; gap: 0; overflow-x: auto; margin: 0 -8px; }
+  .site-nav .tab { font-size: 16px; padding: 10px 8px 14px; }
+}

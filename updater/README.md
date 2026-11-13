@@ -10,6 +10,8 @@ one menu (Get started, Firmware, Apps, Designer):
 | `designer/index.html` | The Screen Designer (docs/DESIGNS.md). It also works from a disk, without the internet. |
 
 - The pages have no build step and no packages. They share `css/`, `fonts/` and `assets/`.
+- The header (the logo and the menu) is the same on every page: `css/site.css`. The Screen
+  Designer has its own tool bar under it.
 - A link between the pages names the file (`designer/index.html`, not `designer/`), so the
   links also work when a page is opened from a disk.
 - `tests/site.test.js` checks the menu and that each local link and file exists.

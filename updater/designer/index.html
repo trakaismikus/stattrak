@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>StatTrak Screen Designer</title>
+<link rel="stylesheet" href="../css/site.css">
 <style>
 /* ---------- fonts (free, in the fonts folder next to this page) ---------- */
 @font-face { font-family: 'Barlow Condensed'; src: url('../fonts/BarlowCondensed-400.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
@@ -50,7 +51,7 @@ body {
   font-family: var(--font-body); font-size: 16px; line-height: 1.4;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
-  display: grid; grid-template-rows: 60px minmax(0, 1fr) 150px;
+  display: grid; grid-template-rows: 65px 52px minmax(0, 1fr) 150px;
   min-width: 1000px;
 }
 button, input, select, textarea { font: inherit; color: inherit; }
@@ -83,22 +84,16 @@ code { font-family: var(--font-mono); font-size: 0.85em; }
   font-weight: 700; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--fg3);
 }
 
-/* ---------- top bar ---------- */
+/* ---------- the designer's tool bar (under the site header, ../css/site.css) ---------- */
 .topbar {
   display: flex; align-items: center; gap: 14px;
   padding: 0 16px 0 20px;
   border-bottom: 1px solid var(--stroke-1);
-  background: var(--bg);
-  position: relative; z-index: 5;
+  background: var(--bg-elevated);
+  position: relative; z-index: 4;
 }
-.brand { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
-.brand__name {
-  font-family: var(--font-display); font-weight: 900; font-style: italic;
-  font-size: 26px; line-height: 1; letter-spacing: 0.01em; color: var(--fg1);
-}
-.brand__name i { font-style: inherit; color: var(--accent); }
-.brand .eyebrow { display: none; }
-.proj { display: flex; align-items: center; gap: 10px; margin-left: 6px; min-width: 0; }
+.topbar .eyebrow { margin: 0; white-space: nowrap; }
+.proj { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .proj__name {
   background: transparent; border: 1px solid transparent; border-radius: var(--r-sm);
   font-family: var(--font-display); font-weight: 800; font-style: italic; text-transform: uppercase;
@@ -115,18 +110,6 @@ code { font-family: var(--font-mono); font-size: 0.85em; }
 .save-state.is-busy::before { background: var(--st-warning); }
 .save-state.is-err::before { background: var(--st-kill-red); }
 .topbar__spacer { flex: 1; }
-/* the menu of the StatTrak web site (the same as on the other pages) */
-.site-nav { display: flex; align-self: stretch; gap: 2px; flex-shrink: 0; }
-.site-nav a {
-  position: relative; display: flex; align-items: center; padding: 0 9px;
-  font-family: var(--font-display); font-weight: 800; font-style: italic; font-size: 16px;
-  text-transform: uppercase; letter-spacing: 0.02em; color: var(--fg3); text-decoration: none;
-}
-.site-nav a:hover { color: var(--fg1); }
-.site-nav a[aria-current] { color: var(--fg1); }
-.site-nav a[aria-current]::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--accent); }
-.site-nav .site-nav__start { color: var(--accent); }
-.site-nav .site-nav__start:hover { color: var(--accent-hover); }
 .topbar__acts { display: flex; gap: 8px; align-items: center; }
 .topbar__div { width: 1px; height: 28px; background: var(--stroke-1); margin: 0 4px; }
 
@@ -391,15 +374,9 @@ code { font-family: var(--font-mono); font-size: 0.85em; }
 .toast ul { margin: 6px 0 0; padding-left: 18px; font-size: 14px; color: var(--fg2); }
 .toast li { margin: 2px 0; }
 
-@media (max-width: 1440px) {
-  .save-state { display: none; }
-  .proj__name { width: 200px; }
-}
 @media (max-width: 1180px) {
-  /* Open and Save: the icon only (the title says what they do) */
-  #openBtn, #saveBtn { font-size: 0; gap: 0; padding: 0; width: 36px; height: 36px; }
   .work { grid-template-columns: 72px minmax(0, 1fr) 270px; }
-  .proj__name { width: 150px; }
+  .save-state { display: none; }
   .small__txt { display: none; }
   .hint { font-size: 14px; }
   .sec { padding: 14px 14px; }
@@ -408,18 +385,22 @@ code { font-family: var(--font-mono); font-size: 0.85em; }
 </head>
 <body>
 
-<!-- ================= TOP BAR ================= -->
-<header class="topbar">
-  <div class="brand">
-    <span class="brand__name">Stat<i>Trak</i></span>
-    <span class="eyebrow">Screen Designer</span>
+<!-- ================= SITE HEADER (the same on every page, ../css/site.css) ================= -->
+<header class="site-header">
+  <div class="site-header__in">
+    <a class="site-header__brand" href="../index.html"><img src="../assets/stattrak-wordmark-white.svg" alt="StatTrak"></a>
+    <nav class="site-nav" aria-label="StatTrak tools">
+      <a class="tab tab--start" href="../start/index.html">Get started</a>
+      <a class="tab" href="../index.html#firmware">Firmware</a>
+      <a class="tab" href="../index.html#apps">Apps</a>
+      <a class="tab tab--on" href="index.html" aria-current="page">Designer</a>
+    </nav>
   </div>
-  <nav class="site-nav" aria-label="StatTrak tools">
-    <a class="site-nav__start" href="../start/index.html">Get started</a>
-    <a href="../index.html#firmware">Firmware</a>
-    <a href="../index.html#apps">Apps</a>
-    <a href="index.html" aria-current="page">Designer</a>
-  </nav>
+</header>
+
+<!-- ================= TOOL BAR ================= -->
+<div class="topbar">
+  <span class="eyebrow">Screen Designer</span>
   <div class="proj">
     <input id="projName" class="proj__name" type="text" spellcheck="false" maxlength="60" aria-label="Project name" title="Project name. Click to change it.">
     <span class="save-state" id="saveState">Saved in this browser</span>
@@ -447,7 +428,7 @@ code { font-family: var(--font-mono); font-size: 0.85em; }
       Send to AI
     </button>
   </div>
-</header>
+</div>
 
 <!-- ================= WORKBENCH ================= -->
 <main class="work">
