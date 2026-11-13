@@ -6,7 +6,7 @@
  * Two uses:
  *
  *   gfx_tool assets   Prints all firmware fonts and pictures as JSON. tools/design.py makes
- *                     tools/designer/assets.js from it, so the screen designer shows the same
+ *                     updater/designer/assets.js from it, so the screen designer shows the same
  *                     pixels as the device.
  *
  *   gfx_tool draw     Reads draw commands from standard input and draws them with the real

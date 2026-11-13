@@ -520,7 +520,11 @@ test("the page tells if the file is an official release", { skip: SKIP }, async 
   await click(page, "step2NextBtn");
   await click(page, "flashBtn");
   assert.equal(await page.evaluate(`document.querySelector("[data-unofficial]").hidden`), true);
+  // While the question is open, the links to the other pages are locked; Cancel unlocks them
+  const locked = () => page.evaluate(`["tabStart", "tabDesigner", "tabApps"].map((id) => document.getElementById(id).getAttribute("aria-disabled"))`);
+  assert.deepEqual(await locked(), ["true", "true", "true"]);
   await page.evaluate(`document.querySelector("[data-cancel]").click()`);
+  assert.deepEqual(await locked(), [null, null, null]);
 
   // A file that a user built is not in the list
   await click(page, "fileCardRemove");

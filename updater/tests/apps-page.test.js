@@ -479,11 +479,21 @@ test("the Apps tab is locked while a firmware update runs", { skip: SKIP }, asyn
   await page.waitFor(`!document.getElementById("firmwareView").hidden`);
   await page.evaluate(`state.flashState = "flashing"; render()`);
   assert.equal(await page.evaluate(`document.getElementById("tabApps").getAttribute("aria-disabled")`), "true");
+  // The links to the other pages are locked too: a click (mouse or Enter) does not leave the page
+  for (const id of ["siteLogo", "tabStart", "tabDesigner"]) {
+    assert.equal(await page.evaluate(`document.getElementById("${id}").getAttribute("aria-disabled")`), "true", id);
+    assert.equal(await page.evaluate(`!document.getElementById("${id}").dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }))`), true, id);
+  }
   await page.evaluate(`location.hash = "#apps"`);
   await new Promise((resolve) => setTimeout(resolve, 200));
   assert.equal(await page.evaluate(`document.getElementById("appsView").hidden`), true);
   assert.equal(await page.evaluate(`location.hash`), "#firmware");
+  await page.evaluate(`state.flashState = "verifying"; render()`);
+  assert.equal(await page.evaluate(`document.getElementById("tabStart").getAttribute("aria-disabled")`), "true");
   await page.evaluate(`state.flashState = "ready"; render()`);
+  assert.equal(await page.evaluate(`document.getElementById("tabStart").getAttribute("aria-disabled")`), null);
+  assert.equal(await page.evaluate(`document.getElementById("tabDesigner").getAttribute("aria-disabled")`), null);
+  assert.equal(await page.evaluate(`document.getElementById("siteLogo").getAttribute("aria-disabled")`), null);
   await page.evaluate(`location.hash = "#apps"`);
   await page.waitFor(`!document.getElementById("appsView").hidden`);
 });

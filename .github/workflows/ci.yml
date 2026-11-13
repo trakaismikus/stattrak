@@ -2,15 +2,16 @@ name: CI
 
 # Runs for pull requests that are ready for review (not for drafts) and for the main branch.
 # About 12 minutes of runner time for one run (3 jobs). Free for a public repository.
-# A change in updater/ only does not start it: the web updater has its own checks (updater.yml).
+# A change in updater/ only does not start it: the web site has its own checks (updater.yml).
+# The Screen Designer (updater/designer/) is the exception: tests/test_designer.py checks it.
 
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-    paths-ignore: ['updater/**', '.github/workflows/updater.yml']
+    paths: ['**', '!updater/**', 'updater/designer/**', '!.github/workflows/updater.yml']
   push:
     branches: [main]
-    paths-ignore: ['updater/**', '.github/workflows/updater.yml']
+    paths: ['**', '!updater/**', 'updater/designer/**', '!.github/workflows/updater.yml']
   workflow_dispatch:
 
 concurrency:

@@ -5,7 +5,11 @@ Product status of the StatTrak firmware. Finding numbers (A1, B7, ...) are from
 
 ## In progress
 
-Nothing at the moment.
+- **One web site** (branch `feat/web-site`, not shipped). Firmware, Apps and the Screen Designer
+  on `stattrak.tridos.design` with one menu, and a new "Get started" page: what StatTrak is, how
+  to update, install apps, design screens and make your own app. The designer moved from
+  `tools/designer/` to `updater/designer/` (it still opens from a disk). Needs: the Vercel
+  project `stattrak` connected to this repository, the domain moved to it, and the DNS record.
 
 ## Next up
 
@@ -102,7 +106,7 @@ This repository (`trakaismikus/stattrak`) is private until these are done:
   `github.com/trakaismikus/stattrak`. The firmware version is 1.1.0, and the number is in
   the file `version.txt` now (before, it came from git tags).
 - **2026-11: Screen Designer and license.** A page to draw StatTrak screens pixel for pixel
-  with the firmware fonts (`tools/designer/index.html`): more than one screen, notes, undo and
+  with the firmware fonts (`updater/designer/index.html`): more than one screen, notes, undo and
   redo, save and open, and "Send to AI" (a text with the exact design data). Its drawing code
   is tested against `tools/design.py` and so against the firmware. Free fonts in place of the
   paid brand font. License: GPL-3.0-or-later. The firmware build with `tools/setup.py firmware`

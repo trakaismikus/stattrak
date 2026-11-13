@@ -1,9 +1,20 @@
-# StatTrak Web Updater
+# StatTrak web site
 
-A web page that sends a firmware file to a StatTrak device over Bluetooth, and that manages the
-apps on the device (the tab "Apps").
+This folder is the StatTrak web site, `https://stattrak.tridos.design`. It has three pages with
+one menu (Get started, Firmware, Apps, Designer):
 
-- The page is `index.html`. It has no build step and no packages.
+| Page | What it is |
+| --- | --- |
+| `index.html` | The web updater: sends a firmware file to a StatTrak over Bluetooth (tab "Firmware"), and manages the apps on the device (tab "Apps"). Most of this file is about it. |
+| `start/index.html` | Get started: what StatTrak is, how to update, install apps, design screens and make your own app. Pictures in `start/img/` (copies of `docs/images/`). |
+| `designer/index.html` | The Screen Designer (docs/DESIGNS.md). It also works from a disk, without the internet. |
+
+- The pages have no build step and no packages. They share `css/`, `fonts/` and `assets/`.
+- The header (the logo and the menu) is the same on every page: `css/site.css`. The Screen
+  Designer has its own tool bar under it.
+- A link between the pages names the file (`designer/index.html`, not `designer/`), so the
+  links also work when a page is opened from a disk.
+- `tests/site.test.js` checks the menu and that each local link and file exists.
 - The browser must have Web Bluetooth: Chrome, Edge or Opera, on a computer or on Android.
 - Web Bluetooth works only on `https://` addresses and on `localhost`.
 
@@ -147,7 +158,7 @@ app, and rename the device, on a real device in "Apps: SYNC" before the page is 
 
 ## Publish
 
-The page is a folder of static files. Vercel publishes the folder `updater/` of this repository:
+The site is a folder of static files. Vercel publishes the folder `updater/` of this repository:
 
 - A push to `main` goes to the public address `https://stattrak.tridos.design`.
 - A push to an other branch gets a preview address, which only the team can open.
