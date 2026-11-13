@@ -1,0 +1,49 @@
+# The path to the update mode on firmware 1.0.1, as the old how-to video showed it.
+# Commands: wait MS, click L|R|B (B = both), hold L|R MS, rec on|off. Only 'rec on' parts are in the file.
+# Boot, then 7 kills (not recorded): the counter shows 00007.
+wait 2500
+click L
+wait 300
+click L
+wait 300
+click L
+wait 300
+click L
+wait 300
+click L
+wait 300
+click L
+wait 300
+click L
+wait 300
+wait 2500
+rec on
+wait 1800
+click B
+wait 1600
+click B
+wait 1600
+click B
+wait 1300
+click R
+wait 450
+click R
+wait 450
+click R
+wait 450
+click R
+wait 450
+click R
+wait 450
+click R
+wait 450
+click R
+wait 450
+click R
+wait 450
+click R
+wait 450
+wait 600
+hold R 900
+wait 3200
+rec off

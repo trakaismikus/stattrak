@@ -94,25 +94,6 @@
 .apps .prog__fill { height: 100%; background: var(--accent); transition: width var(--dur-fast) linear; }
 .apps .pct { font-family: var(--font-mono); color: var(--accent); font-variant-numeric: tabular-nums; }
 
-/* the drawn StatTrak: body, display, 2 mock squares (no function), and the 2 real round buttons
-   under the body (1 left, 2 right) */
-.apps .dev { position: relative; width: 100%; max-width: 380px; aspect-ratio: 1360 / 790; margin-bottom: 6px; }
-.apps .dev::before { content: ""; position: absolute; left: 0; top: 0; width: 100%; height: 72.8%; z-index: 1; background: linear-gradient(180deg, #2a2a2e, #1b1b1e); border-radius: 10px; box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 8px 24px rgba(0,0,0,.5); }
-.apps .dev__screen { position: absolute; z-index: 2; left: 5%; top: 8.9%; width: 78.7%; height: 45.6%; background: #050505; border-radius: 6px; display: grid; place-items: center; overflow: hidden; }
-.apps .dev__screen img { width: 96%; height: auto; display: block; }
-.apps .dev__mock { position: absolute; z-index: 2; left: 87.6%; top: 16.5%; width: 7.6%; aspect-ratio: 1; border-radius: 4px; box-shadow: inset 0 0 0 1px #2f2f34; }
-.apps .dev__mock--2 { top: 35.4%; }
-.apps .dev__btn { position: absolute; z-index: 0; top: 70.3%; left: 18.75%; width: 12.5%; height: 15.8%; border-radius: 0 0 45% 45% / 0 0 35% 35%; background: linear-gradient(90deg, #121214, #2c2c31 50%, #121214); box-shadow: inset 0 -3px 0 #3c3c42; }
-.apps .dev__btn--2 { left: 68.75%; }
-.apps .dev__btn span { position: absolute; left: 50%; top: calc(100% + 3px); transform: translateX(-50%); font-family: var(--font-mono); font-size: 11px; color: var(--fg3); }
-.apps .dev--b2 .dev__btn--2 { background: var(--accent); animation: apps-press 1.4s ease-out infinite; }
-.apps .dev--b2 .dev__btn--2 span { color: var(--accent); font-weight: 700; }
-@keyframes apps-press {
-  0% { box-shadow: 0 0 0 0 rgba(255,122,31,0.7); }
-  70% { box-shadow: 0 0 0 12px rgba(255,122,31,0); }
-  100% { box-shadow: 0 0 0 0 rgba(255,122,31,0); }
-}
-
 .apps .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--st-success); display: inline-block; flex: 0 0 auto; }
 .apps .dot--wait { background: var(--accent); animation: apps-blink 1s ease-in-out infinite; }
 @keyframes apps-blink { 50% { opacity: 0.3; } }
@@ -126,7 +107,7 @@
 
 /* --- connect --------------------------------------------------------- */
 .apps .connect { display: flex; flex-direction: column; align-items: center; gap: 20px; text-align: center; padding: 28px 16px 8px; }
-.apps .connect .dev { max-width: 360px; }
+.apps .connect st-device { max-width: 400px; }
 
 /* --- status line ----------------------------------------------------- */
 .apps .status { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 12px 16px; background: var(--st-ink-900); border: 1px solid var(--stroke-1); border-radius: var(--r-md); }
@@ -166,7 +147,7 @@
 
 /* install area in a catalog row */
 .apps .inst { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
-.apps .inst .dev { max-width: 300px; flex: 0 0 auto; }
+.apps .inst st-device { width: 300px; max-width: 100%; flex: 0 1 auto; }
 .apps .inst__text { flex: 1 1 220px; display: flex; flex-direction: column; gap: 10px; }
 .apps .inst__big { font-family: var(--font-display); font-weight: 800; font-style: italic; text-transform: uppercase; font-size: 22px; line-height: 1.1; }
 .apps .inst__line { display: flex; justify-content: space-between; align-items: baseline; font-weight: 700; }

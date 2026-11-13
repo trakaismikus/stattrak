@@ -164,8 +164,9 @@ other firmware version, (2) what happens after the accept, and (3) the Bluetooth
    covers the code only. Say in the `README.md` that the names and logos of TRIDOS and
    StatTrak are not part of it. This is not legal advice.
 2. **Other people's material.** Check the origin and license of the fonts in
-   `main/resources/` (for example the "Nightverb" font) and of the picture
-   `sim/web/StatTrakv3.jpg`. The first design of the web update tool used a paid font: such
+   `main/resources/` (for example the "Nightverb" font). The device picture of the web updater
+   and the web simulator (`updater/assets/device.webp`) is a render of the TRIDOS 3D model
+   (`tools/device_art/`). The first design of the web update tool used a paid font: such
    files must not go into a public repository or onto a public page without a license for
    that. The Screen Designer and the web updater in this repository use the free font
    "Barlow Condensed" (SIL Open Font License): condensed, square shapes, real italics in the

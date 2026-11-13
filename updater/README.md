@@ -109,13 +109,17 @@ that filter gets the name start filter "StatTrak" only. The firmware tab looks f
 | `js/apps-protocol.js` | The app commands (`StatTrakApps`: install, list, Bluetooth name, the device chooser of the Apps tab) and the check of a `.stapp` file (`StappFile`) |
 | `js/apps-pictures.js` | Title pictures, and the device display in "Apps: SYNC": a port of `_draw()` of `../main/views/app_sync_view.c`, pixel by pixel |
 | `js/apps.js`, `css/apps.css` | The tabs and the Apps tab |
+| `js/device.js` | The device picture with a live display (`<st-device anim=...>`): step 1 of the firmware update (the way to the update mode on firmware 1.0.1) and the Apps tab (the screens of "Apps: SYNC" from `js/apps-pictures.js`). Its numbers (where the display and the round buttons are) are in `../tools/device_art/README.md` |
+| `assets/device.webp` | The device: a render of the 3D model, made by `../tools/device_art/` (also the picture of the web simulator) |
+| `assets/update-path-1.0.1.js` | The display of firmware 1.0.1 on the way to the update mode, from the 1.0.1 simulator (`../tools/device_art/fw101/make_update_path.py`). Most devices that come to the page have 1.0.1 |
 | `apps/` | The app catalog: made by `python tools/app.py catalog`, not by hand |
 | `tests/fake-device.js` | A stand-in for the device and for Web Bluetooth. Its packet code is a port of the firmware code in `../components/ble_ota/`; its app commands are a port of `../main/ble_commands.c`, `../main/apps.c` and `../main/views/app_sync_view.c` (with the buttons of "Apps: SYNC"); its device chooser uses the filters (name, service UUID) |
 | `tests/ble.test.js` | Tests of `js/ble.js` and `js/firmware.js` in Node.js |
 | `tests/page.test.js` | Tests of the full page in a headless Chrome. They click the buttons as a user does |
 | `tests/apps.test.js` | Tests of `js/apps-protocol.js` in Node.js, each rule of `docs/APPS.md` section 6 against the stand-in device (install order, ASK, DATA only after "yes", a new BEGIN, the transfer stop, SYNC MORE / OPEN, DEVICE_NAME, format 2), and the device screens of `js/apps-pictures.js` against `tests/sync-screens.json` |
-| `tests/sync-screens.json` | Screens of "Apps: SYNC" from the firmware (the headless simulator, `../tests/stattrak_sim.py`). Make them again after a change to `_draw()` of `app_sync_view.c` |
+| `tests/sync-screens.json` | Screens of "Apps: SYNC" from the firmware (the headless simulator, `../tests/stattrak_sim.py`). Make them again after a change to `_draw()` of `app_sync_view.c` (`python tests/make_sync_screens.py`); the firmware check `../tests/test_updater_screens.py` fails until then |
 | `tests/apps-page.test.js` | Tests of the Apps tab in a headless Chrome: connect, list, hide, move, delete, settings, install (the question first, then the transfer, then "Installed"), no, no answer in 30 s, the transfer stopped on the device, OPEN (a calm message), SYNC MORE, a lost answer, no space, format 2 on an older firmware, the Bluetooth name, a renamed device, old firmware, not in "Apps: SYNC", bad files, lost connection, the tab lock |
+| `tests/device.test.js` | Tests of `js/device.js` in Node.js: the 1.0.1 frames, the Apps screens are the screens of `js/apps-pictures.js`, the display is at the same place in the page and in the web simulator |
 | `tests/files.test.js` | Tests of the fonts, of files from other sites, and that the Bluetooth numbers of the page are the numbers of the firmware |
 
 ## Run it on your computer

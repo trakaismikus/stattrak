@@ -128,14 +128,14 @@ const AppsTab = (() => {
     `<div class="banner banner--${kind}" role="alert"><span class="banner__icon">${icon(kind === "info" ? "check" : "alert", 20)}</span><div><div class="banner__title">${esc(title)}</div>` +
     (body ? `<div class="banner__body">${esc(body)}</div>` : "") + `</div>${extra || ""}</div>`;
 
-  const device = (screen, alt, pressTwo) =>
-    `<div class="dev${pressTwo ? " dev--b2" : ""}"><div class="dev__screen"><img alt="${esc(alt)}" src="${screen}"></div>` +
-    '<i class="dev__mock"></i><i class="dev__mock dev__mock--2"></i><div class="dev__btn dev__btn--1"><span>1</span></div><div class="dev__btn dev__btn--2"><span>2</span></div></div>';
+  // The device with its display (js/device.js): the screens of Settings > Apps: SYNC
+  const device = (anim, arg, label) =>
+    `<st-device anim="${anim}"${arg === undefined ? "" : ` arg="${esc(arg)}"`} label="${esc(label)}"></st-device>`;
 
   function vConnect() {
     const supported = typeof detectBleSupport !== "function" || detectBleSupport().supported;
     return (A.banner ? banner(A.banner.kind, A.banner.title, A.banner.body) : "") +
-      '<div class="connect">' + device(AppPictures.screen("idle"), "StatTrak screen: APP SYNC") +
+      '<div class="connect">' + device("sync-idle", undefined, "StatTrak screen: APP SYNC, Waiting") +
       '<div class="crumbs">On StatTrak: <span class="crumb">Settings</span><span class="crumb-sep">›</span><span class="crumb">Apps: SYNC</span><span class="crumb-sep">›</span><span class="crumb">hold button 2</span></div>' +
       `<button class="btn btn--primary btn--lg" data-act="connect" type="button"${A.conn === "connecting" || !supported ? " disabled" : ""}>` +
       icon("bt", 16) + (A.conn === "connecting" ? "Connecting…" : "Connect") + "</button></div>";
@@ -171,7 +171,7 @@ const AppsTab = (() => {
     if (A.hint === app.id) h += '<div class="hint">One app must stay shown.</div>';
     if (A.fresh === app.id && A.opened && A.opened.id === app.id) {
       h += '<div class="row__panel" id="donepanel"><div class="inst">' +
-        device(AppPictures.screen("installed", app.name), "StatTrak screen: APP INSTALLED, SYNC MORE, OPEN") +
+        device("sync-installed", app.name, "StatTrak screen: APP INSTALLED, SYNC MORE, OPEN") +
         `<div class="inst__text"><div class="inst__big inst__big--ok">${icon("check", 20)} Installed</div>` +
         '<div class="inst__hint">On StatTrak: hold button 1 = SYNC MORE, hold button 2 = OPEN. OPEN closes this connection.</div></div></div></div>';
     }
@@ -213,7 +213,7 @@ const AppsTab = (() => {
     }
     if (inst && A.inst.phase === "ask") {
       h += '<div class="row__panel" id="instpanel"><div class="inst">' +
-        device(AppPictures.screen("question", item.name), `StatTrak screen: INSTALL ${item.name}?`, true) +
+        device("sync-question", item.name, `StatTrak screen: INSTALL ${item.name}? Hold button 2 = yes`) +
         '<div class="inst__text"><div class="inst__big"><span class="dot dot--wait"></span> Answer on StatTrak</div>' +
         '<div class="inst__hint">Hold button 2 = yes, hold button 1 = no.</div></div></div></div>';
     }
