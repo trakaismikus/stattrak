@@ -7,7 +7,7 @@ const vm = require("node:vm");
 const ROOT = path.join(__dirname, "..");
 const quiet = { log() {}, warn() {}, error() {}, info() {} };
 
-/* Loads the page code (js/utils.js, js/ble.js, js/firmware.js) and a stand-in device
+/* Loads the page code (js/utils.js, js/ble.js, js/firmware.js, js/apps-protocol.js) and a stand-in device
    into one script context, as a browser does with <script> tags. */
 function loadPageCode(deviceOptions) {
   const context = vm.createContext({
@@ -20,7 +20,7 @@ function loadPageCode(deviceOptions) {
     TextDecoder,
     crypto: globalThis.crypto,
   });
-  for (const file of ["tests/fake-device.js", "js/utils.js", "js/ble.js", "js/firmware.js"]) {
+  for (const file of ["tests/fake-device.js", "js/utils.js", "js/ble.js", "js/firmware.js", "js/apps-protocol.js"]) {
     vm.runInContext(fs.readFileSync(path.join(ROOT, file), "utf8"), context, { filename: file });
   }
 
@@ -45,6 +45,8 @@ function loadPageCode(deviceOptions) {
     FakeStatTrak: vm.runInContext("FakeStatTrak", context),
     FirmwareFile: vm.runInContext("FirmwareFile", context),
     crc16_ccitt: vm.runInContext("crc16_ccitt", context),
+    StappFile: vm.runInContext("StappFile", context),
+    StatTrakApps: vm.runInContext("StatTrakApps", context),
   };
 }
 

@@ -35,6 +35,10 @@
 #include "app.h"
 #include "app_view.h"
 #include "launcher_view.h"
+#include "app_host_view.h"
+#include "app_settings_view.h"
+#include "app_sync_view.h"
+#include "apps.h"
 #include "eeprom.h"
 #include "ota.h"
 #include "board.h"
@@ -100,6 +104,50 @@ static void _printState(void) {
     const host_nvs_entry_t* entry = HostNvs_getEntry(i);
     printf("nvs.%s.%s=%lu\n", entry->ns, entry->key, (unsigned long)entry->value);
   }
+  for(uint32_t i = 0; i < HostNvs_getBlobCount(); i++) {
+    const host_nvs_blob_t* blob = HostNvs_getBlob(i);
+    printf("blob.%s.%s=%u\n", blob->ns, blob->key, (unsigned)blob->length);
+  }
+
+  /* Apps (main/apps.c): the list with the hidden apps, the menu, the open app */
+  printf("apps_count=%u\n", (unsigned)Apps_getCount());
+  printf("apps_installed=%u\n", (unsigned)Apps_getInstalledCount());
+  printf("apps_free=%lu\n", (unsigned long)Apps_getFreeBytes());
+  printf("apps_list=");
+  for(uint8_t i = 0; i < Apps_getCount(); i++) {
+    uint32_t id = 0;
+    uint8_t flags = 0;
+    Apps_getEntry(i, &id, &flags);
+    printf("%s%lu", i > 0 ? "," : "", (unsigned long)id);
+  }
+  printf("\n");
+  for(uint8_t i = 0; i < Apps_getCount(); i++) {
+    uint32_t id = 0;
+    uint8_t flags = 0;
+    Apps_getEntry(i, &id, &flags);
+    const char* name = Apps_getName(id);
+    printf("app.%lu.name=%s\n", (unsigned long)id, name ? name : "");
+    printf("app.%lu.flags=%u\n", (unsigned long)id, (unsigned)flags);
+    printf("app.%lu.settings=", (unsigned long)id);
+    for(uint8_t s = 0; s < Apps_getSettingCount(id); s++)
+      printf("%s%u", s > 0 ? "," : "", (unsigned)Apps_getSetting(id, s));
+    printf("\n");
+  }
+  {
+    apps_item_t items[APPS_MENU_MAX];
+    const uint8_t count = Apps_getMenu(items, APPS_MENU_MAX - 1);
+    printf("apps_menu=");
+    for(uint8_t i = 0; i < count; i++)
+      printf("%lu,", (unsigned long)items[i].id);
+    printf("settings\n");
+  }
+  printf("launcher_app=%lu\n", (unsigned long)Launcher_getSelectedAppId());
+  printf("app_running=%lu\n", (unsigned long)(AppHost_isOpen() ? AppHost_getAppId() : 0));
+  printf("app_error=%d\n", (int)AppHost_getError());
+  printf("app_error_text=%s\n", AppHost_getError() == STAPP_OK ? "" : Stapp_resultText(AppHost_getError()));
+  printf("app_install_state=%d\n", (int)AppSync_getState());
+  printf("app_settings_id=%lu\n", (unsigned long)AppSettings_getAppId());
+  printf("app_settings_row=%u\n", (unsigned)AppSettings_getRow());
 }
 
 static void _printFrame(void) {

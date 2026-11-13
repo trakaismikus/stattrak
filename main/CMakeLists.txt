@@ -5,6 +5,7 @@ set(SRC_FILES
   "system.c"
   "app_view.c"
   "app.c"
+  "apps.c"
   "eeprom.c"
   "battery.c"
   "ble_commands.c"
@@ -20,6 +21,9 @@ set(SRC_FILES
   "resources/img.c"
   "resources/app_icons.c"
 
+  "views/app_host_view.c"
+  "views/app_settings_view.c"
+  "views/app_sync_view.c"
   "views/ask_view.c"
   "views/intro_view.c"
   "views/launcher_view.c"
@@ -45,7 +49,7 @@ set(INC_DIRS
 
 idf_component_register(
   SRCS ${SRC_FILES}
-  PRIV_REQUIRES spi_flash nvs_flash bt app_update esp_ringbuf app_ble ble_ota gfx ssd1307 gui esp_adc
+  PRIV_REQUIRES spi_flash nvs_flash bt app_update esp_ringbuf app_ble ble_ota gfx ssd1307 gui esp_adc stapp
   INCLUDE_DIRS ${INC_DIRS})
 
 add_compile_definitions(GFX_SUPPORT_GLYPH_FONT=1)

@@ -18,3 +18,6 @@ stattrak_sim_state.txt
 
 # Notes of this computer: who the user is (for AI tools), where ESP-IDF is
 .stattrak/
+
+# App packages that tools/app.py builds next to the script
+apps/*/*.stapp

@@ -119,6 +119,7 @@ typedef enum entry_id_enum {
   SETTING(DIM_SCREEN,   Dim,          "Dim Screen", 1, false,  SETTING_STR_VALUES("OFF", "5 sec", "10 sec", "30 sec", "1 min", "2 min", "5 min", "10 min")) \
   SETTING(DIM_LEVEL,    DimLevel,     "Dim Level",  1, false,  SETTING_STR_VALUES("1%", "10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%")) \
   SETTING(SOUND,        Sound,        "Sound",      1, true,   SETTING_STR_VALUES("OFF", "ON")) \
+  SETTING(APP_SYNC,     Apps,         "Apps",       0, false,  SETTING_STR_VALUES("SYNC")) \
   SETTING(FACTORY_RESET, Factory,     "Factory",    0, false,  SETTING_STR_VALUES("RESET")) \
   SETTING(FW_UPDATE,    Firmware,     "Firmware",   0, false,  SETTING_STR_VALUES("UPDATE")) \
   SETTING(VERSION,      Version,      "Version",    0, false,  SETTING_STR_VALUES(s_fwVersion)) \
@@ -186,6 +187,7 @@ void App_updateActivity(uint32_t time);
 uint32_t App_getLastActivityTime(void);
 
 void App_click(uint16_t ferq);
+void App_tone(uint16_t freq, uint16_t ms);   // One note of an app (10 .. 1000 ms)
 
 void App_requestShutdown(void);
 

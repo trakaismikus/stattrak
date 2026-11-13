@@ -166,7 +166,24 @@ class SafetyCheckTest(unittest.TestCase):
         self.assert_fails("update-views")
 
     def test_settings_removed_from_the_app_menu(self):
-        self.edit("main/views/launcher_view.c", "  { VIEW_ID__SETTINGS,  _coverSettings },\n", "")
+        self.edit("main/views/launcher_view.c",
+                  "  s_items[s_count++] = (apps_item_t){ VIEW_ID__SETTINGS, APPS_ID__NONE };\n", "")
+        self.assert_fails("update-views")
+
+    def test_settings_in_the_app_menu_only_under_a_condition(self):
+        # SETTINGS must not depend on the flash content (the apps list)
+        self.edit("main/views/launcher_view.c",
+                  "  s_items[s_count++] = (apps_item_t){ VIEW_ID__SETTINGS, APPS_ID__NONE };\n",
+                  "  if(s_count < 3)\n    s_items[s_count++] = (apps_item_t){ VIEW_ID__SETTINGS, APPS_ID__NONE };\n")
+        self.assert_fails("update-views")
+
+    def test_app_commands_outside_app_sync(self):
+        self.edit("main/ble_commands.c", "  if(!AppSync_isActive())\n    return BLE_COMMAND_STATUS__NOT_IN_APP_SYNC;\n", "")
+        self.assert_fails("update-views")
+
+    def test_app_menu_without_a_place_for_settings(self):
+        self.edit("main/views/launcher_view.c", "Apps_getMenu(s_items, APPS_MENU_MAX - 1)",
+                  "Apps_getMenu(s_items, APPS_MENU_MAX)")
         self.assert_fails("update-views")
 
     def test_both_buttons_do_not_open_the_app_menu(self):

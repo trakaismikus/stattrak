@@ -116,9 +116,11 @@ Only an idea, no code? Tell us on the "Issues" page of this repository ("Feature
 | Action | Result |
 | --- | --- |
 | Hold both buttons | Power on / power off |
-| Short press on both buttons | App menu: KILLS, KILLS + DEAD, STATS, SETTINGS |
+| Short press on both buttons | App menu: KILLS, KILLS + DEAD, STATS, your installed apps, SETTINGS |
 | App menu: button 1 / button 2 | Previous / next app |
 | App menu: both buttons, or wait 3 seconds | Open the selected app |
+| App menu: hold button 2 | The settings of the selected installed app (if it has settings) |
+| Settings: `Apps: SYNC`, hold button 2 | Connect to the "Apps" part of the web updater: install, delete, sort and hide apps. A new app asks "INSTALL <NAME>?": hold button 2 = yes, hold button 1 = no |
 | Total view: short press | +1 kill. Long press: -1 kill |
 | Kill/death view: button 1 / button 2 | +1 kill / +1 death. Long press: -1 |
 | Settings: short press button 1 / 2 | Up / down |

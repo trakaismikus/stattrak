@@ -1,0 +1,338 @@
+# RUNNER: an endless runner game. The art is the owner's design: apps/runner/design.json
+# (made with the Screen Designer; screen "assets" = the pictures, screen "gameOver" = the end).
+#   Press a button to jump over the cacti. The game gets faster. The best score is kept.
+#   A press comes to the app about 0.2 s after you push the button: jump a little early.
+
+app "RUNNER"
+version 2
+description "An endless runner: press a button to jump over the cacti. The game gets faster. It keeps your best score."
+picture icon runner "RUNNER"
+permission sound
+
+setting start_speed "SPEED" "NORMAL" "FAST"
+
+saved best = 0
+
+const READY = 0
+const RUN = 1
+const OVER = 2
+
+const ROAD_Y = 26       # the top row of the road picture (the road line is y 28)
+const RUN_X = 7         # left edge of the character (as on the GAME OVER screen)
+const STAND_Y = 11      # top of the character when its feet are on the road line
+const JUMP_MS = 640     # time in the air
+const JUMP_H = 13       # height of a jump: the head goes 2 pixels out of the screen
+
+# Obstacles (pictures of design.json, screen "assets")
+const LARGE = 1
+const TOGETHER = 2
+const MID = 3
+const SMALL_A = 4
+const SMALL_B = 5
+
+var state = 0
+var last = 0            # time() of the last draw
+var start = 0           # time() of the start of this run
+var dist = 0            # distance run, in 1/1000 pixel
+var jump_at = -10000    # time() of the last jump
+var over_at = 0         # time() of the crash; negative until the crash sound played
+var next_w = 0          # world x (pixels) of the next obstacle
+var w1 = 0
+var t1 = 0
+var w2 = 0
+var t2 = 0
+var w3 = 0
+var t3 = 0
+var milestone = 0       # score / 100 of the last "100 points" sound
+var last_h = 0          # the height of the character in the last draw of the run (kept at GAME OVER)
+
+# The road (3 rows), 1 empty row and the stones: one picture of 128 x 6 that repeats
+bitmap ground {
+  "..........................###...........................................................................##......................"
+  ".........................#...#.......................###...............................................#..#....................."
+  "#########################.....#######################...###############################################....#####################"
+  "................................................................................................................................"
+  "..........##....................#....................#.................#..............................#................#........"
+  ".....#.............#.....................##...................#...................#...........##..............#..............#.."
+}
+
+# The character without its legs (rows 0 to 13); the legs are drawn by legs()
+bitmap body {
+  "........#####."
+  ".......##.####"
+  ".......#######"
+  ".......#######"
+  ".......###...."
+  "#.....#######."
+  "#....####....."
+  "##.######....."
+  "###########..."
+  "#########.#..."
+  ".########....."
+  ".########....."
+  "..######......"
+  "..#####......."
+}
+bitmap dead {
+  "........#####."
+  ".......##.####"
+  ".......#######"
+  ".......#######"
+  ".......#####.."
+  "#.....####...."
+  "#....####....."
+  "##.######....."
+  "###########..."
+  "#########.#..."
+  ".########....."
+  ".########....."
+  "..######......"
+  "..#####......."
+}
+
+bitmap large {
+  "...##..."
+  "...##..."
+  "...##..#"
+  "#..##..#"
+  "#..##..#"
+  "#..##..#"
+  "##.##.##"
+  ".######."
+  "...##..."
+  "...##..."
+  "...##..."
+  "...##..."
+  "...##..."
+  "...##..."
+}
+bitmap together {
+  "...#......."
+  "..##......."
+  "..##.#....."
+  "..##.#....."
+  "#.##.#....."
+  "#.####....."
+  "#.###...#.."
+  "####....#.."
+  ".###..#.#.#"
+  "..##..#.#.#"
+  "..##...###."
+  "..##....#.."
+  "..##....#.."
+}
+bitmap mid {
+  "..#..."
+  "..##.."
+  "..##.."
+  "#.##.."
+  "#.##.#"
+  "#.##.#"
+  "####.#"
+  ".#####"
+  "..###."
+  "..##.."
+  "..##.."
+  "..##.."
+  "..##.."
+}
+bitmap small_a {
+  "..#.."
+  "..#.."
+  "..#.#"
+  "#.#.#"
+  "#.##."
+  ".##.."
+  "..#.."
+  "..#.."
+}
+bitmap small_b {
+  "..#.."
+  "#.#.."
+  "#.#.#"
+  "#.#.#"
+  ".###."
+  "..#.."
+  "..#.."
+}
+
+func score() { return dist / 10000 }
+
+func reset() {
+  state = RUN
+  start = time()
+  last = start
+  dist = 0
+  jump_at = -10000
+  next_w = 150
+  t1 = 0
+  t2 = 0
+  t3 = 0
+  milestone = 0
+  last_h = 0
+}
+
+func press() {
+  var now = time()
+  if state == READY { reset(); return }
+  if state == OVER {
+    if over_at > 0 && now - over_at > 700 { reset() }
+    return
+  }
+  if now - jump_at >= JUMP_MS {
+    jump_at = now
+    click(1400)
+  }
+}
+
+on press1 { press() }
+on press2 { press() }
+
+# Height of the character over the road, in pixels
+func height(now) {
+  var t = now - jump_at
+  if t < 0 || t >= JUMP_MS { return 0 }
+  return 4 * JUMP_H * t * (JUMP_MS - t) / (JUMP_MS * JUMP_MS)
+}
+
+# A new obstacle in a free place (x < -16 or no obstacle)
+func spawn(kind) {
+  var view = dist / 1000
+  if t1 == 0 || w1 - view < -16 { w1 = next_w; t1 = kind; return }
+  if t2 == 0 || w2 - view < -16 { w2 = next_w; t2 = kind; return }
+  if t3 == 0 || w3 - view < -16 { w3 = next_w; t3 = kind; return }
+}
+
+func speed(now) {
+  var base = 70
+  if setting(start_speed) == 1 { base = 100 }
+  return min(140, base + (now - start) / 1500)
+}
+
+# A cactus with a black border of 1 pixel (it cuts the road line, as on the GAME OVER screen)
+func cactus(x, y, id) {
+  var dy = -1
+  while dy <= 1 {
+    bitmap(x - 1, y + dy, id, off)
+    bitmap(x, y + dy, id, off)
+    bitmap(x + 1, y + dy, id, off)
+    dy += 1
+  }
+  bitmap(x, y, id, on)
+}
+
+# Draws one obstacle and gives 1 if it hits the character (3 boxes: head, body, legs).
+# The picture of kind k is bitmap k + 2 (the order of the bitmap lines above).
+func obstacle(w, kind, top) {
+  if kind == 0 { return 0 }
+  var x = w - dist / 1000
+  if x < -16 || x > 130 { return 0 }
+  var y = 17
+  var bw = 6              # the box: 1 pixel in from each side of the picture
+  var bh = 12
+  if kind == TOGETHER { bw = 5; bh = 11 }   # the tall part; the short part is tested next
+  if kind == MID { bw = 4; bh = 11 }
+  if kind == SMALL_A { y = 22; bw = 3; bh = 6 }
+  if kind == SMALL_B { y = 23; bw = 3; bh = 5 }
+  cactus(x, y, kind + 2)
+  x += 1
+  y += 1
+  while kind != 0 {
+    if x < RUN_X + 14 && x + bw > RUN_X + 7 && y < top + 4 && y + bh > top { return 1 }      # head
+    if x < RUN_X + 11 && x + bw > RUN_X + 0 && y < top + 12 && y + bh > top + 5 { return 1 } # body
+    if x < RUN_X + 8 && x + bw > RUN_X + 2 && y < top + 17 && y + bh > top + 12 { return 1 } # legs
+    kind = 0
+    if bw == 5 && bh == 11 { x += 5; y = 24; bw = 4; bh = 5; kind = 1 }   # TOGETHER: its short part
+  }
+  return 0
+}
+
+# The legs (rows 14 to 16 of the character). step 0: standing, 1 and 2: running
+func legs(x, y, step) {
+  if step == 1 {
+    fill(x + 3, y + 14, 2, 1, on)
+  } else {
+    fill(x + 3, y + 14, 2, 1, on)
+    pixel(x + 3, y + 15, on)
+    fill(x + 3, y + 16, 2, 1, on)
+  }
+  if step == 2 {
+    fill(x + 6, y + 14, 2, 1, on)
+  } else {
+    pixel(x + 6, y + 14, on)
+    pixel(x + 6, y + 15, on)
+    fill(x + 6, y + 16, 2, 1, on)
+  }
+}
+
+# Text in a white box (the GAME OVER box of the design: 1 pixel around the text)
+func banner(str_id, width) {
+  fill(64 - width / 2 - 1, 8, width + 2, 7, on)
+  text(64, 9, str_id, caps, off, center)
+}
+
+on draw {
+  var now = time()
+  var h = last_h
+
+  if state == RUN {
+    var dt = min(now - last, 50)
+    last = now
+    dist += speed(now) * dt
+    h = height(now)
+    last_h = h
+    # A new obstacle when the last one is far enough
+    if next_w - dist / 1000 < 140 {
+      var r = random(20)
+      var kind = SMALL_A
+      if r >= 4 { kind = SMALL_B }
+      if r >= 8 { kind = MID }
+      if r >= 13 { kind = LARGE }
+      if r >= 17 { kind = TOGETHER }
+      spawn(kind)
+      next_w += speed(now) * 95 / 100 + 24 + random(80)
+    }
+  }
+
+  var shift = (dist / 1000) % 128
+  bitmap(-shift, ROAD_Y, ground, on)
+  bitmap(128 - shift, ROAD_Y, ground, on)
+
+  var top = STAND_Y - h
+  var hit = obstacle(w1, t1, top) | obstacle(w2, t2, top) | obstacle(w3, t3, top)
+
+  if state == OVER {
+    bitmap(RUN_X, top, dead, on)
+    legs(RUN_X, top, 0)
+  } else {
+    bitmap(RUN_X, top, body, on)
+    var step = 0
+    if state == RUN && h == 0 { step = 1 + (dist / 6000) % 2 }
+    legs(RUN_X, top, step)
+  }
+
+  if state == RUN && hit {
+    state = OVER
+    over_at = -now
+    if score() > best { best = score(); save() }
+  }
+
+  num(105, 0, score(), 6, small, on, left)
+  if best > 0 {
+    text(62, 0, "HI", small, on, left)
+    num(74, 0, best, 6, small, on, left)
+  }
+  if state == READY { banner("PRESS TO START", 83) }
+  if state == OVER { banner("GAME OVER", 53) }
+}
+
+on tick {
+  if over_at < 0 {
+    over_at = -over_at
+    tone(250, 300)
+  }
+  if state == RUN && score() / 100 > milestone {
+    milestone = score() / 100
+    tone(1800, 60)
+  }
+}

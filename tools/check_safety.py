@@ -130,7 +130,8 @@ RULES = [
     ("update-views",
      "The update view and the accept view must start the Bluetooth update service, and nothing there or "
      "in the start code can refuse new firmware. 'Both buttons' must open the app menu, and the app menu "
-     "must have SETTINGS (the way to 'Firmware: UPDATE').",
+     "must always end with SETTINGS (the way to 'Firmware: UPDATE'): _buildMenu() in launcher_view.c adds it "
+     "in code, never from flash.",
      "Without Bluetooth in these views the phone cannot send or accept firmware. Ota_setUpdateAllowed(false) "
      "is for views of user features only: in the update path it makes the device refuse each new firmware."),
     ("nvs-keys",
@@ -391,10 +392,67 @@ class Checker:
                           "Launcher_onBothButtons(), the way to the app menu and to Settings.")
         launcher = self.read("main/views/launcher_view.c", "update-views")
         if launcher is not None:
-            apps = re.search(r"\bkApps\s*\[\s*\]\s*=\s*\{(.*?)\};", self.strip_comments(launcher), flags=re.S)
-            if not apps or not re.search(r"\bVIEW_ID__SETTINGS\b", apps.group(1)):
-                self.fail("update-views", "main/views/launcher_view.c: the app menu (kApps) must have "
-                          "VIEW_ID__SETTINGS, the way to 'Firmware: UPDATE'.")
+            self.check_menu_has_settings(self.strip_comments(launcher))
+
+        # The app manager commands work only in the view "Apps: SYNC" (there the firmware is refused
+        # and the person answers the install question)
+        commands = self.read("main/ble_commands.c", "update-views")
+        if commands is not None:
+            code = self.strip_comments(commands)
+            body = self.body_text(code, "_handleApp")
+            if body is None or not re.match(r"\s*(const\s+uint8_t\s*\*\s*d\s*=\s*cmd->data\s*;\s*)?"
+                                            r"if\s*\(\s*!\s*AppSync_isActive\s*\(\s*\)\s*\)\s*"
+                                            r"return\s+BLE_COMMAND_STATUS__NOT_IN_APP_SYNC\s*;", body):
+                self.fail("update-views", "main/ble_commands.c: _handleApp() must start with "
+                          "'if(!AppSync_isActive()) return BLE_COMMAND_STATUS__NOT_IN_APP_SYNC;'.")
+            handle = self.body_text(code, "_handle")
+            if handle is None or re.search(r"case\s+BLE_COMMAND__APP_", handle):
+                self.fail("update-views", "main/ble_commands.c: the app commands are handled only in _handleApp().")
+
+    def body_text(self, code, name):
+        """The text between the braces of the C function `name`, or None."""
+        span = self.function_body(code, name)
+        return code[span[0]:span[1]] if span else None
+
+    def check_menu_has_settings(self, code):
+        """The app menu is built from flash (main/apps.c), but SETTINGS is added in code: as the last,
+        unconditional statement of _buildMenu(), after at most APPS_MENU_MAX - 1 other apps."""
+        where = "main/views/launcher_view.c"
+        body = self.body_text(code, "_buildMenu")
+        if body is None:
+            self.fail("update-views", "%s: the function _buildMenu() (it builds the app menu) is missing." % where)
+            return
+
+        # The last statement at the top level of the function body
+        depth = 0
+        last_start = 0
+        for pos, char in enumerate(body):
+            if char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                # The end of a block ("if(...) { }"), not of a value ("(apps_item_t){ ... };")
+                if depth == 0 and body[pos + 1:].lstrip()[:1] not in (";", ",", ")"):
+                    last_start = pos + 1
+            elif char == ";" and depth == 0 and pos < len(body.rstrip()) - 1:
+                last_start = pos + 1
+        last = body[last_start:].strip()
+
+        if not re.match(r"s_items\s*\[\s*s_count\s*\+\+\s*\]\s*=\s*\(\s*apps_item_t\s*\)\s*\{\s*VIEW_ID__SETTINGS\b", last) or \
+                re.search(r"\b(return|goto)\b", body):
+            self.fail("update-views", "%s: _buildMenu() must end with the line that adds VIEW_ID__SETTINGS, with no "
+                      "condition and no return before it. SETTINGS is the way to 'Firmware: UPDATE'." % where)
+        if not re.search(r"\bApps_getMenu\s*\(\s*s_items\s*,\s*APPS_MENU_MAX\s*-\s*1\s*\)", body):
+            self.fail("update-views", "%s: _buildMenu() must leave one place for SETTINGS: "
+                      "Apps_getMenu(s_items, APPS_MENU_MAX - 1)." % where)
+
+        # Nothing else changes the menu
+        outside = re.sub(r"static\s+int8_t\s+s_count\s*=\s*0\s*;", "", code.replace(body, ""))
+        if re.search(r"\bs_count\s*(=[^=]|\+\+|--|\+=|-=)|\bs_items\s*\[[^\]]*\]\s*(\.\w+\s*)?=[^=]", outside):
+            self.fail("update-views", "%s: only _buildMenu() can change the app menu (s_items, s_count)." % where)
+        both = self.body_text(code, "Launcher_onBothButtons")
+        if both is None or not re.search(r"\b_buildMenu\s*\(\s*\)", both):
+            self.fail("update-views", "%s: Launcher_onBothButtons() must build the menu (_buildMenu())." % where)
 
     def check_nvs_keys(self):
         text = self.read("main/app.h", "nvs-keys")

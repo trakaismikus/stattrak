@@ -25,6 +25,8 @@ Actions (done from left to right):
     accept            a phone accepts the new firmware
     ble:ID            a phone sends a Bluetooth user command (ID in hex, example: ble:0100)
     ble:ID:HEX        the same, with data bytes as hex text (example: ble:0101:05ff)
+    app:FILE          install an app package (.stapp) like the web updater: opens Settings >
+                      "Apps: SYNC", sends it, holds button 2 ("yes"). Then both buttons = app menu
     cut               remove the power immediately
     frame             print the display as text ('#' = pixel on)
     png:NAME          save the display as out/NAME.png
@@ -89,6 +91,16 @@ def do_action(dev, action, out_dir, voltage):
             print("ble %s: no answer" % cmd_id)
         else:
             print("ble %s: status=%d data=%s" % (cmd_id, answer[0], answer[1].hex() or "(none)"))
+    elif name == "app":
+        with open(arg, "rb") as handle:
+            package = handle.read()
+        result = dev.install_app(package)
+        states = {3: "installed", 4: "refused", 5: "timeout"}
+        if result["state"] in states:
+            print("app %s: %s" % (arg, states[result["state"]]))
+        else:
+            print("app %s: not installed, %s answered status %s %s" % (
+                arg, result["step"].upper(), result["status"], result["data"].hex()))
     elif name == "cut":
         dev.power_cut()
     elif name == "frame":

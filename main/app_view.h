@@ -45,6 +45,9 @@ Gfx_drawVLine(x + (len * font5x5.x_advance), y, font5x5.height, 1);  \
   VIEW(STATS, stats) \
   VIEW(SETTINGS, settings) \
   VIEW(LAUNCHER, launcher) \
+  VIEW(APP_HOST, appHost) \
+  VIEW(APP_SETTINGS, appSettings) \
+  VIEW(APP_SYNC, appSync) \
   VIEW(ASK, ask) \
   VIEW(UPDATE, update) \
   VIEW(FW_ACCEPT, fwAccept) \

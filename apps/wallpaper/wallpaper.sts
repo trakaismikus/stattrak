@@ -1,0 +1,116 @@
+# WALLPAPER: looks the same as the big KILLS counter, but the number is yours.
+#   It does not count. Set each digit yourself:
+#   Hold button 1: start to edit, then go to the next digit (it repeats while you hold).
+#   Hold button 2: the selected digit + 1 (it repeats while you hold).
+#   While you edit, a short press does the same: button 1 = next digit, button 2 = + 1.
+#   4 seconds without a press: the number is kept and the edit stops.
+#   Setting BATTERY: SHOW draws the battery bar like KILLS does when "Show battery" is on.
+
+app "WALLPAPER"
+version 1
+description "Looks like the big KILLS counter, but shows your own number. Hold 1: pick a digit. Hold 2: change it."
+picture icon crosshair "KILLS" "WALLPAPER"
+permission sound
+
+setting battery_bar "BATTERY" "HIDE" "SHOW"
+
+saved number = 1337
+
+var editing = 0
+var cursor = 0           # 0 = the left digit
+var last_input = 0
+
+bitmap corner {          # kTriangleBmp of the KILLS screen
+  "..#"
+  ".##"
+  "###"
+}
+
+func power(n) {
+  var p = 1
+  while n > 0 { p = p * 10; n -= 1 }
+  return p
+}
+
+func touch() {
+  last_input = time()
+  if !editing {
+    editing = 1
+    cursor = 0
+  }
+}
+
+func next_digit() {
+  touch()
+  cursor = (cursor + 1) % 5
+  click(800)
+}
+
+func add_one() {
+  touch()
+  var p = power(4 - cursor)
+  var d = number / p % 10
+  number += ((d + 1) % 10 - d) * p
+  click(1000)
+}
+
+on long1 {
+  if !editing { touch(); click(800) } else { next_digit() }
+}
+on long2 { add_one() }
+on press1 { if editing { next_digit() } else { click(1000) } }
+on press2 { if editing { add_one() } else { click(1000) } }
+
+on tick {
+  if editing && time() - last_input > 4000 {
+    editing = 0
+    save()
+    click(600)
+  }
+}
+
+on close {
+  editing = 0
+}
+
+# The battery bar of the KILLS screen (main/views/total_view.c)
+func draw_battery(level) {
+  var index = 100 * level / 357
+  var row = index >> 2
+  var col = index & 3
+  var i = 0
+  while i < 7 {
+    var y = 26 - i * 4
+    if row == i {
+      if col == 3 { fill(119, y, 3, 3, on) }
+      if col == 2 { bitmap(119, y, corner, on) }
+      if col >= 1 { fill(123, y, 3, 3, on) }
+      if col == 0 { bitmap(123, y, corner, on) }
+    } else if row > i {
+      fill(119, y, 3, 3, on)
+      fill(123, y, 3, 3, on)
+    }
+    i += 1
+  }
+}
+
+on draw {
+  var x = 6
+  var step = 24
+  var level = battery()
+  if setting(battery_bar) == 1 && level >= 0 {
+    x = 4
+    step = 22
+    draw_battery(level)
+  }
+  var blink = (time() / 250) % 2
+  var i = 0
+  while i < 5 {
+    var dx = x + step * i
+    if !(editing && i == cursor && blink) {
+      bignum(dx, 2, number / power(4 - i) % 10, 1, 4, on)
+    }
+    if editing && i == cursor { hline(dx, 31, 20, on) }
+    i += 1
+  }
+}
