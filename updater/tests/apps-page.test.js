@@ -441,9 +441,15 @@ test("the Bluetooth name: the rules, Save, and Back to StatTrak", { skip: SKIP }
   assert.equal(await nameMsg(), "");
   await submitName(page);
   await page.waitFor(`window.__device.deviceName === "Red 7"`);
-  await page.waitFor(`/the next time/.test(document.getElementById("appsNameMsg").textContent)`);
-  assert.equal(await nameMsg(), "StatTrak uses the new name the next time you open Apps: SYNC.");
-  assert.match(await page.evaluate(`document.querySelector(".namebox").textContent`), /StatTrak shows the name StatTrak | Red 7 in Apps: SYNC\./);
+  // A popup says when the name changes; OK closes it
+  await page.waitFor(`!!document.querySelector("#modalRoot .modal-panel--info")`);
+  assert.equal(await page.evaluate(`document.querySelector("#modalRoot .modal__text").textContent`),
+    "Name change will take place next time you open apps sync on device.");
+  assert.equal(await page.evaluate(`document.activeElement.textContent`), "OK");
+  await act(page, "#modalRoot [data-ok]");
+  assert.equal(await page.evaluate(`document.getElementById("modalRoot").hidden && document.getElementById("modalRoot").innerHTML === ""`), true);
+  assert.equal(await nameMsg(), "");
+  assert.match(await page.evaluate(`document.querySelector(".namebox").textContent`), /StatTrak shows the name StatTrak \| Red 7 in Apps: SYNC\./);
   // This start of Apps: SYNC keeps its name
   assert.equal(await device(page, "bleName()"), "StatTrak");
   await act(page, '[data-act="name-reset"]');
@@ -456,7 +462,7 @@ test("a renamed StatTrak (StatTrak | <part>) is found, and shows its name", { sk
   await connect(page);
   assert.deepEqual(await device(page, "requests[0].filters"), [{ namePrefix: "StatTrak" }, { services: ["03b80e5a-ede8-4b33-a751-6ce34ec4c700"] }]);
   assert.equal(await device(page, "webDevice.name"), "StatTrak | RED 7");
-  assert.match(await page.evaluate(`document.querySelector(".namebox").textContent`), /StatTrak shows the name StatTrak | RED 7 in Apps: SYNC\./);
+  assert.match(await page.evaluate(`document.querySelector(".namebox").textContent`), /StatTrak shows the name StatTrak \| RED 7 in Apps: SYNC\./);
   assert.equal(await page.evaluate(`!!document.querySelector('[data-act="name-reset"]')`), true);
   assert.deepEqual(await texts(page, "#appsList .row__name"), ["KILLS", "KILLS + DEAD", "STATS", "ROUND TIMER", "SETTINGS"]);
 });

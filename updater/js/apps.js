@@ -713,8 +713,26 @@ const AppsTab = (() => {
     }
     log("Bluetooth name: " + A.devName.name, "ok");
     A.nameDraft = "";
-    A.nameMsg = { kind: "ok", text: "StatTrak uses the new name the next time you open Apps: SYNC." };
+    A.nameMsg = null;
     render();
+    showNameNotice();
+  }
+
+  // After a new name: a popup with OK. The device uses the name from its next start of Apps: SYNC.
+  const NAME_NOTICE = "Name change will take place next time you open apps sync on device.";
+  function showNameNotice() {
+    const root = document.getElementById("modalRoot");
+    if (!root) return;
+    root.innerHTML =
+      '<div class="modal-backdrop" data-dismiss><div class="modal-panel modal-panel--info" role="dialog" ' +
+      `aria-modal="true" aria-describedby="nameNotice"><p class="modal__text" id="nameNotice">${esc(NAME_NOTICE)}</p>` +
+      '<div class="modal__actions"><button class="btn btn--primary" data-ok type="button">OK</button></div></div></div>';
+    root.hidden = false;
+    const close = () => { root.innerHTML = ""; root.hidden = true; };
+    const ok = root.querySelector("[data-ok]");
+    ok.addEventListener("click", close);
+    root.querySelector(".modal-backdrop").addEventListener("click", (e) => { if (e.target.matches("[data-dismiss]")) close(); });
+    ok.focus();
   }
 
   // While the person types: the problem of the name at once (no new render: the field keeps the focus)

@@ -5,7 +5,11 @@ Product status of the StatTrak firmware. Finding numbers (A1, B7, ...) are from
 
 ## In progress
 
-- **Apps** (branch `feat/apps`, not shipped). Apps that users install over Bluetooth, like apps
+- Simulator: sound, and the real update task (`ota.c`) with a FreeRTOS stand-in.
+
+## Shipped
+
+- **2026-11: apps (firmware 1.2.0-b1, a beta for testers).** Apps that users install over Bluetooth, like apps
   on a watch: the app engine (`components/stapp/`), the app list and storage (`main/apps.c`),
   the app host, app settings and "Apps: SYNC" views, the app manager commands `0x0110` to
   `0x011C`, the compiler `tools/app.py`, the example apps in `apps/` and 3 sample apps to
@@ -16,10 +20,9 @@ Product status of the StatTrak firmware. Finding numbers (A1, B7, ...) are from
   `Factory: RESET` after `Firmware: UPDATE` in the settings. All buttons on the display use the
   small style and answer a hold that starts on their screen (`main/views/hold_button.c`). The web and window simulators
   install apps too (an "Apps" panel, `--app FILE`) and play the buzzer in the browser. Specification:
-  [APPS.md](APPS.md). Tested in the simulator only; the install over Bluetooth and the flash
-  use of 24 KB of packages in NVS were not run on a real device.
-
-- **Soft radio start** (branch `feat/bluetooth-start`, not shipped). Fix for "the update screen
+  [APPS.md](APPS.md). Installs over Bluetooth tested by the owner on a device; the flash use of 24 KB of packages
+  in NVS was not measured on a device.
+- **2026-11: soft radio start (firmware 1.2.0-b1).** Fix for "the update screen
   turned the device off" (2026-11-12): a brown-out at the radio start, because the bright
   Settings screen and the radio start together pulled the supply too low on a weak unit (also
   with firmware 1.0.1; test firmware: 6 of 10 starts failed, 0 of 15 with the display off). The
@@ -79,10 +82,6 @@ This repository (`trakaismikus/stattrak`) is private until these are done:
 - Rename `main/time.h`, remove the compiler warnings, clean `sdkconfig.defaults` (C7, C8, C9).
 - New production units: a small rescue firmware in the `factory` slot and a bootloader that
   starts it when both buttons are held for a long time.
-- Simulator: sound, and the real update task (`ota.c`) with a FreeRTOS stand-in.
-
-## Shipped
-
 - **2026-11: app menu.** Both buttons open a menu of the apps (KILLS, KILLS + DEAD, STATS,
   SETTINGS) in place of "next view". Each app has a title picture; button 1 / 2 go to the
   previous / next app, both buttons or 3 seconds without a press open it. The app slides up and

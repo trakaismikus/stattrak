@@ -232,7 +232,8 @@ docker run --rm -v "$PWD":/project -w /project espressif/idf:v5.4 \
 - If you change the build type by hand, delete `sdkconfig` and `build/` first. An old
   `sdkconfig` file wins over the defaults. `tools/build.py` does this for you.
 - The firmware version is the text in the file `version.txt` (three numbers, for example
-  `1.1.0`). Change it only when the user asks, or for a release.
+  `1.1.0`, or a beta for testers, for example `1.2.0-b1`; at most 9 characters, or the settings
+  row "VERSION:" cuts it off). Change it only when the user asks, or for a release.
 - The folder of the repository must not have a space in its name (ESP-IDF limit).
 - `sdkconfig.hw_new` is for hardware with chip revision 2.0 or newer. Do not add it unless
   the user says that the device needs it.
