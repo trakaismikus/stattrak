@@ -11,6 +11,7 @@ of the firmware (components/stapp/stapp_check.c).
     python tools/app.py picture  FILE.sts|FILE.stapp [-o FILE.png]    the title picture as a PNG
     python tools/app.py run      FILE.sts|FILE.stapp [ACTIONS...]     run the app in Python, show the screen
     python tools/app.py catalog                                       build apps/*/ for the web updater
+    python tools/app.py sim      FILE.sts|FILE.stapp [--fresh]        the web simulator, with the app open
 
 Other Python code can use the functions: compile_source(), compile_file(), check(), describe(),
 disassemble(), picture_rows(), Machine (runs a package) and build_catalog().
@@ -2050,6 +2051,11 @@ def main(argv=None):
     run.add_argument("actions", nargs="*", help="press1 press2 long1 long2 tick wait:MS frame png:FILE "
                                                 "counter:NAME=N setting:N=V random:SEED (a frame at the end)")
     sub.add_parser("catalog", help="build apps/*/ into updater/apps/ with catalog.json")
+    sim = sub.add_parser("sim", help="open the web simulator with the app installed and running")
+    sim.add_argument("file")
+    sim.add_argument("--fresh", action="store_true", help="a new device (no counters, settings or other apps)")
+    sim.add_argument("--rebuild", action="store_true", help="build the simulator page again")
+    sim.add_argument("--no-browser", action="store_true", help="only make the page, do not open it")
     args = parser.parse_args(argv)
 
     try:
@@ -2104,6 +2110,19 @@ def main(argv=None):
             for entry in catalog["apps"]:
                 print("updater/apps/%s: %s, %d bytes" % (entry["file"], entry["name"], entry["size"]))
             print("updater/apps/catalog.json: %d apps" % len(catalog["apps"]))
+        elif args.action == "sim":
+            import websim
+            data = load_package(args.file)
+            status, info = check(data)
+            if status != OK:
+                print("%s: %s" % (args.file, result_text(status)))
+                return 1
+            try:
+                websim.open_with_app(data, info["name"], fresh=args.fresh, browser=not args.no_browser,
+                                     rebuild=args.rebuild)
+            except websim.WebSimError as error:
+                print(error, file=sys.stderr)
+                return 1
     except AppError as error:
         print(error, file=sys.stderr)
         return 1

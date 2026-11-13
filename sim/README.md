@@ -105,6 +105,10 @@ cmake --build build-sim
 The device powers on by itself when the program starts. Counters and settings stay in
 `stattrak_sim_state.txt`. Delete this file to get a new device.
 
+Apps: `./build-sim/simulator --app apps/runner/runner.stapp` installs an app at the start, like
+the web updater (`sim/host/sim_apps.c`: it opens "Apps: SYNC" and sends the app with the
+Bluetooth app commands), answers "INSTALL RUNNER?" with yes and opens the app.
+
 ## Web simulator (Emscripten)
 
 ```sh
@@ -128,7 +132,21 @@ docker run --rm -v "$PWD":/src -w /src emscripten/emsdk:4.0.10 \
 ```
 
 The keys are the same as in the window simulator. The page keeps counters and settings in
-the browser storage.
+the browser storage, and plays the buzzer with the browser sound (after the first key press).
+
+**Apps:** the quick way is `python tools/app.py sim apps/NAME/NAME.sts`: it builds this page
+when it is missing or old (`tools/websim.py`: Emscripten, or Docker with the image above) and
+opens it with the app installed and open.
+
+- The address does it: `simulator.html#app=RUNNER` (an app of the catalog) or
+  `simulator.html#app=<the package as base64url>`, and `&fresh` for a new device.
+- The panel "Apps" on the right: click an app of the catalog (`updater/apps/`, put into the page
+  by the build; run `python tools/app.py catalog` first for the newest ones), or pick a `.stapp`
+  file. "Answer yes and open the app" on: the simulator holds RIGHT for the question and opens
+  the app. Off: the device asks "INSTALL <NAME>?" and you answer (hold RIGHT = yes, hold LEFT =
+  no), then hold LEFT to leave "Apps: SYNC".
+- The install is the real firmware code; only the phone is simulated. The headless commands
+  `simapp FILE` and `simopen FILE` run the same code (`tests/test_sim_apps.py`).
 
 ## Build options
 
@@ -150,6 +168,7 @@ sim/host/host_board.c  power latch, display buffer with guard bytes, buzzer, bat
 sim/host/host_button.c the state machine of the espressif/button component
 sim/host/host_nvs.c    flash key-value table, with "write fails" for tests
 sim/host/host_ota.c    stand-in for the Bluetooth update: fake transfer, accept, rollback
+sim/host/sim_apps.c    installs an app with the Bluetooth app commands (window, web page, "simapp")
 sim/headless/main.c    front end: commands on standard input
 sim/sdl/main.c         front end: window or web page
 ```

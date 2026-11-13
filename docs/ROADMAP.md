@@ -9,7 +9,8 @@ Product status of the StatTrak firmware. Finding numbers (A1, B7, ...) are from
   on a watch: the app engine (`components/stapp/`), the app list and storage (`main/apps.c`),
   the app host, app settings and "Apps: SYNC" views, the app manager commands `0x0110` to
   `0x011A`, the compiler `tools/app.py`, the example apps in `apps/` and 3 sample apps to
-  try on a device (RUNNER, SLOTS, WALLPAPER; `tone()` for notes). Specification:
+  try on a device (RUNNER, SLOTS, WALLPAPER; `tone()` for notes). The web and window simulators
+  install apps too (an "Apps" panel, `--app FILE`) and play the buzzer in the browser. Specification:
   [APPS.md](APPS.md). Tested in the simulator only; the install over Bluetooth and the flash
   use of 24 KB of packages in NVS were not run on a real device.
 

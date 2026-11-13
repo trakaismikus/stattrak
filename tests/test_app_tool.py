@@ -553,6 +553,25 @@ class Pictures(unittest.TestCase):
 
 
 class CommandLine(unittest.TestCase):
+    def test_sim_makes_a_page_that_opens_the_app(self):
+        # "python tools/app.py sim": the launcher page goes to simulator.html#app=<the package>
+        import base64
+        import websim
+        package = app.compile_file(example_path("reaction"))["package"]
+        with tempfile.TemporaryDirectory() as folder, contextlib.redirect_stdout(io.StringIO()):
+            old = (websim.BUILD_DIR, websim.is_up_to_date)
+            websim.BUILD_DIR, websim.is_up_to_date = folder, (lambda: True)
+            try:
+                launcher = websim.open_with_app(package, "REACTION", fresh=True, browser=False)
+            finally:
+                websim.BUILD_DIR, websim.is_up_to_date = old
+            with open(launcher, "r", encoding="utf-8") as handle:
+                text = handle.read()
+        found = re.search(r"simulator\.html#app=([A-Za-z0-9_-]+)&fresh", text)
+        self.assertIsNotNone(found)
+        data = found.group(1)
+        self.assertEqual(base64.urlsafe_b64decode(data + "=" * (-len(data) % 4)), package)
+
     def test_build_check_describe(self):
         with tempfile.TemporaryDirectory() as folder, contextlib.redirect_stdout(io.StringIO()):
             out = os.path.join(folder, "t.stapp")
