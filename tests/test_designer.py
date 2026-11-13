@@ -1,7 +1,7 @@
-"""Tests of the Screen Designer (tools/designer/).
+"""Tests of the Screen Designer (updater/designer/).
 
 The designer is a web page. Its drawing code and its text for AI tools are in
-tools/designer/design.js. These tests run that file with Node.js and compare it with
+updater/designer/design.js. These tests run that file with Node.js and compare it with
 tools/design.py, which tests/test_design.py compares with the real firmware draw code.
 So a screen in the designer has the same pixels as on the device.
 
@@ -23,7 +23,8 @@ sys.path.insert(0, os.path.join(REPO_ROOT, "tools"))
 import design  # noqa: E402
 from test_design import make, random_elements  # noqa: E402
 
-DESIGNER_DIR = os.path.join(REPO_ROOT, "tools", "designer")
+DESIGNER_DIR = os.path.join(REPO_ROOT, "updater", "designer")
+FONTS_DIR = os.path.join(REPO_ROOT, "updater", "fonts")   # The fonts of the whole web site
 HELPER = os.path.join(REPO_ROOT, "tests", "designer_node.js")
 EXAMPLE = os.path.join(REPO_ROOT, "designs", "example.json")
 NODE = shutil.which("node")
@@ -257,14 +258,14 @@ class DesignerFilesTest(unittest.TestCase):
 
     def test_fonts_of_the_page_are_in_the_folder_with_their_license(self):
         page = self.read("index.html")
-        files = set(re.findall(r"url\(\s*[\"']?(fonts/[^\"')]+)", page))
+        files = set(re.findall(r"url\(\s*[\"']?\.\./fonts/([^\"')]+)", page))
         self.assertTrue(files, "the page has no font files")
         for name in files:
-            self.assertTrue(os.path.isfile(os.path.join(DESIGNER_DIR, *name.split("/"))), name)
+            self.assertTrue(os.path.isfile(os.path.join(FONTS_DIR, name)), name)
         for name in ("OFL-BarlowCondensed.txt", "OFL-JetBrainsMono.txt"):
-            self.assertTrue(os.path.isfile(os.path.join(DESIGNER_DIR, "fonts", name)), name)
-        # Only these free fonts and their license texts belong in the folder
-        self.assertEqual(sorted(os.listdir(os.path.join(DESIGNER_DIR, "fonts"))), [
+            self.assertTrue(os.path.isfile(os.path.join(FONTS_DIR, name)), name)
+        # Only these free fonts and their license texts belong in the folder (README.md: its own)
+        self.assertEqual(sorted(n for n in os.listdir(FONTS_DIR) if n != "README.md"), [
             "BarlowCondensed-400.woff2", "BarlowCondensed-500.woff2", "BarlowCondensed-700.woff2",
             "BarlowCondensed-800.woff2", "BarlowCondensed-800i.woff2", "BarlowCondensed-900i.woff2",
             "JetBrainsMono.woff2", "OFL-BarlowCondensed.txt", "OFL-JetBrainsMono.txt"])

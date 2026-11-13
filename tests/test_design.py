@@ -1,4 +1,4 @@
-"""Tests of the screen design tools (tools/design.py and tools/designer/).
+"""Tests of the screen design tools (tools/design.py and updater/designer/).
 
 The most important test: a design must look the same in the tools and on the device. The test
 draws each kind of element two times, with the Python code of tools/design.py and with the real

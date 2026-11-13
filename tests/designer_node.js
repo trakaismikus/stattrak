@@ -1,5 +1,5 @@
 /*
- * Runs tools/designer/design.js (the code of the Screen Designer) in Node.js for the tests.
+ * Runs updater/designer/design.js (the code of the Screen Designer) in Node.js for the tests.
  * tests/test_designer.py sends a list of jobs as JSON on standard input and reads the results.
  */
 "use strict";
@@ -7,7 +7,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const designerDir = path.join(__dirname, "..", "tools", "designer");
+const designerDir = path.join(__dirname, "..", "updater", "designer");
 const StatTrakDesign = require(path.join(designerDir, "design.js"));
 
 // assets.js is made for a browser: "window.STATTRAK_ASSETS = {...};"

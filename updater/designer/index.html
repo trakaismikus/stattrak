@@ -6,13 +6,13 @@
 <title>StatTrak Screen Designer</title>
 <style>
 /* ---------- fonts (free, in the fonts folder next to this page) ---------- */
-@font-face { font-family: 'Barlow Condensed'; src: url('fonts/BarlowCondensed-400.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
-@font-face { font-family: 'Barlow Condensed'; src: url('fonts/BarlowCondensed-500.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
-@font-face { font-family: 'Barlow Condensed'; src: url('fonts/BarlowCondensed-700.woff2') format('woff2'); font-weight: 700; font-style: normal; font-display: swap; }
-@font-face { font-family: 'Barlow Condensed'; src: url('fonts/BarlowCondensed-800.woff2') format('woff2'); font-weight: 800; font-style: normal; font-display: swap; }
-@font-face { font-family: 'Barlow Condensed'; src: url('fonts/BarlowCondensed-800i.woff2') format('woff2'); font-weight: 800; font-style: italic; font-display: swap; }
-@font-face { font-family: 'Barlow Condensed'; src: url('fonts/BarlowCondensed-900i.woff2') format('woff2'); font-weight: 900; font-style: italic; font-display: swap; }
-@font-face { font-family: 'JetBrains Mono'; src: url('fonts/JetBrainsMono.woff2') format('woff2'); font-weight: 400 700; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Barlow Condensed'; src: url('../fonts/BarlowCondensed-400.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Barlow Condensed'; src: url('../fonts/BarlowCondensed-500.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Barlow Condensed'; src: url('../fonts/BarlowCondensed-700.woff2') format('woff2'); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Barlow Condensed'; src: url('../fonts/BarlowCondensed-800.woff2') format('woff2'); font-weight: 800; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Barlow Condensed'; src: url('../fonts/BarlowCondensed-800i.woff2') format('woff2'); font-weight: 800; font-style: italic; font-display: swap; }
+@font-face { font-family: 'Barlow Condensed'; src: url('../fonts/BarlowCondensed-900i.woff2') format('woff2'); font-weight: 900; font-style: italic; font-display: swap; }
+@font-face { font-family: 'JetBrains Mono'; src: url('../fonts/JetBrainsMono.woff2') format('woff2'); font-weight: 400 700; font-style: normal; font-display: swap; }
 
 /* ---------- tokens (StatTrak design language) ---------- */
 :root {
@@ -97,7 +97,7 @@ code { font-family: var(--font-mono); font-size: 0.85em; }
   font-size: 26px; line-height: 1; letter-spacing: 0.01em; color: var(--fg1);
 }
 .brand__name i { font-style: inherit; color: var(--accent); }
-.brand .eyebrow { border-left: 1px solid var(--stroke-2); padding-left: 12px; }
+.brand .eyebrow { display: none; }
 .proj { display: flex; align-items: center; gap: 10px; margin-left: 6px; min-width: 0; }
 .proj__name {
   background: transparent; border: 1px solid transparent; border-radius: var(--r-sm);
@@ -115,6 +115,18 @@ code { font-family: var(--font-mono); font-size: 0.85em; }
 .save-state.is-busy::before { background: var(--st-warning); }
 .save-state.is-err::before { background: var(--st-kill-red); }
 .topbar__spacer { flex: 1; }
+/* the menu of the StatTrak web site (the same as on the other pages) */
+.site-nav { display: flex; align-self: stretch; gap: 2px; flex-shrink: 0; }
+.site-nav a {
+  position: relative; display: flex; align-items: center; padding: 0 9px;
+  font-family: var(--font-display); font-weight: 800; font-style: italic; font-size: 16px;
+  text-transform: uppercase; letter-spacing: 0.02em; color: var(--fg3); text-decoration: none;
+}
+.site-nav a:hover { color: var(--fg1); }
+.site-nav a[aria-current] { color: var(--fg1); }
+.site-nav a[aria-current]::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--accent); }
+.site-nav .site-nav__start { color: var(--accent); }
+.site-nav .site-nav__start:hover { color: var(--accent-hover); }
 .topbar__acts { display: flex; gap: 8px; align-items: center; }
 .topbar__div { width: 1px; height: 28px; background: var(--stroke-1); margin: 0 4px; }
 
@@ -379,10 +391,15 @@ code { font-family: var(--font-mono); font-size: 0.85em; }
 .toast ul { margin: 6px 0 0; padding-left: 18px; font-size: 14px; color: var(--fg2); }
 .toast li { margin: 2px 0; }
 
+@media (max-width: 1440px) {
+  .save-state { display: none; }
+  .proj__name { width: 200px; }
+}
 @media (max-width: 1180px) {
+  /* Open and Save: the icon only (the title says what they do) */
+  #openBtn, #saveBtn { font-size: 0; gap: 0; padding: 0; width: 36px; height: 36px; }
   .work { grid-template-columns: 72px minmax(0, 1fr) 270px; }
-  .brand .eyebrow, .save-state { display: none; }
-  .proj__name { width: 250px; }
+  .proj__name { width: 150px; }
   .small__txt { display: none; }
   .hint { font-size: 14px; }
   .sec { padding: 14px 14px; }
@@ -397,6 +414,12 @@ code { font-family: var(--font-mono); font-size: 0.85em; }
     <span class="brand__name">Stat<i>Trak</i></span>
     <span class="eyebrow">Screen Designer</span>
   </div>
+  <nav class="site-nav" aria-label="StatTrak tools">
+    <a class="site-nav__start" href="../start/index.html">Get started</a>
+    <a href="../index.html#firmware">Firmware</a>
+    <a href="../index.html#apps">Apps</a>
+    <a href="index.html" aria-current="page">Designer</a>
+  </nav>
   <div class="proj">
     <input id="projName" class="proj__name" type="text" spellcheck="false" maxlength="60" aria-label="Project name" title="Project name. Click to change it.">
     <span class="save-state" id="saveState">Saved in this browser</span>
@@ -410,11 +433,11 @@ code { font-family: var(--font-mono); font-size: 0.85em; }
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg>
     </button>
     <span class="topbar__div"></span>
-    <button class="btn btn--ghost" id="openBtn" type="button" title="Open a design file (you can also drop the file on this page)">
+    <button class="btn btn--ghost" id="openBtn" type="button" title="Open a design file (you can also drop the file on this page)" aria-label="Open">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M6 14l1.5-2.9A2 2 0 0 1 9.2 10H20a2 2 0 0 1 1.9 2.5l-1.5 6A2 2 0 0 1 18.4 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.7.9l.8 1.2a2 2 0 0 0 1.7.9H18a2 2 0 0 1 2 2v2"/></svg>
       Open
     </button>
-    <button class="btn btn--ghost" id="saveBtn" type="button">
+    <button class="btn btn--ghost" id="saveBtn" type="button" title="Save the design as a file" aria-label="Save">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       Save
     </button>

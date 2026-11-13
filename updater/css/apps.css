@@ -11,6 +11,8 @@
 }
 .tab:hover { color: var(--fg1); }
 .tab--on { color: var(--fg1); }
+.tab--start { color: var(--accent); }
+.tab--start:hover { color: var(--accent-hover); }
 .tab--on::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--accent); }
 .tab[aria-disabled="true"] { opacity: 0.4; cursor: not-allowed; }
 .tab[aria-disabled="true"]:hover { color: var(--fg3); }
@@ -205,6 +207,7 @@
 @media (max-width: 700px) {
   .tabs { order: 3; width: 100%; margin: 0 0 -21px; }
   .tab { font-size: 16px; padding: 10px 8px 14px; }
+  .tabs { gap: 0; overflow-x: auto; }
   .apps { margin-top: 18px; gap: 22px; }
   .apps .pic { width: 120px; height: 36px; }
   .apps .h2 { font-size: 21px; }
