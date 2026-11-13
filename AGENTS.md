@@ -184,12 +184,13 @@ Beginner. For other levels: when they ask for options, or the look is not clear.
 The pictures are exact: `tools/design.py` uses the fonts of the firmware, and a test compares
 its drawing with the real firmware draw functions.
 
-**The Screen Designer.** `tools/designer/index.html` is a page where a person draws screens
+**The Screen Designer.** `updater/designer/index.html` is a page where a person draws screens
 with the mouse: the real pixels, the real fonts, more than one screen, undo, save. It opens
-with a double click, without a server and without the internet. Use it in both directions:
+with a double click, without a server and without the internet. It is also on the web site:
+`https://stattrak.tridos.design/designer/index.html`. Use it in both directions:
 
 - **From you to the person.** After you made design files, say: "You can change the designs
-  yourself. Open the file `tools/designer/index.html` in your browser, press Open and select
+  yourself. Open the file `updater/designer/index.html` in your browser, press Open and select
   the file `designs/<feature>-a.json`." Open the page for the person if you can.
 - **From the person to you.** The button "Send to AI" in the designer makes a text that
   starts with `StatTrak screen design`. When the person pastes it:
@@ -350,8 +351,8 @@ designs/                 screen design files (docs/DESIGNS.md)
 sim/                     simulator (host/ = stand-ins for hardware, headless/, sdl/, web/, tools/)
 tests/                   tests (Python: full firmware in the simulator, unit/: C unit tests)
 tools/                   setup.py, check.py, check_safety.py, sim.py, design.py, build.py
-tools/designer/          the Screen Designer (a web page) and the firmware fonts for it
-updater/                 the web updater: the page that sends a firmware file to the device (updater/README.md)
+updater/                 the web site (stattrak.tridos.design, updater/README.md): index.html = Firmware
+                         and Apps, start/ = Get started, designer/ = the Screen Designer
 docs/                    SAFETY.md, BLUETOOTH.md, DESIGNS.md, AUDIT.md, ROADMAP.md
 CONTRIBUTING.md          how to share a feature with all users
 ```

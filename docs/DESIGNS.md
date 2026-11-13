@@ -3,7 +3,7 @@
 A design file is a drawing of one or more StatTrak screens. It says exactly which pixel is on.
 People and AI tools use it to agree on how a screen looks **before** code is written.
 
-- A person can make and change one with the Screen Designer: open `tools/designer/index.html`
+- A person can make and change one with the Screen Designer: open `updater/designer/index.html`
   in a browser (double click). It has undo, more than one screen, "Save", "Open" and "Send to AI".
 - An AI tool can write one by hand: it is a small JSON text file.
 - `tools/design.py` turns it into pictures, into a text that an AI tool can read, and into the
@@ -17,10 +17,10 @@ python tools/design.py code     designs/example.json   # C draw code for a firmw
 ```
 
 The pictures are exact. The fonts and pictures come from the firmware source
-(`tools/designer/assets.js`, made by `python tools/design.py assets`). The test
+(`updater/designer/assets.js`, made by `python tools/design.py assets`). The test
 `tests/test_design.py` draws each kind of element with `tools/design.py` and with the real
 firmware draw functions, and compares all pixels. `tests/test_designer.py` does the same
-for the drawing code of the Screen Designer (`tools/designer/design.js`).
+for the drawing code of the Screen Designer (`updater/designer/design.js`).
 
 ## Send a design to an AI tool
 

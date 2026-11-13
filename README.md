@@ -114,7 +114,8 @@ simulator. Only when you are happy, it makes the firmware file for your device.
 ## ✏ The Screen Designer
 
 You know exactly how a screen must look? **Draw it.** The Screen Designer is a page that opens
-in your browser: the file `tools/designer/index.html` in the project folder (double click).
+in your browser: **<https://stattrak.tridos.design/designer/index.html>**, or the file
+`updater/designer/index.html` in the project folder (double click, it works without the internet).
 Ask your AI tool to open it for you.
 
 <p align="center">
@@ -284,7 +285,6 @@ The details for AI tools and developers: [docs/APPS.md](docs/APPS.md).
 | Settings: short press button 1 / 2 | Up / down |
 | Settings: long press button 1 / 2 | Previous / next value, or start the action |
 | A button on the display (YES, NO, BACK, OK, CANCEL, DISMISS, SYNC MORE, OPEN) | Hold the round button under it for 0.7 s; the button fills while you hold it. A short press does nothing. A button in the middle: either round button |
-| A button on the display (YES, NO, BACK, OK, CANCEL, DISMISS, SYNC MORE, OPEN) | Hold the round button under it for 0.7 s; the button fills while you hold it. A short press does nothing. A button in the middle: either round button |
 | Hold both buttons for 10 seconds at power-on | Firmware update mode |
 
 ---
@@ -375,5 +375,5 @@ source code under the same license.
 Not under this license: the names and logos of TRIDOS and StatTrak, and the product
 pictures (also the pictures in `docs/images/`). Other people's parts keep their own licenses:
 ESP-IDF and its components (Apache-2.0), the fonts of the Screen Designer and of the web
-updater in `tools/designer/fonts/` and `updater/fonts/` (SIL Open Font License, the texts are
+updater in `updater/fonts/` (SIL Open Font License, the texts are
 in these folders).
