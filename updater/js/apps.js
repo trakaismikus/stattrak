@@ -305,6 +305,13 @@ const AppsTab = (() => {
     }
     $("#firmwareView").hidden = A.tab !== "firmware";
     $("#appsView").hidden = A.tab !== "apps";
+    // The links to the other pages leave this page: not while a transfer or an install runs
+    const leaving = busy() || firmwareBusy();
+    for (const id of ["tabStart", "tabDesigner"]) {
+      const el = document.getElementById(id);
+      if (!el) continue;
+      if (leaving) el.setAttribute("aria-disabled", "true"); else el.removeAttribute("aria-disabled");
+    }
   }
 
   function showTab(name) {
@@ -837,7 +844,7 @@ const AppsTab = (() => {
     main.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("pointermove", onPointerMove);
     document.addEventListener("pointerup", onPointerUp);
-    for (const id of ["tabFirmware", "tabApps"]) {
+    for (const id of ["tabStart", "tabFirmware", "tabApps", "tabDesigner"]) {
       document.getElementById(id).addEventListener("click", (event) => {
         if (event.currentTarget.getAttribute("aria-disabled") === "true") event.preventDefault();
       });
@@ -849,7 +856,8 @@ const AppsTab = (() => {
     });
     const fromHash = () => showTab(location.hash === "#apps" ? "apps" : "firmware");
     window.addEventListener("hashchange", fromHash);
-    window.addEventListener("beforeunload", (event) => { if (busy()) event.preventDefault(); });
+    // Also a typed address or Back: the browser asks first during a transfer or an install
+    window.addEventListener("beforeunload", (event) => { if (busy() || firmwareBusy()) event.preventDefault(); });
     fromHash();
   }
 
