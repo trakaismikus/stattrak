@@ -129,7 +129,8 @@ RULES = [
      "These are the ways to repair a device with a bad firmware."),
     ("update-views",
      "The update view and the accept view must start the Bluetooth update service, and nothing there or "
-     "in the start code can refuse new firmware.",
+     "in the start code can refuse new firmware. 'Both buttons' must open the app menu, and the app menu "
+     "must have SETTINGS (the way to 'Firmware: UPDATE').",
      "Without Bluetooth in these views the phone cannot send or accept firmware. Ota_setUpdateAllowed(false) "
      "is for views of user features only: in the update path it makes the device refuse each new firmware."),
     ("nvs-keys",
@@ -380,6 +381,20 @@ class Checker:
             for view in ("UPDATE", "FW_ACCEPT"):
                 if not re.search(r"VIEW\(\s*%s\s*," % view, view_list):
                     self.fail("update-views", "main/app_view.h: the view %s is not in VIEW_LIST." % view)
+
+        # The way to Settings: "both buttons" opens the app menu, and the app menu has SETTINGS
+        main_c = self.read("main/main.c", "update-views")
+        if main_c is not None:
+            both = re.search(r"case\s+EVENT__PRESS_BOTH\s*:(.*?)\bbreak\s*;\s*\}", self.strip_comments(main_c), flags=re.S)
+            if not both or not re.search(r"\bLauncher_onBothButtons\s*\(\s*\)", both.group(1)):
+                self.fail("update-views", "main/main.c: 'both buttons' (EVENT__PRESS_BOTH) must call "
+                          "Launcher_onBothButtons(), the way to the app menu and to Settings.")
+        launcher = self.read("main/views/launcher_view.c", "update-views")
+        if launcher is not None:
+            apps = re.search(r"\bkApps\s*\[\s*\]\s*=\s*\{(.*?)\};", self.strip_comments(launcher), flags=re.S)
+            if not apps or not re.search(r"\bVIEW_ID__SETTINGS\b", apps.group(1)):
+                self.fail("update-views", "main/views/launcher_view.c: the app menu (kApps) must have "
+                          "VIEW_ID__SETTINGS, the way to 'Firmware: UPDATE'.")
 
     def check_nvs_keys(self):
         text = self.read("main/app.h", "nvs-keys")

@@ -34,6 +34,7 @@
 
 #include "app.h"
 #include "app_view.h"
+#include "launcher_view.h"
 #include "eeprom.h"
 #include "ota.h"
 #include "board.h"
@@ -66,6 +67,8 @@ static void _printState(void) {
   printf("latched=%d\n", HostBoard_isLatched() ? 1 : 0);
   printf("view=%s\n", (view < VIEW_COUNT) ? kViewNames[view] : "INVALID");
   printf("view_id=%d\n", (int)view);
+  printf("view_next=%s\n", (AppView_getNext() < VIEW_COUNT) ? kViewNames[AppView_getNext()] : "INVALID");
+  printf("launcher_sel=%s\n", kViewNames[Launcher_getSelectedView()]);
   printf("brightness=%u\n", (unsigned)HostOled_getBrightness());
   printf("display_on=%d\n", HostOled_isOn() ? 1 : 0);
   printf("frames=%lu\n", (unsigned long)HostOled_getFrameCount());

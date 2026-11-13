@@ -18,9 +18,11 @@ set(SRC_FILES
   "resources/font.c"
   "resources/font_glyph.c"
   "resources/img.c"
+  "resources/app_icons.c"
 
   "views/ask_view.c"
   "views/intro_view.c"
+  "views/launcher_view.c"
   "views/kill_dead_view.c"
   "views/settings_view.c"
   "views/space_view.c"
