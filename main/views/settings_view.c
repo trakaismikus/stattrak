@@ -190,6 +190,11 @@ void SettingsView_init(void) {
 }
 
 
+uint8_t SettingsView_getSelectedId(void) {
+  return SETTING_GET_ID(s_settingsView.idx);
+}
+
+
 void SettingsView_setBatteryType(uint8_t type) {
   // If battery type is NONE or USB, remove it from setting order list
   if(type <= BATTERY_TYPE__USB && s_settingCount == elemof(s_settingOrderList)) {
@@ -215,23 +220,21 @@ static bool _eventHandler(uint16_t event) {
   switch(event) {
     
     case EVENT__PRESS_2:
-      if(self->idx < (s_settingCount - 1)) {
-        self->idx++;
+      // Down from the last setting goes to the first one. The list scrolls there.
+      self->idx = (self->idx < (s_settingCount - 1)) ? (self->idx + 1) : 0;
 
-        s_animValue.value = self->idx * 256;
-        Animation_start(&s_anim);
-        App_click(1000);
-      }
+      s_animValue.value = self->idx * 256;
+      Animation_start(&s_anim);
+      App_click(1000);
       return true;
 
     case EVENT__PRESS_1: 
-      if(self->idx > 0) {
-        self->idx--;
+      // Up from the first setting goes to the last one (Version, Serial). The list scrolls there.
+      self->idx = (self->idx > 0) ? (self->idx - 1) : (s_settingCount - 1);
 
-        s_animValue.value = self->idx * 256;
-        Animation_start(&s_anim);
-        App_click(1000);
-      }
+      s_animValue.value = self->idx * 256;
+      Animation_start(&s_anim);
+      App_click(1000);
       return true;
 
     case EVENT__LONG_PRESS_1:

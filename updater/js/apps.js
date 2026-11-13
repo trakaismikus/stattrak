@@ -251,12 +251,13 @@ const AppsTab = (() => {
     return '<section><div class="sec-head"><h2 class="h2">Bluetooth name</h2></div><div class="row namebox"><div class="row__panel">' +
       `<div class="name__now">StatTrak shows the name <strong>${esc(now.name)}</strong> in Apps: SYNC${now.custom ? "" : " (the standard name)"}.</div>` +
       '<form class="name__form" data-form="name" novalidate><label class="name__label" for="appsName">New name</label>' +
+      `<span class="name__prefix" aria-hidden="true">${esc(StatTrakApps.NAME_PREFIX)}</span>` +
       `<input class="name__input" id="appsName" type="text" maxlength="${StatTrakApps.NAME_MAX}" autocomplete="off" spellcheck="false" ` +
       `value="${esc(A.nameDraft)}" aria-describedby="appsNameMsg appsNameHelp"${A.nameMsg && A.nameMsg.kind === "err" ? ' aria-invalid="true"' : ""}${off}>` +
       `<button class="btn btn--primary btn--sm" type="submit" data-act="name-save"${off}>Save</button>` +
       (now.custom ? `<button class="btn btn--ghost btn--sm" type="button" data-act="name-reset"${off}>Back to StatTrak</button>` : "") + "</form>" +
       `<div class="name__msg${A.nameMsg ? " name__msg--" + A.nameMsg.kind : ""}" id="appsNameMsg" role="status">${A.nameMsg ? esc(A.nameMsg.text) : ""}</div>` +
-      '<div class="row__desc" id="appsNameHelp">1 to 8 characters. A phone or computer finds StatTrak by this name. The firmware update always uses "StatTrak".</div>' +
+      `<div class="row__desc" id="appsNameHelp">1 to ${StatTrakApps.NAME_MAX} characters after "${esc(StatTrakApps.NAME_PREFIX)}". A phone or computer finds StatTrak by this name. The firmware update always uses "StatTrak".</div>` +
       "</div></div></section>";
   }
 
@@ -712,8 +713,26 @@ const AppsTab = (() => {
     }
     log("Bluetooth name: " + A.devName.name, "ok");
     A.nameDraft = "";
-    A.nameMsg = { kind: "ok", text: "StatTrak uses the new name the next time you open Apps: SYNC." };
+    A.nameMsg = null;
     render();
+    showNameNotice();
+  }
+
+  // After a new name: a popup with OK. The device uses the name from its next start of Apps: SYNC.
+  const NAME_NOTICE = "Name change will take place next time you open apps sync on device.";
+  function showNameNotice() {
+    const root = document.getElementById("modalRoot");
+    if (!root) return;
+    root.innerHTML =
+      '<div class="modal-backdrop" data-dismiss><div class="modal-panel modal-panel--info" role="dialog" ' +
+      `aria-modal="true" aria-describedby="nameNotice"><p class="modal__text" id="nameNotice">${esc(NAME_NOTICE)}</p>` +
+      '<div class="modal__actions"><button class="btn btn--primary" data-ok type="button">OK</button></div></div></div>';
+    root.hidden = false;
+    const close = () => { root.innerHTML = ""; root.hidden = true; };
+    const ok = root.querySelector("[data-ok]");
+    ok.addEventListener("click", close);
+    root.querySelector(".modal-backdrop").addEventListener("click", (e) => { if (e.target.matches("[data-dismiss]")) close(); });
+    ok.focus();
   }
 
   // While the person types: the problem of the name at once (no new render: the field keeps the focus)

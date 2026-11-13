@@ -360,16 +360,36 @@ bleprph_advertise(void)
     // };
     // fields.num_uuids16 = 1;
     // fields.uuids16_is_complete = 1;
-    fields.uuids128 = (ble_uuid128_t[]) {
-        BLE_UUID128_INIT(0x00, 0xC7, 0xC4, 0x4E, 0xE3, 0x6C, 0x51, 0xA7, 0x33, 0x4B, 0xE8, 0xED, 0x5A, 0x0E, 0xB8, 0x03)
-    };
-    fields.num_uuids128 = 1;
-    fields.uuids128_is_complete = 1;
+    static ble_uuid128_t s_advUuid =
+        BLE_UUID128_INIT(0x00, 0xC7, 0xC4, 0x4E, 0xE3, 0x6C, 0x51, 0xA7, 0x33, 0x4B, 0xE8, 0xED, 0x5A, 0x0E, 0xB8, 0x03);
+
+    // The name and the service UUID fit in one packet for a name of APP_BLE_NAME_WITH_UUID characters
+    // or less ("StatTrak": the update views, the packet as in firmware 1.0.1). A longer name (the app
+    // sync, "StatTrak | <part>") sends the UUID in the scan response.
+    const bool uuidInResponse = (fields.name_len > APP_BLE_NAME_WITH_UUID);
+    if (!uuidInResponse) {
+        fields.uuids128 = &s_advUuid;
+        fields.num_uuids128 = 1;
+        fields.uuids128_is_complete = 1;
+    }
 
     rc = ble_gap_adv_set_fields(&fields);
     if (rc != 0) {
         MODLOG_DFLT(ERROR, "error setting advertisement data; rc=%d\n", rc);
         return;
+    }
+
+    if (uuidInResponse) {
+        struct ble_hs_adv_fields rsp;
+        memset(&rsp, 0, sizeof rsp);
+        rsp.uuids128 = &s_advUuid;
+        rsp.num_uuids128 = 1;
+        rsp.uuids128_is_complete = 1;
+        rc = ble_gap_adv_rsp_set_fields(&rsp);
+        if (rc != 0) {
+            MODLOG_DFLT(ERROR, "error setting scan response data; rc=%d\n", rc);
+            return;
+        }
     }
 
     /* Begin advertising. */

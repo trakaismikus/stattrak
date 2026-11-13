@@ -15,6 +15,7 @@
 
 #include "ota.h"
 #include "hold_button.h"
+#include "bt_start.h"
 
 /* > Local Function Declarations ******************************************************************/
 static bool _eventHandler(uint16_t event);
@@ -48,12 +49,18 @@ static hold_buttons_t s_hold;    // CANCEL fills while button 1 is held (main/vi
 
 /* > Local Function Definitions *******************************************************************/
 
-static void _init(void) {
+// The radio starts when the display shows only the Bluetooth sign (bt_start.h)
+static void _startBluetooth(void) {
   Ota_init();
+}
+
+static void _init(void) {
+  BtStart_begin(VIEW_ID__UPDATE, _startBluetooth);
   HoldButtons_reset(&s_hold);
 }
 
 static void _deinit(void) {
+  BtStart_cancel(VIEW_ID__UPDATE);
   Ota_deinit();
 }
 
@@ -83,7 +90,14 @@ static bool _eventHandler(uint16_t event) {
 
 
 
+static void _drawScreen(void);
+
 static void _draw(void) {
+  if(!BtStart_draw(VIEW_ID__UPDATE, _drawScreen))
+    _drawScreen();
+}
+
+static void _drawScreen(void) {
   char str[32];
   static const char* kStateStrs[OTA_STATE_COUNT] = {
     [OTA_STATE__IDLE]     = "Waiting",

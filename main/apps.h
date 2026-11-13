@@ -30,7 +30,8 @@
 #define APPS_ERROR_LIMIT      3                     // App errors until the app is switched off
 #define APPS_SAVE_PERIOD_MS   30000                 // Saved variables: at most once in 30 s (and at close)
 
-#define APPS_DEVICE_NAME_MAX  8                     // The Bluetooth name (APP_BLE_NAME_MAX)
+#define APPS_DEVICE_NAME_MAX  12                    // The name part after "StatTrak | " (APP_BLE_NAME_MAX)
+#define APPS_DEVICE_NAME_PREFIX  "StatTrak | "       // The Bluetooth name always starts with it
 
 // Ids of the built-in apps. Installed apps have other ids (not 0, not 0xFFFFFFFF).
 #define APPS_ID__NONE         0u

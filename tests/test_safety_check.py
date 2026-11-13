@@ -218,8 +218,8 @@ class SafetyCheckTest(unittest.TestCase):
 
     def test_person_name_in_the_update_view(self):
         # Only "Apps: SYNC" may give Bluetooth the name of the person: the web updater looks for "StatTrak"
-        self.edit("main/views/update_view.c", "static void _init(void) {\n  Ota_init();",
-                  "static void _init(void) {\n  AppBle_setNextName(\"MIKUS\");\n  Ota_init();")
+        self.edit("main/views/update_view.c", "static void _startBluetooth(void) {\n  Ota_init();",
+                  "static void _startBluetooth(void) {\n  AppBle_setNextName(\"MIKUS\");\n  Ota_init();")
         self.assert_fails("bluetooth-identity")
 
     def test_person_name_is_not_forgotten(self):

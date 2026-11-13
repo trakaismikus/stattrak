@@ -5,28 +5,9 @@ Product status of the StatTrak firmware. Finding numbers (A1, B7, ...) are from
 
 ## In progress
 
-- **Apps** (branch `feat/apps`, not shipped). Apps that users install over Bluetooth, like apps
-  on a watch: the app engine (`components/stapp/`), the app list and storage (`main/apps.c`),
-  the app host, app settings and "Apps: SYNC" views, the app manager commands `0x0110` to
-  `0x011C`, the compiler `tools/app.py`, the example apps in `apps/` and 3 sample apps to
-  try on a device (RUNNER, SLOTS, WALLPAPER; `tone()` for notes). Feedback round 1: the device
-  asks "INSTALL <NAME>?" before the app is sent, small YES / NO buttons that fill while held,
-  SYNC MORE and OPEN after the install, a Bluetooth name for "Apps: SYNC", `down1` / `down2`
-  events (package format 2) so RUNNER jumps at once, new WALLPAPER buttons, and
-  `Factory: RESET` after `Firmware: UPDATE` in the settings. All buttons on the display use the
-  small style and answer a hold that starts on their screen (`main/views/hold_button.c`). The web and window simulators
-  install apps too (an "Apps" panel, `--app FILE`) and play the buzzer in the browser. Specification:
-  [APPS.md](APPS.md). Tested in the simulator only; the install over Bluetooth and the flash
-  use of 24 KB of packages in NVS were not run on a real device.
+Nothing at the moment.
 
 ## Next up
-
-0. **The update screen turned the device off (reported 2026-11-12, not reproduced since).** On the
-   first app firmware, Settings > `Firmware: UPDATE` gave a blank screen several times; the 10 s
-   hold at power-on worked. Tests when it happens again: `Apps: SYNC` (does it turn off too?),
-   `Sound: OFF` then `Firmware: UPDATE`, a fresh battery. Ideas after the results: start
-   Bluetooth a moment after the click, less radio power at the start, more free RAM (the app
-   firmware has 72 KB, 1.1.0 has 84 KB).
 
 These need a decision by TRIDOS and a test on real devices. They change code that the
 simulator cannot test.
@@ -79,6 +60,29 @@ This repository (`trakaismikus/stattrak`) is private until these are done:
 
 ## Shipped
 
+- **2026-11: apps (firmware 1.2.0-b1, a beta for testers).** Apps that users install over Bluetooth, like apps
+  on a watch: the app engine (`components/stapp/`), the app list and storage (`main/apps.c`),
+  the app host, app settings and "Apps: SYNC" views, the app manager commands `0x0110` to
+  `0x011C`, the compiler `tools/app.py`, the example apps in `apps/` and 3 sample apps to
+  try on a device (RUNNER, SLOTS, WALLPAPER; `tone()` for notes). Feedback round 1: the device
+  asks "INSTALL <NAME>?" before the app is sent, small YES / NO buttons that fill while held,
+  SYNC MORE and OPEN after the install, a Bluetooth name for "Apps: SYNC", `down1` / `down2`
+  events (package format 2) so RUNNER jumps at once, new WALLPAPER buttons, and
+  `Factory: RESET` after `Firmware: UPDATE` in the settings. All buttons on the display use the
+  small style and answer a hold that starts on their screen (`main/views/hold_button.c`). The web and window simulators
+  install apps too (an "Apps" panel, `--app FILE`) and play the buzzer in the browser. Specification:
+  [APPS.md](APPS.md). Installs over Bluetooth tested by the owner on a device; the flash use
+  of 24 KB of packages in NVS was not measured on a device.
+- **2026-11: soft radio start (firmware 1.2.0-b1).** Fix for "the update screen
+  turned the device off" (2026-11-12): a brown-out at the radio start, because the bright
+  Settings screen and the radio start together pulled the supply too low on a weak unit (also
+  with firmware 1.0.1; test firmware: 6 of 10 starts failed, 0 of 15 with the display off). The
+  update view, the accept view and the app sync now show a small Bluetooth sign first and start
+  the radio when only the sign is lit (docs/BLUETOOTH.md, "Radio start"). Same branch: the
+  app sync Bluetooth name is "StatTrak | " + a part of 12 characters at most, and the settings list
+  wraps (up from the first row goes to the last row, down from the last row to the first).
+  Device test on the weak unit (2026-11-13): no failure, also with a high-power flashlight on
+  the same battery.
 - **2026-11: a README for people who do not code.** A title picture (the slot machine app on
   the device), product photos and links to the StatTrak page of the TRIDOS shop, and sections
   with screenshots for "Start in 5 minutes", the Screen Designer, the Web Updater, Apps and

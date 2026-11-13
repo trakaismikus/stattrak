@@ -2,6 +2,7 @@
 
 import unittest
 
+from stattrak_sim import SETTING_ROWS
 from helpers import SimTestCase, BATTERY_LIPO_1S, MAX_BRIGHTNESS, SETTINGS_NO_BATTERY
 
 
@@ -40,13 +41,37 @@ class SettingsTest(SimTestCase):
             self.dev.long_press(2)
         self.assertEqual(self.dev.state()["eeprom.auto_off"], 5)
 
-    def test_cursor_stops_at_first_and_last_setting(self):
+    def test_up_from_the_first_setting_goes_to_the_last(self):
         self.dev.boot()
         self.go_to_view("SETTINGS")
-        self.dev.click(1)  # Already at the top
-        for _ in range(len(SETTINGS_NO_BATTERY) + 5):
+        self.assertEqual(self.dev.state()["settings_row"], SETTING_ROWS.index("GAME_RESET"))
+        self.dev.click(1)
+        self.dev.run(500)
+        self.assertEqual(self.dev.state()["settings_row"], SETTING_ROWS.index("SERIAL"))
+        self.dev.click(1)
+        self.assertEqual(self.dev.state()["settings_row"], SETTING_ROWS.index("VERSION"))
+        self.dev.click(2)
+        self.assertEqual(self.dev.state()["settings_row"], SETTING_ROWS.index("SERIAL"))
+
+    def test_down_from_the_last_setting_goes_to_the_first(self):
+        self.dev.boot()
+        self.go_to_view("SETTINGS")
+        self.dev.click(1)                 # Up from the first row: the last row (SERIAL)
+        self.dev.click(2)                 # Down from the last row: the first row again
+        self.dev.run(500)
+        self.assertEqual(self.dev.state()["settings_row"], SETTING_ROWS.index("GAME_RESET"))
+
+    def test_cursor_goes_round_the_list(self):
+        self.dev.boot()
+        self.go_to_view("SETTINGS")
+        for _ in range(len(SETTINGS_NO_BATTERY)):
             self.dev.click(2)
         self.dev.run(1000)
+        # One full round: the first row again
+        self.assertEqual(self.dev.state()["settings_row"], SETTING_ROWS.index("GAME_RESET"))
+        self.dev.click(1)
+        self.dev.run(1000)
+        self.assertEqual(self.dev.state()["settings_row"], SETTING_ROWS.index("SERIAL"))
         self.assertTrue(self.dev.is_on)
         self.assertEqual(self.dev.view, "SETTINGS")
         # The last setting (serial number) is read-only: a long press changes nothing.

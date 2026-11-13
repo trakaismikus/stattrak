@@ -281,7 +281,7 @@ test("while the device asks INSTALL, no command changes the apps (status 11)", a
   await rejects(other.delete(0x62e49bbb), { kind: "waiting" });
   await rejects(other.setHidden(1, true), { kind: "waiting" });
   await rejects(other.setDeviceName("RED"), { kind: "waiting" });
-  same(await other.deviceName(), { custom: false, name: "StatTrak" });
+  same(await other.deviceName(), { custom: false, part: "", name: "StatTrak" });
   t.device.holdButton2();
   assert.equal(await done, "installed");
   t.ota.disconnect();
@@ -348,42 +348,43 @@ test("the app code sends no firmware update command", () => {
 
 test("the Bluetooth name: read, write, back to StatTrak, the rules; the page refuses a bad name before it sends", async () => {
   const t = await connect({});
-  same(await t.apps.deviceName(), { custom: false, name: "StatTrak" });
-  same(await t.apps.setDeviceName("Red 7"), { custom: true, name: "Red 7" });
-  same(await t.apps.deviceName(), { custom: true, name: "Red 7" });
+  same(await t.apps.deviceName(), { custom: false, part: "", name: "StatTrak" });
+  same(await t.apps.setDeviceName("Red 7"), { custom: true, part: "Red 7", name: "StatTrak | Red 7" });
+  same(await t.apps.deviceName(), { custom: true, part: "Red 7", name: "StatTrak | Red 7" });
   assert.equal(t.device.deviceName, "Red 7");
-  same(await t.apps.setDeviceName(""), { custom: false, name: "StatTrak" });
+  same(await t.apps.setDeviceName(""), { custom: false, part: "", name: "StatTrak" });
   assert.equal(t.device.deviceName, "");
   const sent = t.device.appCommands.length;
-  for (const bad of ["", " AB", "AB ", "NINE CHAR", "Rīga", "A\tB"].slice(1)) {
+  for (const bad of ["", " AB", "AB ", "THIRTEEN CHAR", "Rīga", "A\tB"].slice(1)) {
     await rejects(t.apps.setDeviceName(bad), { kind: "name" });
   }
   assert.equal(t.device.appCommands.length, sent, "a bad name was sent");
   const { StatTrakApps } = t.page;
-  assert.equal(StatTrakApps.nameProblem("ABCDEFGH"), "");
+  assert.equal(StatTrakApps.nameProblem("ABCDEFGHIJKL"), "");
   assert.equal(StatTrakApps.nameProblem("~!@#$%^&"), "");
-  assert.match(StatTrakApps.nameProblem("ABCDEFGHI"), /At most 8/);
+  assert.match(StatTrakApps.nameProblem("ABCDEFGHIJKLM"), /At most 12/);
   assert.match(StatTrakApps.nameProblem(" A"), /No space/);
   t.ota.disconnect();
 });
 
-test("pair(): a renamed device is found by its service UUID; the firmware tab looks for the name only", async () => {
+test("pair(): a renamed device (StatTrak | <part>) is found by the name start; the firmware tab looks for StatTrak only", async () => {
   // The name is used from the next start of "Apps: SYNC"
   const page = loadPageCode({ apps: true, deviceName: "RED 7" });
   page.device.screen = "counter";
   page.device.openAppSync();
-  assert.equal(page.device.bleName(), "RED 7");
+  assert.equal(page.device.bleName(), "StatTrak | RED 7");
   const ota = await page.StatTrakApps.pair();
   await once(ota, "bleConnected");
   same(page.device.requests[0], {
-    filters: [{ name: "StatTrak" }, { services: ["03b80e5a-ede8-4b33-a751-6ce34ec4c700"] }],
+    filters: [{ namePrefix: "StatTrak" }, { services: ["03b80e5a-ede8-4b33-a751-6ce34ec4c700"] }],
     optionalServices: [0x8018],
   });
   assert.equal(page.StatTrakApps.ADVERTISED_UUID, page.FakeStatTrak.ADVERTISED_UUID);
-  assert.equal(ota.device.name, "RED 7");
+  assert.equal(ota.device.name, "StatTrak | RED 7");
   ota.disconnect();
 
-  // The firmware tab: the name filter only; it does not find "RED 7" (the update view is "StatTrak")
+  // The firmware tab: the exact name "StatTrak" only; it does not find "StatTrak | RED 7" (the update
+  // view is "StatTrak")
   await rejects(page.BleOta.create(), { name: "NotFoundError" });
   same(page.device.requests[1], { filters: [{ name: "StatTrak" }], optionalServices: [0x8018] });
 });
@@ -397,11 +398,14 @@ test("pair(): a browser that refuses the UUID filter gets the name filter", asyn
   same(page.device.requests.map((r) => r.filters.length), [2, 1]);
   ota.disconnect();
 
-  // Then a renamed device is not found
+  // A renamed device is found too: its name starts with "StatTrak"
   page = loadPageCode({ apps: true, uuidFilterBlocked: true, deviceName: "RED 7" });
   page.device.screen = "counter";
   page.device.openAppSync();
-  await rejects(page.StatTrakApps.pair(), { name: "NotFoundError" });
+  const renamed = await page.StatTrakApps.pair();
+  await once(renamed, "bleConnected");
+  assert.equal(renamed.device.name, "StatTrak | RED 7");
+  renamed.disconnect();
 });
 
 /* ---- docs/APPS.md section 6, point by point, with the raw commands ---------------------- */
@@ -716,8 +720,8 @@ test("section 6.7: no answer to the question in 30 s: STATUS 5, the display show
 test("section 6.8: DEVICE_NAME: read, write, the rules of a name, back to StatTrak, used from the next Apps: SYNC", async () => {
   const t = await connect({});
   const name = (s, extra) => { const d = new Uint8Array(16); d[0] = 1; d.set(text(s), 1); for (const [i, v] of extra || []) d[i] = v; return d; };
-  const read = async () => { const a = await raw(t, DEVICE_NAME, [0]); return [a.status, a.data[0], String.fromCharCode(...a.data.subarray(1, 9)).replace(/\0+$/, "")]; };
-  assert.deepEqual(await read(), [0, 0, "StatTrak"]);
+  const read = async () => { const a = await raw(t, DEVICE_NAME, [0]); return [a.status, a.data[0], String.fromCharCode(...a.data.subarray(1, 13)).replace(/\0+$/, "")]; };
+  assert.deepEqual(await read(), [0, 0, ""]);
   let a = await raw(t, DEVICE_NAME, name("RED 7"));
   assert.deepEqual([a.status, a.data[0], String.fromCharCode(...a.data.subarray(1, 6)), a.data[6]], [0, 1, "RED 7", 0]);
   assert.deepEqual(await read(), [0, 1, "RED 7"]);
@@ -725,21 +729,21 @@ test("section 6.8: DEVICE_NAME: read, write, the rules of a name, back to StatTr
   const bad = [
     ["space at the start", name(" RED")], ["space at the end", name("RED ")], ["0x7F", name("RE\x7F")],
     ["0x1F", name("RE\x1F")], ["0x80", name("RE", [[3, 0x80]])], ["a byte after the 0", name("RE", [[4, 65]])],
-    ["a byte after the 8 characters", name("ABCDEFGH", [[9, 65]])], ["a byte at the end", name("AB", [[15, 1]])],
+    ["a byte after the 12 characters", name("ABCDEFGHIJKL", [[13, 65]])], ["a byte at the end", name("AB", [[15, 1]])],
     ["op 2", Uint8Array.from([2, ...text("RED")])],
   ];
   for (const [what, data] of bad) assert.equal((await raw(t, DEVICE_NAME, data)).status, 2, what);
   assert.deepEqual(await read(), [0, 1, "RED 7"]);
-  // 8 characters, all signs
+  // 12 characters, all signs
   assert.equal((await raw(t, DEVICE_NAME, name("~a Z!0}"))).status, 0);
-  assert.equal((await raw(t, DEVICE_NAME, name("ABCDEFGH"))).status, 0);
-  assert.deepEqual(await read(), [0, 1, "ABCDEFGH"]);
+  assert.equal((await raw(t, DEVICE_NAME, name("ABCDEFGHIJKL"))).status, 0);
+  assert.deepEqual(await read(), [0, 1, "ABCDEFGHIJKL"]);
   // This start of "Apps: SYNC" keeps its name; the next start uses the new one
   assert.equal(t.device.bleName(), "StatTrak");
   t.ota.disconnect();
   t.device.leaveAppSync();
   t.device.openAppSync();
-  assert.equal(t.device.bleName(), "ABCDEFGH");
+  assert.equal(t.device.bleName(), "StatTrak | ABCDEFGHIJKL");
   // The update view is always "StatTrak"
   t.device.screen = "counter";
   t.device.enterUpdateMode();
@@ -750,7 +754,7 @@ test("section 6.8: DEVICE_NAME: read, write, the rules of a name, back to StatTr
   const ota = await t.page.StatTrakApps.pair();
   await once(ota, "bleConnected");
   t.ota = ota;
-  assert.deepEqual([(await raw(t, DEVICE_NAME, [1])).status, ...(await read()).slice(1)], [0, 0, "StatTrak"]);
+  assert.deepEqual([(await raw(t, DEVICE_NAME, [1])).status, ...(await read()).slice(1)], [0, 0, ""]);
   assert.equal(t.device.deviceName, "");
   ota.disconnect();
 });

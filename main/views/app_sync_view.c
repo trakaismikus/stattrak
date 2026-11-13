@@ -31,6 +31,7 @@
 #include "ota.h"
 #include "app_ble_name.h"
 #include "hold_button.h"
+#include "bt_start.h"
 #include "esp_log.h"
 
 /* > Defines **************************************************************************************/
@@ -207,16 +208,15 @@ void AppSync_update(uint32_t now) {
 
 /* > Local Function Definitions *******************************************************************/
 
-static void _init(void) {
-  _reset();
-  s_failed = false;
-  HoldButtons_reset(&s_hold);
-  s_shownScreen = -1;
-
-  // The name that the person gave this device (Bluetooth name, docs/APPS.md section 6), for this
-  // Bluetooth start only. The update view and the accept view are always "StatTrak".
-  char name[APPS_DEVICE_NAME_MAX + 1];
-  Apps_getDeviceName(name);
+// The radio starts when the display shows only the Bluetooth sign (bt_start.h)
+static void _startBluetooth(void) {
+  // "StatTrak | " + the name part that the person chose (docs/APPS.md section 6), for this Bluetooth
+  // start only. No part: "StatTrak". The update view and the accept view are always "StatTrak".
+  char part[APPS_DEVICE_NAME_MAX + 1];
+  char name[APP_BLE_NAME_MAX + 1] = "";
+  Apps_getDeviceName(part);
+  if(part[0] != '\0')
+    snprintf(name, sizeof(name), "%s%s", APPS_DEVICE_NAME_PREFIX, part);
   AppBle_setNextName(name);
 
   Ota_init();
@@ -227,7 +227,16 @@ static void _init(void) {
   Ota_setUpdateAllowed(false);
 }
 
+static void _init(void) {
+  _reset();
+  s_failed = false;
+  HoldButtons_reset(&s_hold);
+  s_shownScreen = -1;
+  BtStart_begin(VIEW_ID__APP_SYNC, _startBluetooth);
+}
+
 static void _deinit(void) {
+  BtStart_cancel(VIEW_ID__APP_SYNC);
   Ota_deinit();
   _reset();
 }
@@ -306,7 +315,14 @@ static bool _eventHandler(uint16_t event) {
   return false;
 }
 
+static void _drawScreen(void);
+
 static void _draw(void) {
+  if(!BtStart_draw(VIEW_ID__APP_SYNC, _drawScreen))
+    _drawScreen();
+}
+
+static void _drawScreen(void) {
   char str[32];
 
   _checkScreen();

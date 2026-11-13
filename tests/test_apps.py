@@ -12,7 +12,8 @@ import zlib
 from helpers import SimTestCase, BATTERY_LIPO_1S
 from stattrak_sim import (APP_CMD_BEGIN, APP_CMD_DATA, APP_CMD_DELETE, APP_CMD_END, APP_CMD_INFO,
                           APP_CMD_LIST, APP_CMD_NAME, APP_CMD_SET_HIDDEN, APP_CMD_SET_ORDER,
-                          APP_CMD_SETTING, APP_CMD_STATUS, APP_CMD_ASK, APP_CMD_DEVICE_NAME, SimError)
+                          APP_CMD_SETTING, APP_CMD_STATUS, APP_CMD_ASK, APP_CMD_DEVICE_NAME, SETTING_ROWS,
+                          SimError)
 from stapp_build import Asm, build, finish, PERM_COUNTERS, PERM_SOUND
 
 # Status codes (main/ble_commands.h)
@@ -140,11 +141,13 @@ class AppTestCase(SimTestCase):
         self.assertEqual(self.dev.state()["launcher_sel"], "SETTINGS")
         self.dev.click_both()
         self.assertEqual(self.dev.view, "SETTINGS")
-        for _ in range(16):
-            self.dev.click(2, settle_ms=200)   # The last row (it does not wrap)
-        self.dev.click(1, settle_ms=200)       # Serial -> Version
-        self.dev.click(1, settle_ms=200)       # Version -> Factory
-        self.dev.click(1, settle_ms=200)       # Factory -> Firmware
+        target = SETTING_ROWS.index("FW_UPDATE")   # The list wraps: move by the row that it shows
+        for _ in range(20):
+            row = self.dev.state()["settings_row"]
+            if row == target:
+                break
+            self.dev.click(2 if row < target else 1, settle_ms=200)
+        self.assertEqual(self.dev.state()["settings_row"], target)
         self.dev.long_press(2)
         self.assertEqual(self.dev.view, "UPDATE")
         self.assertEqual(self.dev.state()["ota_update_allowed"], 1)
@@ -500,48 +503,65 @@ class InstallTest(AppTestCase):
 
 
 class DeviceNameTest(AppTestCase):
-    """DEVICE_NAME: the Bluetooth name of "Apps: SYNC". The update views keep "StatTrak"."""
+    """DEVICE_NAME: the app sync is "StatTrak | <part>", the person chooses the part (12 characters at
+    most). The update views keep "StatTrak"."""
+
+    NONE = b"\x00" + bytes(12)
 
     def name_cmd(self, name=None):
         data = b"\x00" if name is None else b"\x01" + name
         return self.cmd(APP_CMD_DEVICE_NAME, data.ljust(16, b"\0")[:16])
 
+    @staticmethod
+    def answer(part):
+        return b"\x01" + part.ljust(12, b"\0")
+
     def test_read_write_and_back_to_stattrak(self):
         self.dev.open_app_sync()
         self.assertEqual(self.dev.state()["ble_name"], "StatTrak")
-        self.assertEqual(self.name_cmd(), (OK, b"\x00StatTrak"))
-        self.assertEqual(self.name_cmd(b"Mikus 1"), (OK, b"\x01Mikus 1\x00"))
-        self.assertEqual(self.name_cmd(), (OK, b"\x01Mikus 1\x00"))
-        # Used from the next start of Apps: SYNC, not now
+        self.assertEqual(self.name_cmd(), (OK, self.NONE))
+        self.assertEqual(self.name_cmd(b"Mikus 1"), (OK, self.answer(b"Mikus 1")))
+        self.assertEqual(self.name_cmd(), (OK, self.answer(b"Mikus 1")))
+        # Used from the next start of the app sync, not now
         self.assertEqual(self.dev.state()["ble_name"], "StatTrak")
         self.leave_sync()
         self.dev.open_app_sync()
-        self.assertEqual(self.dev.state()["ble_name"], "Mikus 1")
+        self.assertEqual(self.dev.state()["ble_name"], "StatTrak | Mikus 1")
         # Kept after a power cut
         self.dev.power_cut()
         self.dev.boot()
         self.dev.open_app_sync()
-        self.assertEqual(self.dev.state()["ble_name"], "Mikus 1")
-        # All 0 = back to "StatTrak"
-        self.assertEqual(self.name_cmd(b""), (OK, b"\x00StatTrak"))
+        self.assertEqual(self.dev.state()["ble_name"], "StatTrak | Mikus 1")
+        # All 0 = no part: "StatTrak"
+        self.assertEqual(self.name_cmd(b""), (OK, self.NONE))
         self.leave_sync()
         self.dev.open_app_sync()
         self.assertEqual(self.dev.state()["ble_name"], "StatTrak")
 
     def test_bad_names_are_refused(self):
         self.dev.open_app_sync()
-        for bad in (b" MIKUS", b"MIKUS ", b"MI\x07KUS", b"MIKUS\x00X", b"ABCDEFGH" + b"I", b"\xffABC"):
+        for bad in (b" MIKUS", b"MIKUS ", b"MI\x07KUS", b"MIKUS\x00X", b"ABCDEFGHIJKL" + b"M", b"\xffABC"):
             self.assertEqual(self.name_cmd(bad)[0], ERROR, bad)
         self.assertEqual(self.cmd(APP_CMD_DEVICE_NAME, b"\x02".ljust(16, b"\0"))[0], ERROR)
-        self.assertEqual(self.name_cmd(b"ABCDEFGH"), (OK, b"\x01ABCDEFGH"))   # 8 characters is the most
-        self.assertEqual(self.name_cmd(b"~!{}"), (OK, b"\x01~!{}\x00\x00\x00\x00"))
+        self.assertEqual(self.name_cmd(b"ABCDEFGHIJKL"), (OK, self.answer(b"ABCDEFGHIJKL")))   # 12 is the most
+        self.assertEqual(self.name_cmd(b"~!{}"), (OK, self.answer(b"~!{}")))
+        self.leave_sync()
+        self.dev.open_app_sync()
+        self.assertEqual(self.dev.state()["ble_name"], "StatTrak | ~!{}")
+
+    def test_the_longest_name(self):
+        self.dev.open_app_sync()
+        self.assertEqual(self.name_cmd(b"ABCDEFGHIJKL")[0], OK)
+        self.leave_sync()
+        self.dev.open_app_sync()
+        self.assertEqual(self.dev.state()["ble_name"], "StatTrak | ABCDEFGHIJKL")   # 23 characters
 
     def test_the_update_views_are_always_stattrak(self):
         self.dev.open_app_sync()
         self.assertEqual(self.name_cmd(b"MIKUS")[0], OK)
         self.leave_sync()
         self.dev.open_app_sync()
-        self.assertEqual(self.dev.state()["ble_name"], "MIKUS")
+        self.assertEqual(self.dev.state()["ble_name"], "StatTrak | MIKUS")
         self.dev.long_press(1)
         self.open_update_view_from_menu(transfer=False)
         self.assertEqual(self.dev.state()["ble_name"], "StatTrak")
@@ -558,7 +578,7 @@ class DeviceNameTest(AppTestCase):
         self.dev.run(1000)
         self.dev.open_app_sync()
         self.assertEqual(self.dev.state()["ble_name"], "StatTrak")
-        self.assertEqual(self.name_cmd(), (OK, b"\x00StatTrak"))
+        self.assertEqual(self.name_cmd(), (OK, self.NONE))
 
 
 class ManageTest(AppTestCase):

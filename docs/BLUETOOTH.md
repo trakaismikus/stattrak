@@ -88,16 +88,29 @@ Bluetooth uses battery power and it is a door into the device. The official firm
 off, except in two views: the **update view** (Settings, `Firmware: UPDATE`) and the **accept
 view** (after an update). User commands work there too.
 
-A feature that needs Bluetooth at other times switches it on in a view of its own:
+A feature that needs Bluetooth at other times switches it on in a view of its own, with the
+soft radio start (see "Radio start" below):
 
 ```c
-static void _init(void) {
+#include "bt_start.h"
+
+static void _startBluetooth(void) {
   Ota_init();                   // Bluetooth on. The device is visible as "StatTrak".
   Ota_setUpdateAllowed(false);  // This view is not for updates: refuse new firmware here.
 }
 
+static void _init(void) {
+  BtStart_begin(VIEW_ID__MY_VIEW, _startBluetooth);   // The radio starts a moment later
+}
+
 static void _deinit(void) {
+  BtStart_cancel(VIEW_ID__MY_VIEW);
   Ota_deinit();                 // Bluetooth off
+}
+
+static void _draw(void) {
+  if(!BtStart_draw(VIEW_ID__MY_VIEW, _drawScreen))   // The Bluetooth sign first
+    _drawScreen();
 }
 ```
 
@@ -111,10 +124,33 @@ static void _deinit(void) {
   settings does this).
 - Without `Ota_setUpdateAllowed(false)`, a person near the user can send a firmware to the
   device while your view is open. There is no password.
-- `Ota_init()` starts the Bluetooth software. That takes time and memory. Call it in `init`,
-  never in `draw`.
+- `Ota_init()` starts the Bluetooth software. That takes time and memory. Start it with
+  `BtStart_begin()` in `init`, never in `draw`.
 - Keep Bluetooth off when the feature does not need it. It uses battery power all the time
   that it is on.
+
+### Radio start
+
+The radio start pulls a current peak for about 0.1 s. The display uses current too: the more
+pixels are lit, the more. On a device with a weak battery path, the two together pulled the
+supply below the brown-out level (2.51 V). The chip restarted, the power latch let go, and the
+device switched off with a blank screen. On one unit, Settings > `Firmware: UPDATE` (a screen with
+about 1,700 lit pixels) switched it off in 6 of 10 starts, also with firmware 1.0.1. With the
+display off at the radio start: 0 of 15. With 10 % brightness: 0 of 10. The 10 s hold at power-on
+(the kill counter, about 850 lit pixels) always worked.
+
+So the update view, the accept view and the app sync start the radio softly
+(`main/views/bt_start.c`):
+
+1. The view slides in and shows only a small Bluetooth sign with waves (under 100 lit pixels).
+   The radio is still off.
+2. When the slide has ended and the display has shown only the sign for a few frames, the
+   radio starts (the start function that the view gave to `BtStart_begin()`).
+3. 0.4 s later the screen of the view slides down from the top.
+
+`tests/test_radio_start.py` checks that at most 150 pixels are lit from the radio start to
+0.4 s after it, for each of the three views and for the 10 s hold. Use the same start in each
+new view that switches Bluetooth on.
 
 ## The other side: a web page or an app
 
@@ -221,7 +257,7 @@ In that view the device refuses new firmware. Numbers have the low byte first.
 | `0x0118` | SET_ORDER | count (1), 3 ids (12), part (1) | parts 0, 1, 2, ... with 3 ids each; the order is used when all ids are in. All apps of LIST, each one time |
 | `0x0119` | SET_HIDDEN | id (4), hidden (1: 0 or 1) | status 13 = the last shown app cannot be hidden. Shown again = the error count is 0 again |
 | `0x011A` | SETTING | id (4), setting (1), value (1, `0xFF` = only read) | the value (1) |
-| `0x011C` | DEVICE_NAME | 0 = read / 1 = write (1), the name (8, 0-padded; all 0 = "StatTrak") | chosen by the person (1: 0 / 1), the Bluetooth name (8). Used from the next start of "Apps: SYNC" only: the update view and the accept view are always "StatTrak" |
+| `0x011C` | DEVICE_NAME | 0 = read / 1 = write (1), the name part after "StatTrak | " (12, 0-padded; all 0 = no part) | 1 = there is a part (1), the part (12, 0-padded). The app sync is "StatTrak | <part>" (or "StatTrak") from its next start; the update view and the accept view are always "StatTrak" |
 
 Status 2 = the data is not correct (an unknown id, a value out of range, a command that does not
 fit the install state). Status 11 = the person must answer "INSTALL <NAME>?" first: while the
