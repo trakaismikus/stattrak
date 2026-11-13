@@ -150,19 +150,23 @@ const StDevice = (() => {
     }
   }
 
-  /* One square for each lit pixel, with a small gap (as the real display) when the pixels are big enough */
+  /* The lit pixels as plain squares with no gaps: on the real display the gaps are almost
+     invisible, and drawn gaps make a moire pattern at some sizes. Each edge is rounded to a whole
+     canvas pixel, so the pixels meet and stay sharp at any size. */
   function draw(canvas, b) {
     const ctx = canvas.getContext("2d");
     const px = canvas.width / b.w, py = canvas.height / b.h;
-    const gap = px >= 3 ? Math.max(1, Math.round(px * 0.13)) : 0;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = LIT;
     for (let y = 0; y < b.h; y++) {
-      const y0 = Math.round(y * py), y1 = Math.round((y + 1) * py) - gap;
+      const y0 = Math.round(y * py), y1 = Math.round((y + 1) * py);
       for (let x = 0; x < b.w; x++) {
         if (!b.d[y * b.w + x]) continue;
-        const x0 = Math.round(x * px), x1 = Math.round((x + 1) * px) - gap;
+        let end = x;                                   // one rectangle for a row of lit pixels
+        while (end + 1 < b.w && b.d[y * b.w + end + 1]) end++;
+        const x0 = Math.round(x * px), x1 = Math.round((end + 1) * px);
         ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+        x = end;
       }
     }
   }
