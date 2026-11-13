@@ -307,7 +307,7 @@ const AppsTab = (() => {
     $("#appsView").hidden = A.tab !== "apps";
     // The links to the other pages leave this page: not while a transfer or an install runs
     const leaving = busy() || firmwareBusy();
-    for (const id of ["tabStart", "tabDesigner"]) {
+    for (const id of ["siteLogo", "tabStart", "tabDesigner"]) {
       const el = document.getElementById(id);
       if (!el) continue;
       if (leaving) el.setAttribute("aria-disabled", "true"); else el.removeAttribute("aria-disabled");
@@ -844,7 +844,7 @@ const AppsTab = (() => {
     main.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("pointermove", onPointerMove);
     document.addEventListener("pointerup", onPointerUp);
-    for (const id of ["tabStart", "tabFirmware", "tabApps", "tabDesigner"]) {
+    for (const id of ["siteLogo", "tabStart", "tabFirmware", "tabApps", "tabDesigner"]) {
       document.getElementById(id).addEventListener("click", (event) => {
         if (event.currentTarget.getAttribute("aria-disabled") === "true") event.preventDefault();
       });

@@ -64,7 +64,7 @@ test("every page has the same header: the logo, then the menu (css/site.css)", (
   for (const page of PAGES) {
     const html = read(page);
     assert.match(html, /<link rel="stylesheet" href="(?:\.\.\/)?css\/site\.css"/, page);
-    const head = html.match(/<header class="site-header">\s*<div class="site-header__in">\s*<a class="site-header__brand" href="([^"]+)"><img src="([^"]+)"/);
+    const head = html.match(/<header class="site-header">\s*<div class="site-header__in">\s*<a class="site-header__brand"(?: id="siteLogo")? href="([^"]+)"><img src="([^"]+)"/);
     assert.ok(head, `${page}: no site header`);
     assert.equal(fromRoot(page, head[1]), "index.html", page);
     assert.equal(fromRoot(page, head[2]), "assets/stattrak-wordmark-white.svg", page);
