@@ -14,7 +14,7 @@
 #include <string.h>
 
 /* > Defines **************************************************************************************/
-#define FIXED_END   (STAPP_HANDLERS_OFFSET + 2 * STAPP_EVENT_COUNT)   // 304: header, picture, handlers
+#define MIN_FIXED_END   (STAPP_HANDLERS_OFFSET + 2 * STAPP_HANDLERS_V1)   // 304: header, picture, handlers of format 1
 
 /* > Local Types **********************************************************************************/
 typedef struct block_s {
@@ -61,12 +61,17 @@ stapp_result_t Stapp_check(const uint8_t* package, uint32_t size, stapp_info_t* 
   stapp_info_t info;
   memset(&info, 0, sizeof(info));
 
-  if(package == NULL || size < FIXED_END + 4 || size > STAPP_MAX_SIZE)
+  if(package == NULL || size < MIN_FIXED_END + 4 || size > STAPP_MAX_SIZE)
     return STAPP_ERR_SIZE;
   if(memcmp(package, "STAP", 4) != 0)
     return STAPP_ERR_MAGIC;
-  if(package[4] != STAPP_FORMAT_VERSION || package[5] < 1 || package[5] > STAPP_ENGINE_VERSION)
+  if(package[4] < 1 || package[4] > STAPP_FORMAT_VERSION || package[5] < 1 || package[5] > STAPP_ENGINE_VERSION)
     return STAPP_ERR_VERSION;
+  // Format 2 has 2 more handlers: the data area starts at 308
+  info.handlerCount = STAPP_HANDLER_COUNT(package[4]);
+  const uint32_t fixedEnd = STAPP_HANDLERS_OFFSET + 2u * info.handlerCount;
+  if(size < fixedEnd + 4)
+    return STAPP_ERR_SIZE;
   if(Stapp_rd16(package + 14) != size)
     return STAPP_ERR_SIZE;
   if(Stapp_crc32(package, size - 4) != Stapp_rd32(package + size - 4))
@@ -97,7 +102,7 @@ stapp_result_t Stapp_check(const uint8_t* package, uint32_t size, stapp_info_t* 
   memcpy(info.name, name, STAPP_MAX_NAME);
   info.name[STAPP_MAX_NAME] = 0;
 
-  // Layout: the 4 blocks are in [FIXED_END, size - 4) and do not overlap (docs/APPS.md 3.1, steps 7 to 9)
+  // Layout: the 4 blocks are in [fixedEnd, size - 4) and do not overlap (docs/APPS.md 3.1, steps 7 to 9)
   const uint32_t dataEnd = size - 4;
   const uint16_t settingsOffset = Stapp_rd16(package + 38);
   const uint16_t stringsOffset = Stapp_rd16(package + 40);
@@ -114,7 +119,7 @@ stapp_result_t Stapp_check(const uint8_t* package, uint32_t size, stapp_info_t* 
   if(info.settingCount > 0) {
     uint32_t p = settingsOffset;
     for(uint8_t s = 0; s < info.settingCount; s++) {
-      if(p < FIXED_END || p + STAPP_SETTING_NAME_LEN + 2 > dataEnd)
+      if(p < fixedEnd || p + STAPP_SETTING_NAME_LEN + 2 > dataEnd)
         return STAPP_ERR_LAYOUT;
       const uint8_t count = package[p + STAPP_SETTING_NAME_LEN];
       if(count < STAPP_MIN_VALUES || count > STAPP_MAX_VALUES)
@@ -131,7 +136,7 @@ stapp_result_t Stapp_check(const uint8_t* package, uint32_t size, stapp_info_t* 
     blocks[blockCount++] = (block_t){ codeOffset, (uint32_t)codeOffset + codeSize };
 
   for(uint8_t a = 0; a < blockCount; a++) {
-    if(blocks[a].start < FIXED_END || blocks[a].end > dataEnd)
+    if(blocks[a].start < fixedEnd || blocks[a].end > dataEnd)
       return STAPP_ERR_LAYOUT;
   }
   for(uint8_t a = 0; a < blockCount; a++) {
@@ -161,7 +166,7 @@ stapp_result_t Stapp_check(const uint8_t* package, uint32_t size, stapp_info_t* 
   // Strings: in the data area, a 0 before the CRC, at most STAPP_MAX_STRING_LEN printable characters
   for(uint8_t s = 0; s < info.stringCount; s++) {
     const uint16_t offset = Stapp_rd16(package + stringsOffset + 2u * s);
-    if(offset < FIXED_END || offset >= dataEnd)
+    if(offset < fixedEnd || offset >= dataEnd)
       return STAPP_ERR_STRINGS;
     uint32_t end = offset;
     while(end < dataEnd && package[end] != 0)
@@ -179,7 +184,7 @@ stapp_result_t Stapp_check(const uint8_t* package, uint32_t size, stapp_info_t* 
     const uint8_t* entry = package + bitmapsOffset + 4u * b;
     const uint8_t w = entry[0], h = entry[1];
     const uint16_t offset = Stapp_rd16(entry + 2);
-    if(w < 1 || w > 128 || h < 1 || h > 32 || offset < FIXED_END ||
+    if(w < 1 || w > 128 || h < 1 || h > 32 || offset < fixedEnd ||
        (uint32_t)offset + (uint32_t)w * ((h + 7u) / 8u) > dataEnd)
       return STAPP_ERR_BITMAPS;
   }
@@ -191,6 +196,10 @@ stapp_result_t Stapp_check(const uint8_t* package, uint32_t size, stapp_info_t* 
   if(infoOut)
     *infoOut = info;
   return STAPP_OK;
+}
+
+bool Stapp_isNameField(const uint8_t* field, uint8_t len) {
+  return field != NULL && _fixedText(field, len, STAPP_MAX_NAME, _isNameChar);
 }
 
 const char* Stapp_resultText(stapp_result_t result) {
@@ -391,7 +400,7 @@ static stapp_result_t _checkCode(const uint8_t* package, const stapp_info_t* inf
   }
 
   // Handlers
-  for(uint8_t e = 0; e < STAPP_EVENT_COUNT; e++) {
+  for(uint8_t e = 0; e < info->handlerCount; e++) {
     const uint16_t entry = Stapp_rd16(package + STAPP_HANDLERS_OFFSET + 2u * e);
     if(entry != STAPP_NO_HANDLER && (entry >= codeSize || !_isStart(entry)))
       return STAPP_ERR_HANDLER;

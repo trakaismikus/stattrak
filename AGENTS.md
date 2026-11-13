@@ -262,7 +262,7 @@ Steps (the person does them, you guide):
 4. Select the firmware file from the folder `out/` and start the transfer. The display shows
    `Receiving` and the progress. Keep the page open and the device near the computer.
 5. The device restarts and shows `Verifying...`. The web updater connects again and accepts
-   the firmware. The display shows `Complete` and the version. Press a button.
+   the firmware. The display shows `Complete` and the version. Hold a button for OK.
 6. **Check the update mode immediately:** open Settings, `Firmware: UPDATE` again and check
    that the web updater can pair with the device. Then cancel. If this does not work, tell
    the person to stop using the feature and get help (section 14).

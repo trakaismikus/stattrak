@@ -53,6 +53,15 @@ class SampleAppsTest(AppTestCase):
         package = compiled("runner")["package"]
         self.install_and_open(package)
         self.dev.click(1)                      # start
+        # The jump starts when the button goes down (down1 / down2), not after the release
+        self.dev.run(1000)
+        clicks = self.dev.state()["clicks"]
+        standing = self.dev.frame()
+        self.dev.press(2)
+        self.dev.run(60)
+        self.assertEqual(self.dev.state()["clicks"], clicks + 1)       # The jump sound
+        self.assertNotEqual(self.dev.frame()[2:20], standing[2:20])    # The character goes up
+        self.dev.release(2)
         for _ in range(10):                    # jump now and then; without good jumps it ends
             self.dev.run(700)
             self.dev.click(2)
@@ -116,14 +125,35 @@ class SampleAppsTest(AppTestCase):
         package = compiled("wallpaper")["package"]
         self.install_and_open(package)
         before = self.dev.frame()
-        self.dev.long_press(1)                 # edit: the first digit
-        self.dev.long_press(2)                 # 0 -> 1
-        self.dev.run(5000)                     # the edit stops, the number is kept
+        self.dev.click(2)                      # not editing: a short press changes nothing
+        self.dev.run(400)
+        self.assertEqual(self.dev.frame(), before)
+        self.dev.long_press(1, hold_ms=1800)   # hold: edit the first digit (its repeats do not move it)
+        self.dev.click(2)                      # 0 -> 1
+        self.dev.run(3500)                     # 3 s without a button: the edit stops, the number is kept
         self.assert_no_app_error()
         after = self.dev.frame()
         self.assertNotEqual(before, after)
         # Only the first digit (x 6 .. 29) changed
         self.assertEqual([row[30:] for row in before], [row[30:] for row in after])
+
+        # Hold 2 = the next digit, hold 1 = the digit before; press 2 = + 1, press 1 = - 1 (0 -> 9)
+        self.dev.long_press(2)                 # edit, first digit: 1
+        self.dev.click(1)                      # 1 -> 0
+        self.dev.click(1)                      # 0 -> 9
+        self.dev.long_press(2)                 # second digit: 1
+        self.dev.long_press(2)                 # third digit: 3
+        self.dev.long_press(1)                 # back to the second digit
+        self.dev.click(2)                      # 1 -> 2
+        self.dev.long_press(1)                 # first digit
+        self.dev.long_press(1)                 # around: the last digit, 7
+        self.dev.click(2)                      # 7 -> 8
+        self.dev.run(3500)
+        self.dev.click_both()                  # close the app: its saved value is written
+        self.dev.run(500)
+        self.assert_no_app_error()
+        app_id = struct.unpack_from("<I", package, 8)[0]
+        self.assertEqual(self.dev.read_blobs()["v%08x" % app_id][:4], struct.pack("<i", 92338))   # number
 
 
 class RunnerDesignTest(unittest.TestCase):

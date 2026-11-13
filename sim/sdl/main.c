@@ -35,6 +35,9 @@
 #endif
 
 #include "host.h"
+#include "sdkconfig.h"
+
+#define YES_UP_MS  (CONFIG_BUTTON_SHORT_PRESS_TIME_MS + 50)   /* Button 2 up this long before the automatic "yes" */
 #include "sim_apps.h"
 #include "ssd1307.h"
 #include "stapp.h"
@@ -295,9 +298,19 @@ static void _idle(void) {
   /* An install that opens the app answers "yes" itself: it holds button 2. It starts the hold
    * only after button 2 was up (a held key gives no new long press). */
   static bool s_yesArmed = false;
+  static uint64_t s_upSinceMs = 0;   /* Button 2 is up since this time (0 = it is down) */
+  const bool up = !s_keys[1] && !s_autoHold && !s_yesArmed;
+  if(!up)
+    s_upSinceMs = 0;
+  else if(s_upSinceMs == 0)
+    s_upSinceMs = Host_nowMs() + 1;
+  /* The firmware answers only a hold that starts during the question: button 2 must be up
+   * first, also after the power-on hold of both buttons. YES_UP_MS: after a short press the button
+   * driver waits CONFIG_BUTTON_SHORT_PRESS_TIME_MS for a second click; a hold that starts in that
+   * time never becomes a long press. */
   if(!SimApps_wantsYes())
     s_yesArmed = false;
-  else if(!s_keys[1] && !s_autoHold)
+  else if(s_upSinceMs != 0 && Host_nowMs() + 1 - s_upSinceMs >= YES_UP_MS)
     s_yesArmed = true;
   HostButton_setLevel(0, s_keys[0] || s_autoHold);
   HostButton_setLevel(1, s_keys[1] || s_autoHold || s_yesArmed);

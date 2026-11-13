@@ -71,8 +71,10 @@ class BleOta extends EventTarget {
   }
 
 
-  static async create() {
-    const device = await navigator.bluetooth.requestDevice({
+  /* The device chooser of the browser. `request` (optional): other requestDevice() options, for
+     the Apps tab (StatTrakApps.pair). The firmware tab uses the name "StatTrak" only. */
+  static async create(request) {
+    const device = await navigator.bluetooth.requestDevice(request || {
       filters: [{ name: "StatTrak" }],
       optionalServices: [BleOta.OTA_SERVICE_UUID]
     });

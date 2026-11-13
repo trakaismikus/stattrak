@@ -49,7 +49,8 @@ class SimAppsTest(AppTestCase):
         state = self.dev.state()
         self.assertEqual(state["simapp_state"], DONE, state["simapp_text"])
         self.assertEqual(self.apps_list(), [KILLS, KILL_DEAD, STATS, app_id])
-        self.dev.long_press(1)                       # leave Apps: SYNC: back to the view before it
+        self.dev.long_press(1)                       # SYNC MORE
+        self.dev.long_press(1)                       # BACK: leave Apps: SYNC, back to the view before it
         self.assertEqual(self.dev.view, "TOTAL")
         self.open_app(app_id)
         self.assertEqual(self.dev.state()["app_running"], app_id)
@@ -67,6 +68,11 @@ class SimAppsTest(AppTestCase):
         package = bytearray(counter_app())
         package[100] ^= 0xFF                                                 # the CRC of the file no longer fits
         state = self.simapp(bytes(package))
+        # The device asks first (the data comes only after yes), then it checks the app
+        self.assertEqual(state["simapp_state"], QUESTION, state["simapp_text"])
+        self.dev.long_press(2)
+        self.dev.run(1000)
+        state = self.dev.state()
         self.assertEqual(state["simapp_state"], FAILED)
         self.assertIn("not a valid app file", state["simapp_text"])
         self.assertEqual(self.apps_list(), [KILLS, KILL_DEAD, STATS])
@@ -85,6 +91,62 @@ class SimAppsTest(AppTestCase):
         self.assertEqual(state["view"], "APP_HOST")
         self.assertEqual(state["app_running"], app_id)
         self.assertEqual(state["app_error"], 0)
+
+    def test_simopen_during_the_power_on_hold(self):
+        # The web page gives the app at once, while the simulator still holds both buttons for the
+        # power-on. A hold that started before the question does not answer it: the simulator must
+        # wait until button 2 is up, then hold it again (before this fix: the update mode after 10 s).
+        package = app.compile_file(os.path.join(REPO_ROOT, "apps", "runner", "runner.sts"))["package"]
+        path = os.path.join(self.folder, "runner.stapp")
+        with open(path, "wb") as handle:
+            handle.write(package)
+        self.dev.power_cut()
+        self.dev.power_on(hold="both")
+        self.dev.command("simopen " + path)
+        self.dev.run(800)
+        self.dev.release(1)
+        self.dev.run(3000)                       # Button 2 is still held from the power-on
+        self.assertEqual(self.dev.state()["simapp_state"], QUESTION)
+        self.dev.release(2)
+        self.dev.run(4000)
+        state = self.dev.state()
+        self.assertEqual(state["simapp_state"], DONE, state["simapp_text"])
+        self.assertEqual(state["view"], "APP_HOST")
+
+    def test_simopen_after_the_web_page_power_on(self):
+        # The web page: both buttons held 0.8 s for the power-on, released together; the app is given at once
+        package = app.compile_file(os.path.join(REPO_ROOT, "apps", "runner", "runner.sts"))["package"]
+        path = os.path.join(self.folder, "runner.stapp")
+        with open(path, "wb") as handle:
+            handle.write(package)
+        for release_ms in (700, 800, 1300):
+            self.dev.power_cut()
+            self.dev.power_on(hold="both")
+            self.dev.command("simopen " + path)
+            self.dev.run(release_ms)
+            self.dev.release(1)
+            self.dev.release(2)
+            self.dev.run(5000)
+            state = self.dev.state()
+            self.assertEqual(state["simapp_state"], DONE, (release_ms, state["simapp_text"]))
+            self.assertEqual(state["view"], "APP_HOST")
+
+    def test_simopen_after_a_tap_of_button_2(self):
+        # A short press just before the question: the button driver waits for a second click
+        # (CONFIG_BUTTON_SHORT_PRESS_TIME_MS); the automatic hold must start after that time
+        package = app.compile_file(os.path.join(REPO_ROOT, "apps", "runner", "runner.sts"))["package"]
+        path = os.path.join(self.folder, "runner.stapp")
+        with open(path, "wb") as handle:
+            handle.write(package)
+        self.dev.command("simopen " + path)
+        self.dev.run(250)
+        self.dev.press(2)
+        self.dev.run(120)
+        self.dev.release(2)
+        self.dev.run(5000)
+        state = self.dev.state()
+        self.assertEqual(state["simapp_state"], DONE, state["simapp_text"])
+        self.assertEqual(state["view"], "APP_HOST")
 
     def test_simopen_waits_for_the_start_screen(self):
         # The page starts the install at once; the device shows its start screen first

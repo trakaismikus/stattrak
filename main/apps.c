@@ -661,6 +661,51 @@ static bool _writeBlob(char prefix, uint32_t id, const void* data, uint32_t size
   return _commit();
 }
 
+/* > The Bluetooth name of "Apps: SYNC" (key "bname", 1 .. 8 bytes, no 0 at the end) ****************/
+
+bool Apps_isDeviceNameValid(const char* name) {
+  if(name == NULL)
+    return false;
+  const size_t length = strlen(name);
+  if(length < 1 || length > APPS_DEVICE_NAME_MAX || name[0] == ' ' || name[length - 1] == ' ')
+    return false;
+  for(size_t i = 0; i < length; i++) {
+    if((uint8_t)name[i] < 0x20 || (uint8_t)name[i] > 0x7E)
+      return false;
+  }
+  return true;
+}
+
+void Apps_getDeviceName(char* out) {
+  char name[APPS_DEVICE_NAME_MAX + 1] = { 0 };
+  size_t length = APPS_DEVICE_NAME_MAX;
+
+  out[0] = '\0';
+  if(!s_open || nvs_get_blob(s_handle, "bname", name, &length) != ESP_OK || length > APPS_DEVICE_NAME_MAX)
+    return;
+  name[length] = '\0';
+  if(Apps_isDeviceNameValid(name))
+    strcpy(out, name);
+}
+
+apps_result_t Apps_setDeviceName(const char* name) {
+  if(name == NULL)
+    return APPS_ERR_BAD;
+  if(name[0] == '\0') {
+    // Back to "StatTrak"
+    if(s_open)
+      nvs_erase_key(s_handle, "bname");   // ESP_ERR_NVS_NOT_FOUND is good too
+    return _commit() ? APPS_OK : APPS_ERR_FLASH;
+  }
+  if(!Apps_isDeviceNameValid(name))
+    return APPS_ERR_BAD;
+  if(!s_open || nvs_set_blob(s_handle, "bname", name, strlen(name)) != ESP_OK) {
+    ESP_LOGE(TAG, "Cannot write the device name");
+    return APPS_ERR_FLASH;
+  }
+  return _commit() ? APPS_OK : APPS_ERR_FLASH;
+}
+
 static void _eraseKey(char prefix, uint32_t id) {
   char key[KEY_SIZE];
   _key(key, prefix, id);

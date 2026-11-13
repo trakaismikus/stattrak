@@ -440,6 +440,31 @@ class Compiler(unittest.TestCase):
         machine.wait(100)
         self.assertEqual(machine.clicks, [(10100, 700)])
 
+    def test_down_events_make_a_format_2_package(self):
+        # Without down1 / down2: format 1 (8 handlers, data from 304), as before
+        old = compile_text('app "OLD"\non press1 { click(900) }\npermission sound\n')["package"]
+        self.assertEqual(old[4], 1)
+        self.assertEqual(struct.unpack_from("<H", old, 44)[0], 304)
+        # With down2: format 2 (10 handlers, data from 308); down2 runs at once, press1 later
+        new = compile_text('app "NEW"\npermission sound\non down2 { click(1400) }\non press1 { click(900) }\n')["package"]
+        self.assertEqual(new[4], 2)
+        self.assertEqual(struct.unpack_from("<H", new, 44)[0], 308)
+        self.assertEqual(app.check(new)[0], app.OK)
+        machine = app.Machine(new)
+        self.assertEqual(machine.run("down1"), "ok")     # No handler: nothing
+        self.assertEqual(machine.run("down2"), "ok")
+        self.assertEqual(machine.run("press1"), "ok")
+        self.assertEqual([freq for _, freq in machine.clicks], [1400, 900])
+        # A format 2 header on a package of 308 bytes: too small (format 2 needs 312)
+        data = bytearray(old[:300]) + bytearray(4) + bytearray(4)
+        data[4] = 2
+        struct.pack_into("<H", data, 14, len(data))
+        self.assertEqual(app.result_text(app.check(with_crc(data))[0]), "bad size")
+        # Format 3 does not exist
+        data = bytearray(new)
+        data[4] = 3
+        self.assertEqual(app.result_text(app.check(with_crc(data))[0]), "bad version")
+
     def test_runtime_errors(self):
         machine = app.Machine(compile_text('app "L"\non press1 { while 1 { } }\n')["package"])
         self.assertEqual(machine.run("press1"), "too many steps")

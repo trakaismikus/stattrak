@@ -73,6 +73,7 @@ set(FIRMWARE_SOURCES
   ${MAIN_DIR}/views/battery_critical_view.c
   ${MAIN_DIR}/views/battery_low_view.c
   ${MAIN_DIR}/views/fw_accept_view.c
+  ${MAIN_DIR}/views/hold_button.c
   ${MAIN_DIR}/views/intro_view.c
   ${MAIN_DIR}/views/kill_dead_view.c
   ${MAIN_DIR}/views/launcher_view.c
@@ -117,6 +118,7 @@ set(QUOTE_INCLUDE_DIRS
   ${COMPONENT_DIR}/stapp
   ${COMPONENT_DIR}/ssd1307
   ${COMPONENT_DIR}/ble_ota
+  ${COMPONENT_DIR}/app_ble
 )
 
 set(COMMON_OPTIONS "")

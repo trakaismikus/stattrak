@@ -216,6 +216,21 @@ class SafetyCheckTest(unittest.TestCase):
         self.edit("components/app_ble/app_ble.c", '#define GAP_NAME   "StatTrak"', '#define GAP_NAME   "MyTrak"')
         self.assert_fails("bluetooth-identity")
 
+    def test_person_name_in_the_update_view(self):
+        # Only "Apps: SYNC" may give Bluetooth the name of the person: the web updater looks for "StatTrak"
+        self.edit("main/views/update_view.c", "static void _init(void) {\n  Ota_init();",
+                  "static void _init(void) {\n  AppBle_setNextName(\"MIKUS\");\n  Ota_init();")
+        self.assert_fails("bluetooth-identity")
+
+    def test_person_name_is_not_forgotten(self):
+        # AppBle_init() must forget the name after one start (the next start is "StatTrak" again)
+        self.edit("components/app_ble/app_ble.c", "  assert(rc == 0);\n  s_nextName[0] = '\\0';\n", "  assert(rc == 0);\n")
+        self.assert_fails("bluetooth-identity")
+
+    def test_person_name_not_forgotten_after_ota_init(self):
+        self.edit("main/views/app_sync_view.c", "  AppBle_setNextName(NULL);\n", "")
+        self.assert_fails("bluetooth-identity")
+
     def test_bluetooth_service_number_change(self):
         self.edit("components/ble_ota/ble_ota.c", "0x8020", "0x9020")
         self.assert_fails("bluetooth-identity")

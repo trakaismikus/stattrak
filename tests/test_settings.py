@@ -136,6 +136,39 @@ class SettingsTest(SimTestCase):
         self.assertEqual(state["eeprom.total_kills"], 50)
         self.assertEqual(state["nvs_erases"], 0)
 
+    def test_factory_reset_needs_a_new_hold_and_no_short_press(self):
+        # The hold that opens the question goes on (its repeats come every 0.5 s): it must not answer
+        self.boot_with(total_kills=50)
+        self.open_setting("FACTORY_RESET")
+        self.dev.long_press(2, hold_ms=3000)
+        self.assertEqual(self.dev.view, "ASK")
+        self.dev.click(2)                  # A short press does not answer either
+        self.dev.click(1)
+        self.assertEqual(self.dev.view, "ASK")
+        self.assertEqual(self.dev.state()["eeprom.total_kills"], 50)
+        # The YES button fills while button 2 is held (x 102 .. 123, y 21 .. 29)
+        def yes_pixels():
+            return sum(row[103:123].count("#") for row in self.dev.frame()[22:29])
+        empty = yes_pixels()
+        self.dev.press(2)
+        self.dev.run(350)
+        self.assertGreater(yes_pixels(), empty + 30)
+        self.dev.release(2)
+        self.dev.run(500)
+        self.assertEqual(self.dev.view, "ASK")         # Released before the end: no answer
+        self.dev.long_press(1)             # NO
+        state = self.dev.state()
+        self.assertEqual(state["view"], "SETTINGS")
+        self.assertEqual(state["eeprom.total_kills"], 50)
+
+    def test_a_long_no_does_not_open_the_question_again(self):
+        self.boot_with(total_kills=50)
+        self.open_setting("FACTORY_RESET")
+        self.dev.long_press(2)
+        self.assertEqual(self.dev.view, "ASK")
+        self.dev.long_press(1, hold_ms=1300)   # NO, and the first repeat of the hold
+        self.assertEqual(self.dev.view, "SETTINGS")
+
     def test_view_change_is_blocked_while_a_question_is_open(self):
         self.dev.boot()
         self.open_setting("FACTORY_RESET")

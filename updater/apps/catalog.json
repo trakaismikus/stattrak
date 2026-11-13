@@ -65,8 +65,8 @@
     {
       "id": "09d34cb8",
       "name": "RUNNER",
-      "version": 2,
-      "size": 2385,
+      "version": 3,
+      "size": 2389,
       "permissions": [
         "sound"
       ],
@@ -110,12 +110,12 @@
     {
       "id": "91507ac3",
       "name": "WALLPAPER",
-      "version": 1,
-      "size": 991,
+      "version": 2,
+      "size": 1035,
       "permissions": [
         "sound"
       ],
-      "description": "Looks like the big KILLS counter, but shows your own number. Hold 1: pick a digit. Hold 2: change it.",
+      "description": "Looks like the big KILLS counter, but shows your own number. Hold a button to edit, press to change a digit.",
       "file": "wallpaper.stapp",
       "picture": "AAAAAAAAgEBAAPgAQECAAAAAAAAAAAAAAADAAIBAQABAQMBAQADAAAAAAADAAAAAAADAQEBAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEBAQ1hEQEAAAkwAAEBAR1hAQEAAAAAAAAOcBAgTkAOSkp6TkAOcEBAQEAOcEBAQEAOWlpaXnAOCgoKDgAOCgoKDgAOCgoKAgAOCgoKDgAAAAAAAAAQIEBAA/AAQEAgEAAAAAAAAAAAAAAQIBAgEAAwAAAAMAAwICAgIAAwICAgIAAwAAAAAAAwAAAAMAAwAAAAAAAwICAgIAAwABAgIA",
       "settings": [

@@ -38,7 +38,7 @@ CLICK_SETTLE_MS = 300
 # there for the battery types NONE and USB.
 SETTING_ROWS = [
     "GAME_RESET", "COUNTER", "BATTERY_TYPE", "AUTO_OFF", "SHOW_BATTERY", "LOW_BAT",
-    "BRIGHTNESS", "DIM_SCREEN", "DIM_LEVEL", "SOUND", "APP_SYNC", "FACTORY_RESET", "FW_UPDATE",
+    "BRIGHTNESS", "DIM_SCREEN", "DIM_LEVEL", "SOUND", "APP_SYNC", "FW_UPDATE", "FACTORY_RESET",
     "VERSION", "SERIAL",
 ]
 
@@ -57,6 +57,8 @@ APP_CMD_DELETE = 0x0117
 APP_CMD_SET_ORDER = 0x0118
 APP_CMD_SET_HIDDEN = 0x0119
 APP_CMD_SETTING = 0x011A
+APP_CMD_ASK = 0x011B
+APP_CMD_DEVICE_NAME = 0x011C
 
 
 class SimError(Exception):
@@ -390,12 +392,14 @@ class Device:
                 answers.append(found)
         return answers
 
-    def install_app(self, package, answer="yes", open_sync=True, crc=None):
-        """Install a package like the web updater: BEGIN, DATA, END, the person answers, STATUS.
+    def install_app(self, package, answer="yes", open_sync=True, crc=None, name=None):
+        """Install a package like the web updater: BEGIN, ASK (the device asks "INSTALL <NAME>?"),
+        the person answers, STATUS, then (after yes) DATA, END and STATUS.
 
         answer: "yes" (hold button 2), "no" (hold button 1), "wait" (no answer: 30 s timeout) or
-        None (do not answer; the device waits). Return a dict: step (where it stopped), status,
-        data, state (the install state of STATUS, or None).
+        None (do not answer; the device waits). name: the name field of ASK (16 bytes; default:
+        the name field of the package). Return a dict: step (where it stopped: begin, ask,
+        answer, data, end), status, data, state (the install state of STATUS, or None).
         """
         package = bytes(package)
         if open_sync:
@@ -403,11 +407,33 @@ class Device:
         app_id = struct.unpack_from("<I", package, 8)[0] if len(package) >= 12 else 0
         if crc is None:
             crc = zlib.crc32(package) & 0xFFFFFFFF
+        if name is None:
+            name = package[16:32] if len(package) >= 32 else b""
         result = {"step": "begin", "status": None, "data": b"", "state": None}
 
         status, data = self.ble_command(APP_CMD_BEGIN, struct.pack("<IHI", app_id, len(package) & 0xFFFF, crc))
         result.update(status=status, data=data)
         if status != 0:
+            return result
+
+        result["step"] = "ask"
+        status, data = self.ble_command(APP_CMD_ASK, bytes(name).ljust(16, b"\0")[:16])
+        result.update(status=status, data=data)
+        if status != 0:
+            return result
+
+        result["step"] = "answer"
+        if answer == "yes":
+            self.long_press(2)
+        elif answer == "no":
+            self.long_press(1)
+        elif answer == "wait":
+            self.run(31000)
+        if answer is None:
+            return result
+        status, data = self.ble_command(APP_CMD_STATUS)
+        result.update(status=status, data=data, state=data[0] if data else None)
+        if status != 0 or result["state"] != 1:
             return result
 
         result["step"] = "data"
@@ -426,16 +452,8 @@ class Device:
         if status != 0:
             return result
 
-        result["step"] = "answer"
-        if answer == "yes":
-            self.long_press(2)
-        elif answer == "no":
-            self.long_press(1)
-        elif answer == "wait":
-            self.run(31000)
-        if answer is not None:
-            status, data = self.ble_command(APP_CMD_STATUS)
-            result.update(status=status, data=data, state=data[0] if data else None)
+        status, data = self.ble_command(APP_CMD_STATUS)
+        result.update(status=status, data=data, state=data[0] if data else None)
         return result
 
     def nvs_fail(self, fail=True):

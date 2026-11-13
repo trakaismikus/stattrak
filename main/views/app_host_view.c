@@ -215,6 +215,9 @@ static bool _eventHandler(uint16_t event) {
     case EVENT__LONG_HOLD_1:  appEvent = STAPP_EVENT__LONG_1; break;
     case EVENT__LONG_PRESS_2:
     case EVENT__LONG_HOLD_2:  appEvent = STAPP_EVENT__LONG_2; break;
+    // The button goes down: no wait for the release (a format 2 app, docs/APPS.md section 4)
+    case EVENT__RAW_PRESS_1:  appEvent = STAPP_EVENT__DOWN_1; break;
+    case EVENT__RAW_PRESS_2:  appEvent = STAPP_EVENT__DOWN_2; break;
     default:                  return false;
   }
 

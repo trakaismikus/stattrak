@@ -30,6 +30,8 @@
 #define APPS_ERROR_LIMIT      3                     // App errors until the app is switched off
 #define APPS_SAVE_PERIOD_MS   30000                 // Saved variables: at most once in 30 s (and at close)
 
+#define APPS_DEVICE_NAME_MAX  8                     // The Bluetooth name (APP_BLE_NAME_MAX)
+
 // Ids of the built-in apps. Installed apps have other ids (not 0, not 0xFFFFFFFF).
 #define APPS_ID__NONE         0u
 #define APPS_ID__KILLS        1u
@@ -103,6 +105,13 @@ apps_result_t  Apps_install(const uint8_t* package, const stapp_info_t* info);
 apps_result_t  Apps_delete(uint32_t id);
 apps_result_t  Apps_setHidden(uint32_t id, bool hidden);
 apps_result_t  Apps_setOrder(const uint32_t* ids, uint8_t count);
+
+// The Bluetooth name of "Apps: SYNC" that the person chose (docs/APPS.md section 6, DEVICE_NAME).
+// `out` has APPS_DEVICE_NAME_MAX + 1 bytes; "" = none (the device is "StatTrak"). A factory reset
+// erases it. Set: 1 to 8 characters 0x20 .. 0x7E, no space at the start or the end; "" = none.
+void           Apps_getDeviceName(char* out);
+apps_result_t  Apps_setDeviceName(const char* name);
+bool           Apps_isDeviceNameValid(const char* name);
 
 // One more run-time error of an installed app. At APPS_ERROR_LIMIT it is hidden and flagged.
 void           Apps_noteError(uint32_t id);

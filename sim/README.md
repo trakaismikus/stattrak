@@ -107,7 +107,8 @@ The device powers on by itself when the program starts. Counters and settings st
 
 Apps: `./build-sim/simulator --app apps/runner/runner.stapp` installs an app at the start, like
 the web updater (`sim/host/sim_apps.c`: it opens "Apps: SYNC" and sends the app with the
-Bluetooth app commands), answers "INSTALL RUNNER?" with yes and opens the app.
+Bluetooth app commands), answers "INSTALL RUNNER?" with yes and opens the app. The device asks
+before the app is sent, as on a real device.
 
 ## Web simulator (Emscripten)
 
@@ -144,7 +145,7 @@ opens it with the app installed and open.
   by the build; run `python tools/app.py catalog` first for the newest ones), or pick a `.stapp`
   file. "Answer yes and open the app" on: the simulator holds RIGHT for the question and opens
   the app. Off: the device asks "INSTALL <NAME>?" and you answer (hold RIGHT = yes, hold LEFT =
-  no), then hold LEFT to leave "Apps: SYNC".
+  no). After the install the device shows SYNC MORE (LEFT) and OPEN (RIGHT).
 - The install is the real firmware code; only the phone is simulated. The headless commands
   `simapp FILE` and `simopen FILE` run the same code (`tests/test_sim_apps.py`).
 

@@ -1,10 +1,10 @@
 # RUNNER: an endless runner game. The art is the owner's design: apps/runner/design.json
 # (made with the Screen Designer; screen "assets" = the pictures, screen "gameOver" = the end).
 #   Press a button to jump over the cacti. The game gets faster. The best score is kept.
-#   A press comes to the app about 0.2 s after you push the button: jump a little early.
+#   The jump starts when the button goes down (down1, down2): no wait for the release.
 
 app "RUNNER"
-version 2
+version 3
 description "An endless runner: press a button to jump over the cacti. The game gets faster. It keeps your best score."
 picture icon runner "RUNNER"
 permission sound
@@ -185,8 +185,8 @@ func press() {
   }
 }
 
-on press1 { press() }
-on press2 { press() }
+on down1 { press() }
+on down2 { press() }
 
 # Height of the character over the road, in pixels
 func height(now) {

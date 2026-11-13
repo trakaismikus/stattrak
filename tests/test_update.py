@@ -68,9 +68,9 @@ class UpdateViewTest(SimTestCase):
                 self.assertEqual(state["view"], "BATTERY_LOW")
                 self.assertEqual(state["ota_active"], 0, "Bluetooth stays on in normal operation")
 
-                # The update mode must work after that
-                self.dev.click(1)
-                self.dev.run(800)
+                # The update mode must work after that (DISMISS: a hold)
+                self.dev.long_press(1)
+                self.dev.run(300)
                 self.assertEqual(self.dev.view, "SETTINGS")
                 self.dev.long_press(2)
                 state = self.dev.state()
@@ -197,6 +197,17 @@ class NewFirmwareTest(SimTestCase):
         self.assertEqual(state["view"], "FW_ACCEPT")
         self.assertEqual(state["ota_update_allowed"], 1)
 
+    def test_a_long_ok_does_not_act_on_the_view_after_it(self):
+        self.update_firmware()
+        self.dev.boot()
+        self.assertTrue(self.dev.ota_accept())
+        self.dev.run(200)
+        kills = self.dev.state()["eeprom.total_kills"]
+        self.dev.long_press(1, hold_ms=2500)   # OK, and the repeats of the hold
+        state = self.dev.state()
+        self.assertEqual(state["view"], "TOTAL")
+        self.assertEqual(state["eeprom.total_kills"], kills)
+
     def test_new_firmware_waits_for_accept(self):
         self.update_firmware()
         self.dev.boot()
@@ -215,7 +226,10 @@ class NewFirmwareTest(SimTestCase):
         self.assertTrue(self.dev.ota_accept())
         self.dev.run(200)
         self.assertEqual(self.dev.state()["ota_state"], OTA_ACCEPTED)
-        self.dev.click(1)  # OK
+        self.dev.click(1)                  # A short press does not leave: OK needs a hold
+        self.dev.run(500)
+        self.assertEqual(self.dev.view, "FW_ACCEPT")
+        self.dev.long_press(1)             # OK
         self.dev.run(500)
         state = self.dev.state()
         self.assertEqual(state["view"], "TOTAL")

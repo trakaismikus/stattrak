@@ -89,7 +89,7 @@ The AI tool guides you through this. The steps:
    Keep the device near the computer and the page open.
 5. The StatTrak restarts and shows `Verifying...`. If the display stays off, switch the
    device on. The web updater connects again and confirms the firmware. The display shows
-   `Complete`. Press a button.
+   `Complete`. Hold a button for OK.
 
 **If something goes wrong**
 
@@ -120,11 +120,13 @@ Only an idea, no code? Tell us on the "Issues" page of this repository ("Feature
 | App menu: button 1 / button 2 | Previous / next app |
 | App menu: both buttons, or wait 3 seconds | Open the selected app |
 | App menu: hold button 2 | The settings of the selected installed app (if it has settings) |
-| Settings: `Apps: SYNC`, hold button 2 | Connect to the "Apps" part of the web updater: install, delete, sort and hide apps. A new app asks "INSTALL <NAME>?": hold button 2 = yes, hold button 1 = no |
+| Settings: `Apps: SYNC`, hold button 2 | Connect to the "Apps" part of the web updater: install, delete, sort and hide apps, and give the device its own Bluetooth name (8 characters). A new app asks "INSTALL <NAME>?" before it is sent: hold button 2 = yes, hold button 1 = no (the button fills while you hold it). After the install: hold button 1 = SYNC MORE, hold button 2 = OPEN the app |
+| App: a fast game (RUNNER) | It reacts when the button goes down. Other apps get a press after the release |
 | Total view: short press | +1 kill. Long press: -1 kill |
 | Kill/death view: button 1 / button 2 | +1 kill / +1 death. Long press: -1 |
 | Settings: short press button 1 / 2 | Up / down |
 | Settings: long press button 1 / 2 | Previous / next value, or start the action |
+| A button on the display (YES, NO, BACK, OK, CANCEL, DISMISS, SYNC MORE, OPEN) | Hold the round button under it for 0.7 s; the button fills while you hold it. A short press does nothing. A button in the middle: either round button |
 | Hold both buttons for 10 seconds at power-on | Firmware update mode |
 
 ## For developers

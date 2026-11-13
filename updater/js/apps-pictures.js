@@ -76,12 +76,59 @@ const AppPictures = (() => {
       x += w + FONTS[font].sp;
     }
   }
+  // The picture of the compiler for an app without a "picture" line (tools/app.py)
   function textCenter(b, y, s, font) { text(b, Math.floor((b.w - textWidth(s, font)) / 2), y, s, font, 1); }
-  // GUI_DRAW_BTN: a frame without its corner pixels, the text in the middle
-  function button(b, x, y, w, h, s) {
+
+  /* Ports of the firmware drawing (components/gfx/gfx.c, main/app_view.h). The fonts 5x5 and
+     3x5 have one width for all characters. */
+  // Gfx_drawString(): with invert, the box from 1 pixel before the text to 1 pixel after it
+  function fwString(b, x, y, s, font, inverted) {
+    text(b, x, y, s, font, 1);
+    if (inverted && s.length) invert(b, x - 1, y - 1, textWidth(s, font) + 2, FONTS[font].h + 2);
+  }
+  // Gfx_drawStringAligned(GFX_ALIGN__CENTER): x - width / 2 (C integer division)
+  function fwCenter(b, x, y, s, font) { text(b, x - Math.floor(textWidth(s, font) / 2), y, s, font, 1); }
+  // GUI_DRAW_TITLE(x, y, len, str): the text inverted, a line on each side
+  function fwTitle(b, x, y, len, s) {
+    fwString(b, x, y, s, "5x5", true);
+    vline(b, x - 2, y, 5, 1);
+    vline(b, x + len * 6, y, 5, 1);
+  }
+  // GUI_DRAW_BTN(x, y, w, h, str, select): a frame without its corner pixels, the text in the middle
+  function fwButton(b, x, y, w, h, s, select) {
     vline(b, x, y + 1, h - 2, 1); vline(b, x + w - 1, y + 1, h - 2, 1);
     hline(b, x + 1, y, w - 2, 1); hline(b, x + 1, y + h - 1, w - 2, 1);
-    text(b, x + Math.floor(w / 2) - Math.floor(textWidth(s, "5x5") / 2), y + Math.floor((h - 5) / 2), s, "5x5", 1);
+    fwCenter(b, x + Math.floor(w / 2), y + Math.floor((h - 5) / 2), s, "5x5");
+    if (select) invert(b, x + 1, y + 1, w - 2, h - 2);
+  }
+  // app_sync_view.c _drawButton(): 9 pixels high at y 21, text in font3x5. fill 0..100 inverts
+  // the button from the left (the hold animation).
+  function fwSmallButton(b, x, w, s, fill) {
+    const y = 21, h = 9;
+    vline(b, x, y + 1, h - 2, 1); vline(b, x + w - 1, y + 1, h - 2, 1);
+    hline(b, x + 1, y, w - 2, 1); hline(b, x + 1, y + h - 1, w - 2, 1);
+    fwCenter(b, x + Math.floor(w / 2), y + 2, s, "3x5");
+    const width = Math.floor(((w - 2) * Math.max(0, Math.min(100, fill || 0)) + 50) / 100);
+    if (width > 0) invert(b, x + 1, y + 1, width, h - 2);
+  }
+  // Gfx_drawCircleHelper()
+  function fwCorner(b, x0, y0, r, corner) {
+    let f = 1 - r, ddx = 1, ddy = -2 * r, x = 0, y = r;
+    while (x < y) {
+      if (f >= 0) { y--; ddy += 2; f += ddy; }
+      x++; ddx += 2; f += ddx;
+      if (corner & 4) { px(b, x0 + x, y0 + y, 1); px(b, x0 + y, y0 + x, 1); }
+      if (corner & 2) { px(b, x0 + x, y0 - y, 1); px(b, x0 + y, y0 - x, 1); }
+      if (corner & 8) { px(b, x0 - y, y0 + x, 1); px(b, x0 - x, y0 + y, 1); }
+      if (corner & 1) { px(b, x0 - y, y0 - x, 1); px(b, x0 - x, y0 - y, 1); }
+    }
+  }
+  // Gfx_drawRoundRect()
+  function fwRoundRect(b, x, y, w, h, r) {
+    hline(b, x + r, y, w - 2 * r, 1); hline(b, x + r, y + h - 1, w - 2 * r, 1);
+    vline(b, x, y + r, h - 2 * r, 1); vline(b, x + w - 1, y + r, h - 2 * r, 1);
+    fwCorner(b, x + r, y + r, r, 1); fwCorner(b, x + w - r - 1, y + r, r, 2);
+    fwCorner(b, x + w - r - 1, y + h - r - 1, r, 4); fwCorner(b, x + r, y + h - r - 1, r, 8);
   }
 
   /* bytes (240) or base64 -> an 80 x 24 buffer */
@@ -101,34 +148,44 @@ const AppPictures = (() => {
     return b;
   }
 
-  /* The display in "Apps: SYNC". kind: idle | receiving | question | installed | refused */
-  function syncScreen(kind, arg) {
+  /* The display in "Apps: SYNC", as _draw() of main/views/app_sync_view.c.
+     kind and arg:
+       idle           arg = dots after "Waiting" (0..3, default 3)
+       notinstalled   the last install stopped or failed after "yes"
+       question       arg = app name; fill = { no, yes }: 0..100 of a hold of button 1 / 2
+       receiving      arg = percent
+       installed      arg = app name (SYNC MORE and OPEN)
+       refused        "no", or no answer in 30 s */
+  function syncScreen(kind, arg, fill) {
     const b = buffer(128, 32);
-    // GUI_DRAW_TITLE((128 - 8 * 6) / 2, 1, 8, "APP SYNC")
-    text(b, 40, 1, "APP SYNC", "5x5", 1);
-    vline(b, 38, 1, 5, 1);
-    vline(b, 40 + 8 * 6, 1, 5, 1);
+    if (kind === "installed") {
+      fwTitle(b, (128 - 13 * 6) / 2, 1, 13, "APP INSTALLED");
+      fwCenter(b, 64, 11, String(arg), "5x5");
+      // Each button over its round button: button 1 is the left one, button 2 the right one
+      fwSmallButton(b, 4, 40, "SYNC MORE", fill && fill.no);
+      fwSmallButton(b, 128 - 4 - 22, 22, "OPEN", fill && fill.yes);
+      return b;
+    }
+    fwTitle(b, (128 - 8 * 6) / 2, 1, 8, "APP SYNC");
     if (kind === "receiving") {
-      const pct = Math.max(0, Math.min(100, Math.round(arg)));
-      textCenter(b, 12, "Receiving", "5x5");
-      textCenter(b, 23, pct + "%", "5x5");
+      const pct = Math.max(0, Math.min(100, Math.floor(arg)));
+      fwCenter(b, 64, 12, "Receiving", "5x5");
+      fwCenter(b, 64, 23, pct + "%", "5x5");
       invert(b, 14, 22, pct, 7);
-      button(b, 13, 21, 102, 9, "");
+      fwRoundRect(b, 13, 21, 128 - 26, 9, 3);
     } else if (kind === "question") {
       const question = "INSTALL " + arg + "?";
-      textCenter(b, 11, question, textWidth(question, "5x5") > 124 ? "3x5" : "5x5");
-      // GFX_ALIGN__LEFT at x 2 and GFX_ALIGN__RIGHT at x 126 (each answer over its button)
-      text(b, 2, 23, "HOLD 1: NO", "3x5", 1);
-      text(b, 126 - textWidth("HOLD 2: YES", "3x5"), 23, "HOLD 2: YES", "3x5", 1);
-    } else if (kind === "installed") {
-      textCenter(b, 12, "INSTALLED", "5x5");
-      textCenter(b, 22, arg, "5x5");
+      fwCenter(b, 64, 11, question, textWidth(question, "5x5") > 128 - 4 ? "3x5" : "5x5");
+      // NO over button 1 (left), YES over button 2 (right). They fill while they are held.
+      fwSmallButton(b, 4, 22, "NO", fill && fill.no);
+      fwSmallButton(b, 128 - 4 - 22, 22, "YES", fill && fill.yes);
     } else if (kind === "refused") {
-      textCenter(b, 12, "REFUSED", "5x5");
-      button(b, 12, 20, 42, 11, "BACK");
+      fwCenter(b, 64, 12, "REFUSED", "5x5");
+      fwSmallButton(b, 4, 22, "BACK", fill && fill.no);
     } else {
-      text(b, 43, 12, "Waiting...", "5x5", 1);
-      button(b, 12, 20, 42, 11, "BACK");
+      if (kind === "notinstalled") fwCenter(b, 64, 12, "NOT INSTALLED", "5x5");
+      else text(b, (128 - 7 * 6) / 2, 12, "Waiting" + ".".repeat(arg === undefined ? 3 : arg & 3), "5x5", 1);
+      fwSmallButton(b, 4, 22, "BACK", fill && fill.no);
     }
     return b;
   }
@@ -165,7 +222,7 @@ const AppPictures = (() => {
       return paint(fromName(name), "n:" + name);
     },
     settings() { return paint(fromBytes(BUILTIN.settings), "b:settings"); },
-    screen(kind, arg) { return paint(syncScreen(kind, arg), "s:" + kind + ":" + arg); },
+    screen(kind, arg, fill) { return paint(syncScreen(kind, arg, fill), "s:" + kind + ":" + arg + ":" + (fill ? fill.no + "/" + fill.yes : "")); },
     // For the tests: the pixels as rows of '#' and '.'
     rows(b) {
       const out = [];

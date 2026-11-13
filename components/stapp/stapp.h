@@ -16,7 +16,7 @@
 
 /* > Defines **************************************************************************************/
 #define STAPP_ENGINE_VERSION      1
-#define STAPP_FORMAT_VERSION      1
+#define STAPP_FORMAT_VERSION      2     // The newest package format that the engine reads (1 or 2)
 
 #define STAPP_HEADER_SIZE         48
 #define STAPP_PICTURE_OFFSET      48
@@ -25,6 +25,9 @@
 #define STAPP_PICTURE_SIZE        (STAPP_PICTURE_W * STAPP_PICTURE_H / 8)   // 240
 #define STAPP_HANDLERS_OFFSET     (STAPP_PICTURE_OFFSET + STAPP_PICTURE_SIZE) // 288
 #define STAPP_NO_HANDLER          0xFFFF
+#define STAPP_HANDLERS_V1         8     // Format 1: open .. close
+#define STAPP_HANDLERS_V2         10    // Format 2: also down1, down2
+#define STAPP_HANDLER_COUNT(format)  (((format) >= 2) ? STAPP_HANDLERS_V2 : STAPP_HANDLERS_V1)
 #define STAPP_RESERVED_IDS        255   // App ids 0 .. 255: 0 and the built-in apps (1, 2, 3, later more)
 
 #define STAPP_MAX_SIZE            4096
@@ -59,6 +62,8 @@ typedef enum stapp_event_e {
   STAPP_EVENT__LONG_2,
   STAPP_EVENT__TICK,
   STAPP_EVENT__CLOSE,
+  STAPP_EVENT__DOWN_1,      // Format 2: the button goes down (no wait for the release)
+  STAPP_EVENT__DOWN_2,
   STAPP_EVENT_COUNT,
 } stapp_event_t;
 
@@ -125,6 +130,7 @@ typedef struct stapp_info_s {
   uint8_t  settingCount;
   uint8_t  stringCount;
   uint8_t  bitmapCount;
+  uint8_t  handlerCount;     // STAPP_HANDLERS_V1 or STAPP_HANDLERS_V2 (from the format version)
 } stapp_info_t;
 
 // The firmware side of a system call. `args` has Stapp_sysArgCount(id) values. `drawing` is
@@ -151,6 +157,10 @@ stapp_result_t Stapp_check(const uint8_t* package, uint32_t size, stapp_info_t* 
 
 // Text of a result, for logs and tests ("ok", "bad crc", ...)
 const char*    Stapp_resultText(stapp_result_t result);
+
+// A name field of `len` bytes (as at offset 16 of the header): 1 to STAPP_MAX_NAME name characters
+// (A-Z 0-9 space + - % / . :), then only 0 bytes
+bool           Stapp_isNameField(const uint8_t* field, uint8_t len);
 
 // Prepares a VM for a package that passed Stapp_check(). Globals are 0. The firmware then copies
 // saved values into globals[0 .. savedCount-1].

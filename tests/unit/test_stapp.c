@@ -38,6 +38,7 @@ typedef struct {
   uint8_t stringCount;
   bool withSetting;
   bool withBitmap;
+  uint8_t format;       // 1 or 2 (0 = STAPP_FORMAT_VERSION)
 } spec_t;
 
 static void _put16(uint8_t* p, uint32_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); }
@@ -52,7 +53,7 @@ static void _build(pkg_t* pkg, const spec_t* spec) {
   memset(pkg, 0, sizeof(*pkg));
   uint8_t* d = pkg->data;
   memcpy(d, "STAP", 4);
-  d[4] = STAPP_FORMAT_VERSION;
+  d[4] = spec->format ? spec->format : STAPP_FORMAT_VERSION;
   d[5] = 1;
   _put16(d + 6, spec->permissions);
   _put32(d + 8, 0x12345678);
@@ -66,10 +67,11 @@ static void _build(pkg_t* pkg, const spec_t* spec) {
   d[36] = spec->withBitmap ? 1 : 0;
   for(int i = 0; i < STAPP_PICTURE_SIZE; i++)
     d[STAPP_PICTURE_OFFSET + i] = (uint8_t)i;
-  for(int e = 0; e < STAPP_EVENT_COUNT; e++)
+  const int handlerCount = STAPP_HANDLER_COUNT(d[4]);
+  for(int e = 0; e < handlerCount; e++)
     _put16(d + STAPP_HANDLERS_OFFSET + 2 * e, spec->handlers[e]);
 
-  uint32_t p = STAPP_HANDLERS_OFFSET + 2 * STAPP_EVENT_COUNT;   // 304
+  uint32_t p = STAPP_HANDLERS_OFFSET + 2 * handlerCount;   // 304 (format 1) or 308 (format 2)
   if(spec->withSetting) {
     _put16(d + 38, p);
     memcpy(d + p, "ROUND TIME", 10);
@@ -211,7 +213,9 @@ static stapp_result_t _checkEdited(void (*edit)(pkg_t*), bool fixCrc) {
 }
 
 static void _edMagic(pkg_t* p)        { p->data[0] = 'X'; }
-static void _edFormat(pkg_t* p)       { p->data[4] = 2; }
+#define FIRST2  (STAPP_HANDLERS_OFFSET + 2 * STAPP_HANDLERS_V2)   // 308: the data area of format 2
+static void _edFormat(pkg_t* p)       { p->data[4] = STAPP_FORMAT_VERSION + 1; }
+static void _edFormat0(pkg_t* p)      { p->data[4] = 0; }
 static void _edEngine(pkg_t* p)       { p->data[5] = STAPP_ENGINE_VERSION + 1; }
 static void _edCrc(pkg_t* p)          { p->data[STAPP_PICTURE_OFFSET] ^= 1; }
 static void _edSizeField(pkg_t* p)    { _put16(p->data + 14, p->size + 1); }
@@ -225,10 +229,10 @@ static void _edGlobals(pkg_t* p)      { p->data[32] = STAPP_MAX_GLOBALS + 1; }
 static void _edReserved(pkg_t* p)     { p->data[37] = 1; }
 static void _edCodeOut(pkg_t* p)      { _put16(p->data + 46, 3000); }
 static void _edCodeInHeader(pkg_t* p) { _put16(p->data + 44, 10); }
-static void _edOverlap(pkg_t* p)      { _put16(p->data + 40, 304); }   // String table on the setting
-static void _edSettingCount(pkg_t* p) { p->data[304 + 12] = 1; }
-static void _edSettingDefault(pkg_t* p) { p->data[304 + 13] = 3; }
-static void _edSettingName(pkg_t* p)  { memset(p->data + 304, 0, 12); }
+static void _edOverlap(pkg_t* p)      { _put16(p->data + 40, FIRST2); }   // String table on the setting
+static void _edSettingCount(pkg_t* p) { p->data[FIRST2 + 12] = 1; }
+static void _edSettingDefault(pkg_t* p) { p->data[FIRST2 + 13] = 3; }
+static void _edSettingName(pkg_t* p)  { memset(p->data + FIRST2, 0, 12); }
 // The string "AB" is the last data before the 1-byte code: replace its 0 and the code byte
 static void _edStringNoEnd(pkg_t* p)  { uint16_t s = (uint16_t)(p->data[40] | (p->data[41] << 8));
                                         uint16_t o = (uint16_t)(p->data[s] | (p->data[s + 1] << 8));
@@ -239,6 +243,7 @@ static void _edTooSmall(pkg_t* p)     { p->size = 100; }
 TEST(check_finds_each_kind_of_broken_package) {
   CHECK_EQ(_checkEdited(_edMagic, true), STAPP_ERR_MAGIC);
   CHECK_EQ(_checkEdited(_edFormat, true), STAPP_ERR_VERSION);
+  CHECK_EQ(_checkEdited(_edFormat0, true), STAPP_ERR_VERSION);
   CHECK_EQ(_checkEdited(_edEngine, true), STAPP_ERR_VERSION);
   CHECK_EQ(_checkEdited(_edCrc, false), STAPP_ERR_CRC);
   CHECK_EQ(_checkEdited(_edSizeField, false), STAPP_ERR_SIZE);
@@ -378,6 +383,63 @@ TEST(engine_drawing_flag_only_in_draw) {
   CHECK(!log.lastDrawing);
   CHECK_EQ(Stapp_run(&vm, STAPP_EVENT__TICK, _sys, &log), STAPP_OK);   // No handler: nothing
   CHECK_EQ(log.calls, 2);
+}
+
+// Format 1 (8 handlers, data from 304) still works; format 2 adds down1 and down2
+TEST(format_1_and_2_and_the_down_events) {
+  static pkg_t pkg;
+  const uint8_t code[] = { OP_PUSH8, 1, OP_PUSH8, 1, OP_PUSH8, 1, OP_SYS, 0, OP_DROP, OP_HALT };
+  stapp_info_t info;
+  stapp_vm_t vm;
+
+  // Format 1: no down handler, the down events do nothing
+  spec_t spec = _spec(code, sizeof(code));
+  spec.format = 1;
+  spec.handlers[STAPP_EVENT__PRESS_1] = 0;
+  _build(&pkg, &spec);
+  CHECK_EQ(pkg.data[44] | (pkg.data[45] << 8), 304);   // The code comes right after 8 handlers
+  CHECK_EQ(Stapp_check(pkg.data, pkg.size, &info), STAPP_OK);
+  CHECK_EQ(info.handlerCount, STAPP_HANDLERS_V1);
+  sys_log_t log1 = { 0 };
+  Stapp_load(&vm, pkg.data, &info);
+  CHECK_EQ(Stapp_run(&vm, STAPP_EVENT__DOWN_1, _sys, &log1), STAPP_OK);
+  CHECK_EQ(Stapp_run(&vm, STAPP_EVENT__DOWN_2, _sys, &log1), STAPP_OK);
+  CHECK_EQ(log1.calls, 0);
+  CHECK_EQ(Stapp_run(&vm, STAPP_EVENT__PRESS_1, _sys, &log1), STAPP_OK);
+  CHECK_EQ(log1.calls, 1);
+
+  // Format 2: down2 runs its handler
+  spec = _spec(code, sizeof(code));
+  spec.format = 2;
+  spec.handlers[STAPP_EVENT__DOWN_2] = 0;
+  _build(&pkg, &spec);
+  CHECK_EQ(Stapp_check(pkg.data, pkg.size, &info), STAPP_OK);
+  CHECK_EQ(info.handlerCount, STAPP_HANDLERS_V2);
+  sys_log_t log2 = { 0 };
+  Stapp_load(&vm, pkg.data, &info);
+  CHECK_EQ(Stapp_run(&vm, STAPP_EVENT__DOWN_1, _sys, &log2), STAPP_OK);
+  CHECK_EQ(log2.calls, 0);
+  CHECK_EQ(Stapp_run(&vm, STAPP_EVENT__DOWN_2, _sys, &log2), STAPP_OK);
+  CHECK_EQ(log2.calls, 1);
+  CHECK_EQ(Stapp_run(&vm, STAPP_EVENT_COUNT, _sys, &log2), STAPP_ERR_ARG);
+
+  // A down handler that is not an instruction start
+  spec.handlers[STAPP_EVENT__DOWN_1] = 1;
+  _build(&pkg, &spec);
+  CHECK_EQ(Stapp_check(pkg.data, pkg.size, NULL), STAPP_ERR_HANDLER);
+
+  // A format 1 package of 308 bytes that says "format 2" is too small (format 2 needs 312)
+  const uint8_t halt[] = { OP_HALT };
+  spec = _spec(halt, sizeof(halt));
+  spec.format = 1;
+  spec.globals = 0;
+  _build(&pkg, &spec);
+  CHECK_EQ(pkg.size, 309u);
+  pkg.size = 308;                       // Without the code byte: the smallest size
+  _put16(pkg.data + 46, 0);
+  pkg.data[4] = 2;
+  _finish(&pkg);
+  CHECK_EQ(Stapp_check(pkg.data, pkg.size, NULL), STAPP_ERR_SIZE);
 }
 
 TEST(engine_limits_stop_the_app) {
@@ -530,6 +592,7 @@ int main(void) {
   RUN(engine_loop_and_call);
   RUN(engine_system_call_gets_its_arguments_in_order);
   RUN(engine_drawing_flag_only_in_draw);
+  RUN(format_1_and_2_and_the_down_events);
   RUN(engine_limits_stop_the_app);
   RUN(check_ids_and_fixed_string_ids);
   RUN(engine_sys_table);

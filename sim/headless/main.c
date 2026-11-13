@@ -33,6 +33,9 @@
 #include <string.h>
 
 #include "host.h"
+#include "sdkconfig.h"
+
+#define YES_UP_MS  (CONFIG_BUTTON_SHORT_PRESS_TIME_MS + 50)   /* Button 2 up this long before the automatic "yes" */
 
 #include "app.h"
 #include "app_view.h"
@@ -93,6 +96,7 @@ static void _printState(void) {
   printf("ota_double_init=%lu\n", (unsigned long)HostOta_getDoubleInitCount());
   printf("ota_pending=%u\n", (unsigned)HostOta_getPendingStage());
   printf("ota_update_allowed=%d\n", HostOta_isUpdateAllowed() ? 1 : 0);
+  printf("ble_name=%s\n", HostOta_getName());
   printf("rolled_back=%d\n", HostOta_wasRolledBack() ? 1 : 0);
   printf("nvs_writes=%lu\n", (unsigned long)HostNvs_getWriteCount());
   printf("nvs_commits=%lu\n", (unsigned long)HostNvs_getCommitCount());
@@ -299,10 +303,24 @@ static void _idle(void) {
   SimApps_update();
 
   /* simopen: the simulator holds button 2 for the person ("yes"), as the window and the web page do */
+  /* The firmware answers only a hold that starts during the question: button 2 must be up
+   * first, also after the power-on hold of both buttons. YES_UP_MS: after a short press the button
+   * driver waits CONFIG_BUTTON_SHORT_PRESS_TIME_MS for a second click; a hold that starts in that
+   * time never becomes a long press. */
   static bool s_simHold = false;
-  if(SimApps_wantsYes() != s_simHold) {
-    s_simHold = SimApps_wantsYes();
-    HostButton_setLevel(1, s_simHold);
+  static uint64_t s_upSinceMs = 0;   /* Button 2 is up since this time (0 = it is down) */
+  if(HostButton_getLevel(1))
+    s_upSinceMs = 0;
+  else if(s_upSinceMs == 0)
+    s_upSinceMs = Host_nowMs() + 1;
+  if(!SimApps_wantsYes()) {
+    if(s_simHold) {
+      s_simHold = false;
+      HostButton_setLevel(1, false);
+    }
+  } else if(!s_simHold && s_upSinceMs != 0 && Host_nowMs() + 1 - s_upSinceMs >= YES_UP_MS) {
+    s_simHold = true;
+    HostButton_setLevel(1, true);
   }
 
   while(Host_nowMs() >= s_runUntil) {

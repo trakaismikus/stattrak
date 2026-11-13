@@ -139,9 +139,11 @@ RULES = [
      "A renamed value is lost for users (counters go to zero). A name that is too long is never stored."),
     ("bluetooth-identity",
      "The Bluetooth name, the update service numbers, the update command numbers and the sector size "
-     "must not change.",
+     "must not change. Only main/views/app_sync_view.c may give Bluetooth an other name for one start "
+     "(AppBle_setNextName), and AppBle_init() must forget that name after it used it.",
      "The web updater finds the device and talks to it with them. If they change, it cannot update or accept "
-     "firmware. Command numbers for user features start at 0x0100."),
+     "firmware. Command numbers for user features start at 0x0100. A name of the person in the update view "
+     "or the accept view would hide the device from the web updater."),
 ]
 
 
@@ -478,9 +480,32 @@ class Checker:
         if app_ble is not None:
             if not re.search(r'#define\s+GAP_NAME\s+"StatTrak"', app_ble):
                 self.fail("bluetooth-identity", 'components/app_ble/app_ble.c: GAP_NAME must be "StatTrak".')
+            # The name of AppBle_setNextName() is for one start only: AppBle_init() clears it
+            init = re.search(r"void\s+AppBle_init\s*\(.*?\n}", self.strip_comments(app_ble), flags=re.S)
+            if init is None or not re.search(r"s_nextName\[0\]\s*=\s*'\\0'\s*;", init.group(0)):
+                self.fail("bluetooth-identity", "components/app_ble/app_ble.c: AppBle_init() must clear the "
+                                                "name of AppBle_setNextName() after it used it.")
             uuid = "0x00, 0xC7, 0xC4, 0x4E, 0xE3, 0x6C, 0x51, 0xA7, 0x33, 0x4B, 0xE8, 0xED, 0x5A, 0x0E, 0xB8, 0x03"
             if uuid not in app_ble:
                 self.fail("bluetooth-identity", "components/app_ble/app_ble.c: the advertised service UUID changed.")
+
+        # Only "Apps: SYNC" gives Bluetooth the name of the person
+        allowed = ("main/views/app_sync_view.c", "components/app_ble/app_ble.c", "components/app_ble/app_ble_name.h",
+                   "components/app_ble/app_ble.h")
+        for relative in self.source_files():
+            if relative in allowed:
+                continue
+            text = self.read(relative)
+            if text is not None and re.search(r"\bAppBle_setNextName\s*\(", self.strip_comments(text)):
+                self.fail("bluetooth-identity", "%s: only main/views/app_sync_view.c may call AppBle_setNextName()."
+                          % relative)
+        # And it forgets the name right after Ota_init(): Ota_init() can return before AppBle_init()
+        sync = self.read("main/views/app_sync_view.c")
+        if sync is not None and re.search(r"\bAppBle_setNextName\s*\(", self.strip_comments(sync)):
+            if not re.search(r"\bOta_init\s*\(\s*\)\s*;\s*AppBle_setNextName\s*\(\s*NULL\s*\)\s*;",
+                             self.strip_comments(sync)):
+                self.fail("bluetooth-identity", "main/views/app_sync_view.c: call AppBle_setNextName(NULL) right "
+                                                "after Ota_init().")
 
         ble_ota = self.read("components/ble_ota/ble_ota.c", "bluetooth-identity")
         if ble_ota is not None:

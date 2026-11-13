@@ -7,6 +7,7 @@
 
 /* > Includes *************************************************************************************/
 #include "app_view.h"
+#include "app.h"
 #include "animation.h"
 
 /* > Local Function Declarations ********************************************************************/
@@ -149,6 +150,17 @@ void AppView_update(void) {
 // the events in the current view (warnings go back to AppView_getPrevious()).
 bool AppView_eventHandler(uint16_t event) {
   const view_id_t target = (s_nextViewId == VIEW_ID__LAUNCHER) ? s_nextViewId : s_viewId;
+
+  // The repeats of a hold (each 0.5 s) go only to the view that got its long press: a hold that
+  // answers a button on the display (0.7 s) must not also act on the next view (-1 kill). A hold
+  // that starts in the slide of a view change keeps its repeats in the new view.
+  static view_id_t s_longView[2] = { VIEW_ID__BLANK, VIEW_ID__BLANK };
+  if(event == EVENT__LONG_PRESS_1 || event == EVENT__LONG_PRESS_2)
+    s_longView[(event == EVENT__LONG_PRESS_1) ? 0 : 1] = target;
+  if((event == EVENT__LONG_HOLD_1 || event == EVENT__LONG_HOLD_2) &&
+     s_longView[(event == EVENT__LONG_HOLD_1) ? 0 : 1] != target)
+    return true;
+
   if(s_viewList[target]->eventHandler)
     return s_viewList[target]->eventHandler(event);
   else
