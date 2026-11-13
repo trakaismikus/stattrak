@@ -38,8 +38,10 @@ device box:
 | Display, 128 x 32 pixels, pitch 0.325 mm | 5.55..47.15 x 5.84..16.24 | 11.946, 22.969, 65.823, 30.469 |
 | Glass (the pocket, radius 0.8) | 3.475..49.225 x 3.495..18.595 | 8.663, 16.099, 72.389, 44.239 |
 | Inner window of the body (behind the glass, radius 0.75) | 4.97..47.73 x 4.99..17.09 | |
-| Button 1 (round, under the body) | 10.85..18.35 x 25.5..29.5 | 20.332, 80.567, 11.867, 11.719 |
-| Button 2 | 40.85..48.35 x 25.5..29.5 | 67.801, 80.567, 11.867, 11.719 |
+| Round button 1 (under the body; its numbers are under it) | 10.85..18.35 x 25.5..29.5 | 20.332, 80.567, 11.867, 11.719 |
+| Round button 2 | 40.85..48.35 x 25.5..29.5 | 67.801, 80.567, 11.867, 11.719 |
+| Cap of button 1: the only part that a finger presses (it lights up) | 12.0..17.2 x 29.5..30.15 | 22.152, 92.286, 8.228, 1.904 |
+| Cap of button 2 | 42.0..47.2 x 29.5..30.15 | 69.620, 92.286, 8.228, 1.904 |
 
 The display: the pixel pitch is measured on a product photo (4 pixels = 1.30 mm), and the pixels
 are centred in the inner window. `updater/css/main.css` (`.st-dev__*`), `updater/js/device.js`
