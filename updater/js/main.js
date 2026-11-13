@@ -827,6 +827,7 @@ function openConfirm() {
   root.querySelector("[data-fw-size]").textContent = fmtBytes(fw.size || 0);
   root.querySelector("[data-device-name]").textContent = state.device?.name || "device";
   root.querySelector("[data-unofficial]").hidden = officialStatus().status === "official";
+  renderTabs();   // The menu links are locked while this question is open (js/apps.js)
 
   root.querySelector("[data-cancel]").addEventListener("click", closeConfirm);
   root.querySelector("[data-confirm]").addEventListener("click", async () => {
@@ -840,6 +841,7 @@ function openConfirm() {
 function closeConfirm() {
   state.confirmOpen = false;
   unmountModal();
+  renderTabs();
 }
 
 function unmountModal() {
