@@ -39,6 +39,8 @@ static const char* const kSign[] = {
 #define SIGN_W  7
 #define SIGN_H  11
 
+// One Bluetooth view at a time: a new begin replaces the state of the view before it (that view
+// has stopped its radio in its deinit already)
 void BtStart_begin(view_id_t view, void (*start)(void)) {
   s_view = view;
   s_start = start;
@@ -49,10 +51,6 @@ void BtStart_begin(view_id_t view, void (*start)(void)) {
 void BtStart_cancel(view_id_t view) {
   if(s_view == view)
     s_phase = PHASE__OFF;
-}
-
-bool BtStart_isWaiting(view_id_t view) {
-  return s_view == view && s_phase == PHASE__WAIT;
 }
 
 void BtStart_update(uint32_t now) {

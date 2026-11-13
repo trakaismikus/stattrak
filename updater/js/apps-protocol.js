@@ -191,7 +191,8 @@ class StatTrakApps {
   static STATUS_POLL_MS = 500;
   static QUESTION_WAIT_MS = 40000; // the device gives up after 30 s (state 5)
 
-  // The Bluetooth name (DEVICE_NAME): 1 to 8 characters 0x20 .. 0x7E, no space at the start or the end
+  // The Bluetooth name part (DEVICE_NAME): 1 to 12 characters 0x20 .. 0x7E, no space at the start or
+  // the end
   static DEFAULT_NAME = "StatTrak";
   static NAME_PREFIX = "StatTrak | ";   // The app sync name is NAME_PREFIX + the part of the person
   static NAME_MAX = 12;               // The part (main/apps.h APPS_DEVICE_NAME_MAX)

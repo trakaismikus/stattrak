@@ -37,7 +37,4 @@ void BtStart_update(uint32_t now);
 // `screen` draws the screen of the view (used for the slide).
 bool BtStart_draw(view_id_t view, void (*screen)(void));
 
-// true while the view waits for its radio start (the radio is still off)
-bool BtStart_isWaiting(view_id_t view);
-
 #endif // _BT_START_H
