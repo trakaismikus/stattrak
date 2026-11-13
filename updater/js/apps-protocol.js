@@ -193,7 +193,7 @@ class StatTrakApps {
 
   // The Bluetooth name (DEVICE_NAME): 1 to 8 characters 0x20 .. 0x7E, no space at the start or the end
   static DEFAULT_NAME = "StatTrak";
-  static NAME_PREFIX = "StatTrak-";   // The app sync name is NAME_PREFIX + the part of the person
+  static NAME_PREFIX = "StatTrak | ";   // The app sync name is NAME_PREFIX + the part of the person
   static NAME_MAX = 12;               // The part (main/apps.h APPS_DEVICE_NAME_MAX)
 
   // The 128-bit service UUID that the device advertises (components/app_ble/app_ble.c). The Apps
@@ -462,7 +462,7 @@ class StatTrakApps {
     return (await this._ok(StatTrakApps.CMD__STATUS))[0];
   }
 
-  /* The problem of the name part (after "StatTrak-") as a text for the person, or "" for a good
+  /* The problem of the name part (after "StatTrak | ") as a text for the person, or "" for a good
      part ("" is good too: back to "StatTrak"). The rules of Apps_isDeviceNameValid() (main/apps.c). */
   static nameProblem(name) {
     if (name === "") return "";
@@ -473,7 +473,7 @@ class StatTrakApps {
   }
 
   /* DEVICE_NAME, read: { custom, part, name }. custom = the person chose a part; part = the text
-     after "StatTrak-"; name = the Bluetooth name in "Apps: SYNC" ("StatTrak" when there is no
+     after "StatTrak | "; name = the Bluetooth name in "Apps: SYNC" ("StatTrak" when there is no
      part). null = a firmware without it. */
   deviceName() {
     return this._serial(async () => {
@@ -486,7 +486,7 @@ class StatTrakApps {
     });
   }
 
-  /* DEVICE_NAME, write the part after "StatTrak-". "" = back to "StatTrak". The device uses it
+  /* DEVICE_NAME, write the part after "StatTrak | ". "" = back to "StatTrak". The device uses it
      from the next start of "Apps: SYNC". Returns { custom, part, name }. */
   setDeviceName(name) {
     return this._serial(async () => {
@@ -513,7 +513,7 @@ class StatTrakApps {
   }
 
   /* The device chooser of the Apps tab (Web Bluetooth): a name that starts with "StatTrak"
-     ("StatTrak" and "StatTrak-<part>"), or the service UUID that it advertises (in the scan
+     ("StatTrak" and "StatTrak | <part>"), or the service UUID that it advertises (in the scan
      response for a long name). A browser that refuses the UUID filter (a TypeError, e.g. a UUID on
      its block list) gets the name filter only. */
   static async pair() {

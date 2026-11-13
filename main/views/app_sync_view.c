@@ -210,7 +210,7 @@ void AppSync_update(uint32_t now) {
 
 // The radio starts when the display shows only the Bluetooth sign (bt_start.h)
 static void _startBluetooth(void) {
-  // "StatTrak-" + the name part that the person chose (docs/APPS.md section 6), for this Bluetooth
+  // "StatTrak | " + the name part that the person chose (docs/APPS.md section 6), for this Bluetooth
   // start only. No part: "StatTrak". The update view and the accept view are always "StatTrak".
   char part[APPS_DEVICE_NAME_MAX + 1];
   char name[APP_BLE_NAME_MAX + 1] = "";

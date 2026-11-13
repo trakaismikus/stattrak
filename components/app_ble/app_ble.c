@@ -365,7 +365,7 @@ bleprph_advertise(void)
 
     // The name and the service UUID fit in one packet for a name of APP_BLE_NAME_WITH_UUID characters
     // or less ("StatTrak": the update views, the packet as in firmware 1.0.1). A longer name (the app
-    // sync, "StatTrak-<part>") sends the UUID in the scan response.
+    // sync, "StatTrak | <part>") sends the UUID in the scan response.
     const bool uuidInResponse = (fields.name_len > APP_BLE_NAME_WITH_UUID);
     if (!uuidInResponse) {
         fields.uuids128 = &s_advUuid;

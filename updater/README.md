@@ -76,7 +76,7 @@ format 2 (INFO). For an older firmware the page says "Update the firmware first"
 nothing.
 
 **Bluetooth name.** When the firmware has the command DEVICE_NAME, the tab shows the Bluetooth
-name of StatTrak in "Apps: SYNC" and can change the part after "StatTrak-" (1 to 12 characters
+name of StatTrak in "Apps: SYNC" and can change the part after "StatTrak | " (1 to 12 characters
 0x20 .. 0x7E, no space at the start or the end) or remove it (back to "StatTrak"). StatTrak uses a new name the next time the
 person opens Apps: SYNC. The update view always uses "StatTrak". The Apps tab finds a StatTrak
 with any name: its device chooser looks for a name that starts with "StatTrak", and for the

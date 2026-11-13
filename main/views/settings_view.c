@@ -220,13 +220,12 @@ static bool _eventHandler(uint16_t event) {
   switch(event) {
     
     case EVENT__PRESS_2:
-      if(self->idx < (s_settingCount - 1)) {
-        self->idx++;
+      // Down from the last setting goes to the first one. The list scrolls there.
+      self->idx = (self->idx < (s_settingCount - 1)) ? (self->idx + 1) : 0;
 
-        s_animValue.value = self->idx * 256;
-        Animation_start(&s_anim);
-        App_click(1000);
-      }
+      s_animValue.value = self->idx * 256;
+      Animation_start(&s_anim);
+      App_click(1000);
       return true;
 
     case EVENT__PRESS_1: 

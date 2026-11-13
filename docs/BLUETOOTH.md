@@ -257,7 +257,7 @@ In that view the device refuses new firmware. Numbers have the low byte first.
 | `0x0118` | SET_ORDER | count (1), 3 ids (12), part (1) | parts 0, 1, 2, ... with 3 ids each; the order is used when all ids are in. All apps of LIST, each one time |
 | `0x0119` | SET_HIDDEN | id (4), hidden (1: 0 or 1) | status 13 = the last shown app cannot be hidden. Shown again = the error count is 0 again |
 | `0x011A` | SETTING | id (4), setting (1), value (1, `0xFF` = only read) | the value (1) |
-| `0x011C` | DEVICE_NAME | 0 = read / 1 = write (1), the name part after "StatTrak-" (12, 0-padded; all 0 = no part) | 1 = there is a part (1), the part (12, 0-padded). The app sync is "StatTrak-<part>" (or "StatTrak") from its next start; the update view and the accept view are always "StatTrak" |
+| `0x011C` | DEVICE_NAME | 0 = read / 1 = write (1), the name part after "StatTrak | " (12, 0-padded; all 0 = no part) | 1 = there is a part (1), the part (12, 0-padded). The app sync is "StatTrak | <part>" (or "StatTrak") from its next start; the update view and the accept view are always "StatTrak" |
 
 Status 2 = the data is not correct (an unknown id, a value out of range, a command that does not
 fit the install state). Status 11 = the person must answer "INSTALL <NAME>?" first: while the

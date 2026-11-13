@@ -25,8 +25,9 @@ Product status of the StatTrak firmware. Finding numbers (A1, B7, ...) are from
   with firmware 1.0.1; test firmware: 6 of 10 starts failed, 0 of 15 with the display off). The
   update view, the accept view and the app sync now show a small Bluetooth sign first and start
   the radio when only the sign is lit (docs/BLUETOOTH.md, "Radio start"). Same branch: the
-  app sync Bluetooth name is "StatTrak-" + a part of 12 characters at most, and up from the first
-  setting goes to the last one. Needs a device test on the weak unit and on a good unit.
+  app sync Bluetooth name is "StatTrak | " + a part of 12 characters at most, and the settings list
+  wraps (up from the first row goes to the last row, down from the last row to the first). Device test on the weak unit (2026-11-13): no failure, also with a high-power flashlight on
+  the same battery.
 
 ## Next up
 

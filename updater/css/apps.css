@@ -188,7 +188,7 @@
   font-family: var(--font-mono); font-size: 16px;
 }
 .apps .name__input[aria-invalid="true"] { border-color: var(--st-kill-red); }
-.apps .name__prefix { font-family: var(--font-mono); font-size: 16px; color: var(--fg2, inherit); margin-right: -6px; }
+.apps .name__prefix { font-family: var(--font-mono); font-size: 16px; color: var(--fg2, inherit); white-space: pre; margin-right: -6px; }
 .apps .name__input:disabled { opacity: 0.5; }
 .apps .name__msg { font-size: 14px; min-height: 1.45em; }
 .apps .name__msg:empty { display: none; }

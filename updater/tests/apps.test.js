@@ -349,8 +349,8 @@ test("the app code sends no firmware update command", () => {
 test("the Bluetooth name: read, write, back to StatTrak, the rules; the page refuses a bad name before it sends", async () => {
   const t = await connect({});
   same(await t.apps.deviceName(), { custom: false, part: "", name: "StatTrak" });
-  same(await t.apps.setDeviceName("Red 7"), { custom: true, part: "Red 7", name: "StatTrak-Red 7" });
-  same(await t.apps.deviceName(), { custom: true, part: "Red 7", name: "StatTrak-Red 7" });
+  same(await t.apps.setDeviceName("Red 7"), { custom: true, part: "Red 7", name: "StatTrak | Red 7" });
+  same(await t.apps.deviceName(), { custom: true, part: "Red 7", name: "StatTrak | Red 7" });
   assert.equal(t.device.deviceName, "Red 7");
   same(await t.apps.setDeviceName(""), { custom: false, part: "", name: "StatTrak" });
   assert.equal(t.device.deviceName, "");
@@ -367,12 +367,12 @@ test("the Bluetooth name: read, write, back to StatTrak, the rules; the page ref
   t.ota.disconnect();
 });
 
-test("pair(): a renamed device (StatTrak-<part>) is found by the name start; the firmware tab looks for StatTrak only", async () => {
+test("pair(): a renamed device (StatTrak | <part>) is found by the name start; the firmware tab looks for StatTrak only", async () => {
   // The name is used from the next start of "Apps: SYNC"
   const page = loadPageCode({ apps: true, deviceName: "RED 7" });
   page.device.screen = "counter";
   page.device.openAppSync();
-  assert.equal(page.device.bleName(), "StatTrak-RED 7");
+  assert.equal(page.device.bleName(), "StatTrak | RED 7");
   const ota = await page.StatTrakApps.pair();
   await once(ota, "bleConnected");
   same(page.device.requests[0], {
@@ -380,10 +380,10 @@ test("pair(): a renamed device (StatTrak-<part>) is found by the name start; the
     optionalServices: [0x8018],
   });
   assert.equal(page.StatTrakApps.ADVERTISED_UUID, page.FakeStatTrak.ADVERTISED_UUID);
-  assert.equal(ota.device.name, "StatTrak-RED 7");
+  assert.equal(ota.device.name, "StatTrak | RED 7");
   ota.disconnect();
 
-  // The firmware tab: the exact name "StatTrak" only; it does not find "StatTrak-RED 7" (the update
+  // The firmware tab: the exact name "StatTrak" only; it does not find "StatTrak | RED 7" (the update
   // view is "StatTrak")
   await rejects(page.BleOta.create(), { name: "NotFoundError" });
   same(page.device.requests[1], { filters: [{ name: "StatTrak" }], optionalServices: [0x8018] });
@@ -404,7 +404,7 @@ test("pair(): a browser that refuses the UUID filter gets the name filter", asyn
   page.device.openAppSync();
   const renamed = await page.StatTrakApps.pair();
   await once(renamed, "bleConnected");
-  assert.equal(renamed.device.name, "StatTrak-RED 7");
+  assert.equal(renamed.device.name, "StatTrak | RED 7");
   renamed.disconnect();
 });
 
@@ -743,7 +743,7 @@ test("section 6.8: DEVICE_NAME: read, write, the rules of a name, back to StatTr
   t.ota.disconnect();
   t.device.leaveAppSync();
   t.device.openAppSync();
-  assert.equal(t.device.bleName(), "StatTrak-ABCDEFGHIJKL");
+  assert.equal(t.device.bleName(), "StatTrak | ABCDEFGHIJKL");
   // The update view is always "StatTrak"
   t.device.screen = "counter";
   t.device.enterUpdateMode();

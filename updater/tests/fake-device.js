@@ -703,7 +703,7 @@
     ST_BUILTIN = 12, ST_LAST_SHOWN = 13;
   // apps.h, stapp.h
   const APPS_MAX_INSTALLED = 8, APPS_MAX_BYTES = 24 * 1024, APPS_LIST_MAX = 11, APPS_ERROR_LIMIT = 3;
-  const APPS_DEVICE_NAME_MAX = 12, GAP_NAME = "StatTrak", NAME_PREFIX = "StatTrak-";
+  const APPS_DEVICE_NAME_MAX = 12, GAP_NAME = "StatTrak", NAME_PREFIX = "StatTrak | ";
   const STAPP_MAX_SIZE = 4096, STAPP_RESERVED_IDS = 255, STAPP_MAX_NAME = 14;
   const STAPP_HANDLERS_OFFSET = 288, STAPP_HANDLERS_V1 = 8, STAPP_HANDLERS_V2 = 10;
   const STAPP_MIN_SIZE = STAPP_HANDLERS_OFFSET + 2 * STAPP_HANDLERS_V1 + 4;   // 308
@@ -1287,7 +1287,7 @@
         return answer(ST_OK, 1);
       }
       case APP_DEVICE_NAME: {
-        // The part after "StatTrak-". u8 0 = read, 1 = write; then 12 bytes at most, 0-padded (all 0 =
+        // The part after "StatTrak | ". u8 0 = read, 1 = write; then 12 bytes at most, 0-padded (all 0 =
         // no part: "StatTrak"). Answer: u8 1 = there is a part, then the part (12 bytes, 0-padded).
         if (d[0] > 1) return answer(ST_ERROR);
         if (d[0] === 1) {

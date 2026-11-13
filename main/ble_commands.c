@@ -226,7 +226,7 @@ static uint8_t _handleApp(const ota_user_cmd_t* cmd, uint8_t* response, uint8_t*
       *responseLen = 1;
     } return BLE_COMMAND_STATUS__OK;
 
-    // The name part after "StatTrak-". u8 0 = read, 1 = write; then the part (12 bytes at most),
+    // The name part after "StatTrak | ". u8 0 = read, 1 = write; then the part (12 bytes at most),
     // 0-padded (all 0 = no part: the name is "StatTrak"). Answer: u8 1 = there is a part, then
     // the part (12 bytes, 0-padded). A new part is used from the next start of the app sync.
     case BLE_COMMAND__APP_DEVICE_NAME: {
