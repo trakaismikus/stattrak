@@ -250,3 +250,36 @@ test("the header Connect is locked while a firmware update runs", { skip: SKIP }
   assert.deepEqual(await page.evaluate("window.__device.events"), []);
   await page.evaluate(`state.flashState = "ready"`);
 });
+
+test("the other pages: old firmware and a failed update are explained in the panel", { skip: SKIP }, async (t) => {
+  const old = await browser.newPage();
+  await old.setInitScript(initScript({ version: "1.0.1", apps: false }));
+  await old.goto(site.url + "/designer/index.html");
+  t.after(async () => { assert.deepEqual(old.errors, [], "errors in the page"); await old.close(); });
+  await act(old, '#devBar [data-dev="toggle"]');
+  await act(old, '#devBar [data-dev="connect"]');
+  await old.waitFor(`AppsTab.state.conn === "oldfw"`);
+  await act(old, '#devBar [data-dev="toggle"]');
+  assert.match(await textOf(old, "#devBar .devmenu"), /Update the firmware first Firmware 1\.0\.1 has no apps\./);
+  assert.match(await old.evaluate(`document.querySelector('#devBar a.btn').getAttribute("href")`), /^\.\.\/index\.html#firmware$/);
+
+  const round = CATALOG.apps.find((a) => a.name === "ROUND TIMER");
+  const page = await browser.newPage();
+  await page.setInitScript(initScript({ install: ["ROUND TIMER"], appQuestionMs: 60000 }));
+  await page.goto(site.url + "/designer/index.html");
+  t.after(async () => { assert.deepEqual(page.errors, [], "errors in the page"); await page.close(); });
+  await page.evaluate(`StatTrakApps.QUESTION_WAIT_MS = ${40000 / SPEED}`);
+  await act(page, '#devBar [data-dev="toggle"]');
+  await act(page, '#devBar [data-dev="connect"]');
+  await page.waitFor(`AppsTab.state.conn === "on"`);
+  // A newer ROUND TIMER that the device refuses: a package with a wrong name
+  await page.evaluate(`AppsTab.api.addCatalog("test", [{ key: "bad-round", id: 0x${round.id}, name: "ROUND TIMER", version: ${round.version + 1},
+    bytes: FakeStatTrak.makeApp({ name: "OTHER NAME", id: 0x${round.id}, version: ${round.version + 1} }),
+    size: FakeStatTrak.makeApp({ name: "OTHER NAME", id: 0x${round.id}, version: ${round.version + 1} }).length }])`);
+  await act(page, '#devBar [data-dev="toggle"]');
+  await act(page, '#devBar [data-dev="update"]');
+  await page.waitFor(`AppsTab.state.err`, 20000);
+  if (!(await page.evaluate("DevBar.isOpen()"))) await act(page, '#devBar [data-dev="toggle"]');
+  await page.waitFor(`document.querySelector("#devBar .devmenu__msg--error")`);
+  assert.equal(await textOf(page, "#devBar .devmenu__msg--error"), await page.evaluate("AppsTab.state.err.text"));
+});

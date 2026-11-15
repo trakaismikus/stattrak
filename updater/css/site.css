@@ -124,6 +124,10 @@
 .devmenu__wait { color: var(--accent); font-weight: 700; }
 .devmenu .step1-instructions { margin: 0; text-align: left; font-size: 15px; line-height: 2.1; }
 .devmenu__console { align-self: flex-start; }
+.devmenu__msg { margin: 0; font-size: 15px; color: var(--fg2); }
+.devmenu__msg b { color: var(--fg1); }
+.devmenu__msg--error, .devmenu__msg--error b { color: var(--st-kill-red); }
+.devmenu__msg--warn b { color: var(--st-warning); }
 .devmenu__count { font-family: var(--font-mono); font-style: normal; font-weight: 400; letter-spacing: 0; color: var(--fg3); }
 .devmenu__note { margin: 0; color: var(--fg3); font-size: 14px; }
 .devmenu__btns { display: flex; gap: 8px; }

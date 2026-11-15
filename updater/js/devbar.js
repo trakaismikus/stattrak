@@ -35,12 +35,13 @@ const DevBar = (() => {
       const s = a.state;
       return {
         kind: "sync", name: a.namePart() || "StatTrak", serial: s.serial, fw: s.fw,
-        used: a.usedBytes(), max: a.maxBytes, updates: a.updates(), inst: s.inst, busy: a.busy(),
+        used: a.usedBytes(), max: a.maxBytes, updates: a.updates(), inst: s.inst, busy: a.busy(), err: s.err,
       };
     }
     const f = fwState();
     if (f && f.device) return { kind: "fw", name: "StatTrak", serial: f.device.id, fw: f.device.fw, busy: f.flashState === "flashing" || f.flashState === "verifying" };
-    return { kind: "off", connecting: !!(a && a.state.conn === "connecting"), locked: !!(a && a.firmwareBusy()) };
+    return { kind: "off", connecting: !!(a && a.state.conn === "connecting"), locked: !!(a && a.firmwareBusy()),
+      oldfw: !!(a && a.state.conn === "oldfw") ? a.state.fw || "this StatTrak" : "", banner: a && a.state.banner };
   }
 
   function vButton(d) {
@@ -58,7 +59,15 @@ const DevBar = (() => {
 
   function vPanel(d) {
     if (d.kind === "off") {
+      // The messages of My device (old firmware, connection lost, not in Apps: SYNC): here too,
+      // because the other pages have no My device view
+      if (d.oldfw) {
+        return '<div class="devmenu" role="dialog" aria-label="Update the firmware first"><div class="devmenu__head"><span class="devmenu__title">Update the firmware first</span></div>' +
+          `<p class="devmenu__msg">Firmware ${esc(d.oldfw)} has no apps.</p>` +
+          `<a class="btn btn--primary" href="${page("firmware")}" data-dev="close">Update firmware</a></div>`;
+      }
       return '<div class="devmenu" role="dialog" aria-label="Connect StatTrak"><div class="devmenu__head"><span class="devmenu__title">Connect StatTrak</span></div>' +
+        (d.banner ? `<p class="devmenu__msg devmenu__msg--${esc(d.banner.kind)}"><b>${esc(d.banner.title)}</b>${d.banner.body ? " " + esc(d.banner.body) : ""}</p>` : "") +
         SiteUI.crumbs(["Settings", "Apps: SYNC", "Hold right button"]) +
         `<button class="btn btn--primary" type="button" data-dev="connect"${d.connecting || d.locked ? " disabled" : ""}>${icon(BT)}Connect</button>` +
         (d.locked ? '<p class="devmenu__note">A firmware update runs. Wait until it is complete.</p>' : '<p class="devmenu__note">For a firmware update, open the Firmware tab.</p>') + "</div>";
@@ -82,7 +91,8 @@ const DevBar = (() => {
           const act = mine ? `<span class="devmenu__wait">${d.inst.phase === "transfer" ? Math.round(d.inst.pct) + "%" : "Answer on StatTrak"}</span>`
             : room ? `<span class="devmenu__v">${esc(room.text)}</span>`
             : `<button class="btn btn--primary btn--sm" type="button" data-dev="update" data-id="${u.app.id}"${d.busy ? " disabled" : ""}>Update</button>`;
-          return `<div class="devmenu__row"><span><b>${esc(u.app.name)}</b> <span class="devmenu__v">v${u.app.version} → v${u.item.version}</span></span>${act}</div>`;
+          const err = d.err && d.err.key === u.item.key ? `<div class="devmenu__msg devmenu__msg--error">${esc(d.err.text)}</div>` : "";
+          return `<div class="devmenu__row"><span><b>${esc(u.app.name)}</b> <span class="devmenu__v">v${u.app.version} → v${u.item.version}</span></span>${act}</div>` + err;
         }).join("") + "</div>";
     }
     if (typeof SiteConsole !== "undefined") {
