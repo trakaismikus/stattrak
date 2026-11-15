@@ -20,7 +20,7 @@ This page is the specification. It is for AI coding tools and developers.
 | Engine | `components/stapp/` (`stapp.h`, `stapp_vm.c`, `stapp_check.c`) | Checks a package, runs its code with limits. No ESP-IDF headers. |
 | App list and storage | `main/apps.c` | Built-in apps + installed apps, menu order, shown / hidden, the packages and their values in NVS. |
 | App host | `main/views/app_host_view.c` | Runs the selected installed app as a view. |
-| App settings | `main/views/app_settings_view.c` | The settings of one app (hold button 2 on its title picture in the app menu). |
+| App settings | `main/views/app_settings_view.c` | The settings of one app (hold the right button on its title picture in the app menu). |
 | App sync | `main/views/app_sync_view.c` + setting "Apps: SYNC" | Bluetooth on for the app manager, firmware update refused, install question. |
 | Bluetooth commands | `main/ble_commands.c` | `0x0110` to `0x011C` (section 6); the data commands `0x0120` to `0x012A` are in [DATA.md](DATA.md). |
 | Compiler | `tools/app.py` | `.sts` source -> `.stapp` package, with the same check as the engine. |
@@ -302,12 +302,12 @@ display (any command that changes apps answers 11 until the person answers), 12 
 Install: BEGIN, ASK, then STATUS until the person answers "INSTALL <NAME>?": 1 = yes, 4 = no,
 5 = no answer in 30 s. After yes: DATA from offset 0 in order, then END. END checks the package
 and writes it to flash once; its status 0 = installed (STATUS 3). Only a hold that starts while
-the question shows answers it (hold button 2 = yes, hold button 1 = no); the button fills from
-the left while it is held. While it receives, 10 s without DATA or a hold of button 1 stops the
+the question shows answers it (hold the right button = yes, hold the left button = no); the button fills from
+the left while it is held. While it receives, 10 s without DATA or a hold of the left button stops the
 transfer (STATUS 0 again, the display shows "NOT INSTALLED"); the page then starts with BEGIN.
 
-After the install the display shows "APP INSTALLED", the name, SYNC MORE (hold button 1: wait
-for the next app) and OPEN (hold button 2: the app opens, and Bluetooth goes off, so the page
+After the install the display shows "APP INSTALLED", the name, SYNC MORE (hold the left button:
+wait for the next app) and OPEN (hold the right button: the app opens, and Bluetooth goes off, so the page
 loses the connection). A new BEGIN also works without SYNC MORE.
 
 The Bluetooth name of "Apps: SYNC" always starts with "StatTrak": "StatTrak | " and the part that

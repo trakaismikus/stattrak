@@ -13,6 +13,14 @@
  *   from the 1.0.1 simulator: tools/device_art/fw101/make_update_path.py). index.html loads it.
  * - "still": one picture of the page (the start picture of the Apps tab): arg = the id that
  *   StDevice.still(pixels) gives. A new arg on the element shows the new picture.
+ * - "sync-path": the way to Settings > Apps: SYNC on the firmware of this repository
+ *   (assets/sync-path.js, from the headless simulator: tools/device_art/make_sync_path.py;
+ *   tests/test_sync_path.py fails when the firmware draws it in an other way). index.html loads it.
+ *
+ * Attributes: anim, arg, label (the text for screen readers), base (the path to the folder with
+ * assets/, for a page in a sub folder: base="../"). With no anim the display stays dark and no
+ * button is lit; el.showBuffer({ w: 128, h: 32, d }) then draws a picture of your own on it (d: one
+ * byte per pixel, 1 = on). The Screen Designer uses that for its small view.
  *
  * The animations run on one clock: a list that the page draws again continues where it was.
  * With "reduce motion" on, the element shows one frame.
@@ -53,6 +61,11 @@ const StDevice = (() => {
     "update-1.0.1": () => {
       const data = typeof window !== "undefined" && window.STATTRAK_UPDATE_PATH;   // assets/update-path-1.0.1.js
       if (!data) throw new Error("assets/update-path-1.0.1.js is not loaded");
+      return data.frames.map((f) => ({ b: fromRows(f.rows), ms: f.ms, press: f.press === "-" ? "" : f.press }));
+    },
+    "sync-path": () => {
+      const data = typeof window !== "undefined" && window.STATTRAK_SYNC_PATH;      // assets/sync-path.js
+      if (!data) throw new Error("assets/sync-path.js is not loaded");
       return data.frames.map((f) => ({ b: fromRows(f.rows), ms: f.ms, press: f.press === "-" ? "" : f.press }));
     },
   };
@@ -103,10 +116,10 @@ const StDevice = (() => {
         this.built = true;
         this.setAttribute("role", "img");
         this.innerHTML =
-          '<img class="st-dev__pic" src="assets/device.webp" alt="" draggable="false">' +
+          '<img class="st-dev__pic" alt="" draggable="false">' +
           '<canvas class="st-dev__screen"></canvas><span class="st-dev__glass"></span>' +
-          '<span class="st-dev__btn st-dev__btn--1"></span><span class="st-dev__btn st-dev__btn--2"></span>' +
-          '<span class="st-dev__lbl st-dev__lbl--1">1</span><span class="st-dev__lbl st-dev__lbl--2">2</span>';
+          '<span class="st-dev__btn st-dev__btn--1"></span><span class="st-dev__btn st-dev__btn--2"></span>';
+        this.querySelector("img").src = (this.getAttribute("base") || "") + "assets/device.webp";
         this.canvas = this.querySelector("canvas");
       }
       if (this.getAttribute("label")) this.setAttribute("aria-label", this.getAttribute("label"));
@@ -124,6 +137,12 @@ const StDevice = (() => {
 
     start() {
       this.stop();
+      if (!this.getAttribute("anim")) {                     // no animation: dark, or the picture of showBuffer
+        this.list = null; this.key = null; this.dataset.press = "";
+        if (this.custom) this.showBuffer(this.custom);
+        return;
+      }
+      this.custom = null;
       const { key, frames } = framesOf(this.getAttribute("anim"), this.getAttribute("arg"));
       this.key = key;
       frames.then((list) => {
@@ -139,6 +158,21 @@ const StDevice = (() => {
     }
 
     stop() { if (this.raf) cancelAnimationFrame(this.raf); this.raf = 0; }
+
+    /* A picture of your own on the display ({ w: 128, h: 32, d }), with no animation */
+    showBuffer(b) {
+      this.stop();
+      this.list = null;
+      this.index = -1;
+      this.dataset.press = "";
+      this.custom = b;
+      if (!this.canvas) return;                              // drawn when the element is on the page
+      const ratio = window.devicePixelRatio || 1;
+      const width = Math.max(128, Math.round(this.canvas.clientWidth * ratio));
+      const height = Math.max(32, Math.round(this.canvas.clientHeight * ratio));
+      if (this.canvas.width !== width || this.canvas.height !== height) { this.canvas.width = width; this.canvas.height = height; }
+      draw(this.canvas, b);
+    }
 
     frameAt(elapsed) {
       if (reduceMotion()) return this.list.length - 1;      // the last frame: where the steps lead

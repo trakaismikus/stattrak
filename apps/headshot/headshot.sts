@@ -6,7 +6,7 @@
 
 app "HEADSHOT %"
 version 1
-description "Counts kills and headshots and shows the headshot percentage. Button 1: kill, button 2: headshot, hold: undo."
+description "Counts kills and headshots and shows the headshot percentage. Left button: kill, right button: headshot, hold: undo."
 picture icon headshot "HEADSHOT" "PERCENT"
 permission counters
 

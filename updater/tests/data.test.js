@@ -357,7 +357,8 @@ test("device log: newest first, the reason texts, the CSV", async () => {
 });
 
 test("while the device asks, the commands that change something get status 11", async () => {
-  const t = await connect({ installedApps: APPS, appData: { [RUNNER]: { columns: ["A"], rows: [[1]] } } });
+  // The question must not time out during the test (400 ms is too short when the computer is busy)
+  const t = await connect({ installedApps: APPS, appQuestionMs: 30000, appData: { [RUNNER]: { columns: ["A"], rows: [[1]] } } });
   // DATA_CLEAR alone (without the wait of dataClear): the device asks
   await t.apps._ok(t.page.StatTrakData.CMD__DATA_CLEAR, t.page.StatTrakApps._id(RUNNER));
   assert.equal(t.device.display, "DELETE RUNNER DATA?");
