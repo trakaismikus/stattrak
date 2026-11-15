@@ -169,6 +169,15 @@ test("Trace keeps a picture under the screen, only in the browser", { skip: SKIP
   assert.equal(await page.evaluate("document.querySelector('[data-tr=pct]').value"), "125");
   await click("[data-act=tr-fith]");
   assert.equal(await page.evaluate("document.querySelector('[data-tr=pct]').value"), "100");
+  // a new size in %: X and Y follow (the picture grows around its middle)
+  await page.evaluate("const i = document.querySelector('[data-tr=pct]'); i.value = '300'; i.dispatchEvent(new Event('input', { bubbles: true }))");
+  assert.equal(await page.evaluate("document.querySelector('[data-tr=x]').value"), "-32");   // 64 x 32 at x 32 -> 192 x 96 at x -32
+  assert.equal(await page.evaluate("document.querySelector('[data-tr=y]').value"), "-32");
+  // a corner outside the screen: its handle is at the edge, and a small drag does not jump the size
+  await mouse("mousePressed", at(127.8, 31.8));
+  await mouse("mouseMoved", at(127.9, 31.8));
+  await mouse("mouseReleased", at(127.9, 31.8));
+  assert.equal(await page.evaluate("document.querySelector('[data-tr=pct]').value"), "300");
   const text = await page.evaluate("StatTrakDesign.buildPrompt(StatTrakDesigner.project, window.STATTRAK_ASSETS, {})");
   assert.ok(!text.includes("data:image"), "the trace picture is not in the text for the AI");
 });

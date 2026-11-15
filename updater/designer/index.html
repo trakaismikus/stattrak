@@ -1266,8 +1266,8 @@ cvOv.addEventListener('pointerdown', e => {
     if (!t) { $('#traceIn').click(); return; }
     const q = toPixF(e), k = traceCornerAt(t, q);
     if (k >= 0) {
-      const anchor = traceCorners(t)[3 - k];        // the opposite corner stays
-      drag = { mode: 'traceSize', anchor, left: k === 0 || k === 2, top: k < 2 };
+      const cs = traceCorners(t), anchor = cs[3 - k];   // the opposite corner stays
+      drag = { mode: 'traceSize', anchor, left: k === 0 || k === 2, top: k < 2, dx: cs[k].x - q.x, dy: cs[k].y - q.y };
     } else {
       drag = { mode: 'trace', start: q, orig: { x: t.x, y: t.y } };
     }
@@ -1357,7 +1357,8 @@ cvOv.addEventListener('pointermove', e => {
   }
   const el = EL();
   if (drag.mode === 'traceSize') {
-    const t = traceOf(), q = toPixF(e), a = drag.anchor;
+    const t = traceOf(), p0 = toPixF(e), a = drag.anchor;
+    const q = { x: p0.x + drag.dx, y: p0.y + drag.dy };
     if (t) {
       t.w = Math.max(2, Math.abs(q.x - a.x), Math.abs(q.y - a.y) / t.ratio);
       t.x = drag.left ? a.x - t.w : a.x;
@@ -2128,7 +2129,7 @@ function traceAction(act) {
   if (act === 'tr-done') { setTool('select'); return; }
   if (act === 'tr-pick') { $('#traceIn').click(); return; }
   if (!t) return;
-  if (act === 'tr-del') { delete traces[S().id]; saveTraces(); placeTrace(); renderTracePanel(); return; }
+  if (act === 'tr-del') { delete traces[S().id]; saveTraces(); placeTrace(); renderTracePanel(); drawOverlay(); return; }
   if (act === 'tr-fitw') { t.w = W; t.x = 0; t.y = (H - W * t.ratio) / 2; }
   if (act === 'tr-fith') { t.w = H / t.ratio; t.y = 0; t.x = (W - t.w) / 2; }
   saveTraces(); placeTrace(); syncTracePanel(); drawOverlay();
@@ -2143,7 +2144,7 @@ insp.addEventListener('input', e => {
     t.x = cx - t.w / 2; t.y = cy - t.w * t.ratio / 2;
   }
   else t[k] = clamp(v, -LIMIT, LIMIT);
-  placeTrace(); saveTraces(); drawOverlay();
+  placeTrace(); saveTraces(); drawOverlay(); syncTracePanel();
 });
 /* A large picture is made smaller (it is kept in the browser storage) */
 $('#traceIn').addEventListener('change', e => {
@@ -2162,7 +2163,7 @@ $('#traceIn').addEventListener('change', e => {
     traces[S().id] = { src: c.toDataURL('image/jpeg', 0.85), ratio, w, x: (W - w) / 2, y: 0, opacity: 0.5 };
     saveTraces();
     if (tool !== 'trace') setTool('trace'); else renderInspector();
-    placeTrace();
+    placeTrace(); drawOverlay();
   };
   img.onerror = () => { URL.revokeObjectURL(url); toast(`"${f.name}" is not a picture that this browser can open.`, null, null, true); };
   img.src = url;
