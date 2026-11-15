@@ -13,6 +13,7 @@
 #include "board.h"
 #include "battery.h"
 #include "settings_view.h"
+#include "apps.h"
 #include "time.h"
 
 #include <stdio.h>
@@ -22,6 +23,8 @@
 /* > Local Function Declarations ******************************************************************/
 static bool _eventHandler(uint16_t event);
 static void _draw(void);
+static void _open(void);
+static void _buildOrder(void);
 
 static void _setupAnimation(animation_t * animation);
 static void _updateAnimation(animation_t * animation, uint32_t progress);
@@ -131,11 +134,18 @@ static uint8_t s_settingOrderList[SETTING_ID_COUNT] = {
   #undef SETTING
 };
 static uint8_t s_settingCount = elemof(s_settingOrderList);
+static bool s_batteryRows = true;     // Show Bat and Low Bat: only for a battery type with a battery
+
+// Settings > Background (docs/APPS.md section 4.6): OFF, then the installed apps with the permission
+// "background", in the order of the app list. The row is in the list only if there is such an app.
+static const char* s_backgroundNames[1 + APPS_MAX_INSTALLED] = { "OFF" };
+static uint32_t s_backgroundIds[1 + APPS_MAX_INSTALLED] = { APPS_ID__NONE };
 
 
 /* > Global Variables ******************************************************************************/
 view_t g_settingsView = {
   .ctx = &s_settingsView,
+  .init = _open,
   .eventHandler = _eventHandler,
   .draw = _draw,
 };
@@ -176,7 +186,8 @@ void SettingsView_init(void) {
   }
 
   // If battery type is NONE or USB, remove it from setting order list
-  SettingsView_setBatteryType(Eeprom_read(ENTRY_ID__BATTERY_TYPE));
+  s_batteryRows = (Eeprom_read(ENTRY_ID__BATTERY_TYPE) > BATTERY_TYPE__USB);
+  SettingsView_refreshBackground();
 
   // Get FW Version
   const char* fwVer = Board_getFwVersion();
@@ -196,20 +207,66 @@ uint8_t SettingsView_getSelectedId(void) {
 
 
 void SettingsView_setBatteryType(uint8_t type) {
-  // If battery type is NONE or USB, remove it from setting order list
-  if(type <= BATTERY_TYPE__USB && s_settingCount == elemof(s_settingOrderList)) {
-    // Remove Show Battery and Low Battery settings
-    memmove(&s_settingOrderList[SETTING_ID__SHOW_BATTERY], &s_settingOrderList[SETTING_ID__BRIGHTNESS], (SETTING_ID_COUNT - SETTING_ID__BRIGHTNESS) * sizeof(s_settingOrderList[0]));
-    s_settingCount -= 2;
-  } else {
-    // Add back Show Battery and Low Battery settings
-    if(type > BATTERY_TYPE__USB && s_settingCount < elemof(s_settingOrderList)) {
-      memmove(&s_settingOrderList[SETTING_ID__BRIGHTNESS], &s_settingOrderList[SETTING_ID__SHOW_BATTERY], (SETTING_ID_COUNT - SETTING_ID__BRIGHTNESS) * sizeof(s_settingOrderList[0]));
-      s_settingOrderList[SETTING_ID__SHOW_BATTERY] = SETTING_ID__SHOW_BATTERY;
-      s_settingOrderList[SETTING_ID__LOW_BAT] = SETTING_ID__LOW_BAT;
-      s_settingCount = elemof(s_settingOrderList);
-    }
+  // If battery type is NONE or USB, remove Show Battery and Low Battery from the setting order list
+  s_batteryRows = (type > BATTERY_TYPE__USB);
+  _buildOrder();
+}
+
+
+void SettingsView_refreshBackground(void) {
+  setting_entry_t* entry = &kSettingEntries[SETTING_ID__BACKGROUND];
+  uint8_t count = 1;
+  const uint32_t chosen = Apps_getBackground();
+
+  s_settingValues[SETTING_ID__BACKGROUND] = 0;
+  for(uint8_t i = 0; i < Apps_getCount() && count < elemof(s_backgroundIds); i++) {
+    uint32_t id = APPS_ID__NONE;
+    uint8_t flags = 0;
+    if(!Apps_getEntry(i, &id, &flags) || !Apps_canRunInBackground(id) || Apps_getName(id) == NULL)
+      continue;
+    if(id == chosen)
+      s_settingValues[SETTING_ID__BACKGROUND] = count;
+    s_backgroundIds[count] = id;
+    s_backgroundNames[count] = Apps_getName(id);
+    count++;
   }
+  entry->valueStrs = s_backgroundNames;
+  entry->valueCount = count;
+  _buildOrder();
+}
+
+
+uint32_t SettingsView_getBackgroundApp(uint32_t value) {
+  const setting_entry_t* entry = &kSettingEntries[SETTING_ID__BACKGROUND];
+  return (value < entry->valueCount) ? s_backgroundIds[value] : APPS_ID__NONE;
+}
+
+
+// The rows of the list: all settings, without the battery rows (no battery) and without
+// Background (no app can run in the background)
+static void _buildOrder(void) {
+  uint8_t count = 0;
+  for(uint8_t id = 0; id < SETTING_ID_COUNT; id++) {
+    if(!s_batteryRows && (id == SETTING_ID__SHOW_BATTERY || id == SETTING_ID__LOW_BAT))
+      continue;
+    if(id == SETTING_ID__BACKGROUND && kSettingEntries[SETTING_ID__BACKGROUND].valueCount < 2)
+      continue;
+    s_settingOrderList[count++] = id;
+  }
+  s_settingCount = count;
+
+  // The cursor stays on its row (a row before it can come or go)
+  if(s_settingsView.idx >= s_settingCount) {
+    s_settingsView.idx = (int16_t)(s_settingCount - 1);
+    s_animValue.value = s_settingsView.idx * 256;
+    s_animValue.offset = s_animValue.value;
+  }
+}
+
+
+// The view opens: the apps can be other ones now (Apps: SYNC)
+static void _open(void) {
+  SettingsView_refreshBackground();
 }
 
 

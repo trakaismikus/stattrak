@@ -13,11 +13,11 @@ const StappFile = (() => {
   const PICTURE_OFFSET = 48;
   const PICTURE_SIZE = 240;
   const HANDLERS_OFFSET = 288;
-  const HANDLER_COUNT = { 1: 8, 2: 10 };   // format 1: open .. close; format 2: also down1, down2
+  const HANDLER_COUNT = { 1: 8, 2: 10, 3: 12 };   // format 1: open .. close; 2: also down1, down2; 3: also kill, death
   const MIN_SIZE = HANDLERS_OFFSET + 2 * HANDLER_COUNT[1] + 4;   // 308: header, picture, handler table, CRC
   const MAX_SIZE = 4096;
-  const FORMAT_VERSION = 2;            // the newest format that this page knows
-  const PERMISSIONS = ["counters", "sound"];
+  const FORMAT_VERSION = 3;            // the newest format that this page knows
+  const PERMISSIONS = ["counters", "sound", "data", "awake", "background"];   // format 3: data, awake, background
 
   // CRC-32 (IEEE), as zlib.crc32 and Stapp_crc32()
   const TABLE = (() => {
@@ -365,93 +365,126 @@ class StatTrakApps {
 
       // The person answers on the device
       if (onWaitingForDevice) onWaitingForDevice();
-      const start = Date.now();
-      for (;;) {
-        await new Promise((resolve) => setTimeout(resolve, StatTrakApps.STATUS_POLL_MS));
-        const state = await this._state();
-        if (state === StatTrakApps.STATE__RECEIVING) break;
-        if (state === StatTrakApps.STATE__REFUSED) return "refused";
-        if (state === StatTrakApps.STATE__TIMEOUT) return "timeout";
-        if (state !== StatTrakApps.STATE__WAITING) throw new AppsError("bad answer", "The install state is not correct: " + state);
-        if (Date.now() - start > StatTrakApps.QUESTION_WAIT_MS) return "timeout";
+      const answer = await this._waitForPerson(StatTrakApps.STATE__RECEIVING);
+      if (answer !== "yes") return answer;
+
+      const sent = await this._sendParts(bytes, onProgress);
+      if (sent === "stopped") return "stopped";
+      if (sent.end.status === StatTrakApps.STATUS__BAD_PACKAGE) {
+        const reason = StatTrakApps.RESULT_TEXTS[sent.end.data[0]] || "bad package";
+        throw new AppsError("status", "StatTrak answered status 10 to END", { status: sent.end.status, reason });
       }
+      return "installed";
+    });
+  }
 
-      let offset = 0;
-      let resends = 0;
-      let noAnswer = 0;
-      const resend = (expected) => {
-        if (expected > size || ++resends > StatTrakApps.MAX_RESENDS) {
-          throw new AppsError("bad answer", "The transfer does not go forward");
-        }
-        return expected;
-      };
-      /* After a lost answer, or an answer that belongs to an earlier command: wait until the
-         late answers are in. Else each next command reads the answer of the command before it. */
-      const drain = () => new Promise((resolve) => setTimeout(resolve, StatTrakApps.DRAIN_MS));
-      /* Status 2 to DATA or END and STATUS 0: the device stopped the transfer (a hold of
-         button 1, or 10 s without data) */
-      const refused = async (cmd, status) => {
-        if (status === StatTrakApps.STATUS__ERROR && (await this._state()) === StatTrakApps.STATE__IDLE) return "stopped";
-        throw new AppsError("status", `StatTrak answered status ${status} to ${cmd}`, { status });
-      };
-      if (onProgress) onProgress(0);
-      for (;;) {
-        while (offset < size) {
-          const data = new Uint8Array(16);
-          data[0] = offset & 0xFF;
-          data[1] = offset >> 8;
-          data.set(bytes.subarray(offset, offset + StatTrakApps.DATA_BYTES), 2);
-          let answer;
-          try {
-            answer = await this._command(StatTrakApps.CMD__DATA, data);
-          } catch (error) {
-            // A lost answer: the same data again. The device answers "wrong offset" if it has it.
-            if (error.kind === "no answer" && ++noAnswer < StatTrakApps.NO_ANSWER_TRIES && this.ota.isConnected()) {
-              await drain();
-              continue;
-            }
-            throw error;
-          }
-          noAnswer = 0;
-          const expected = StatTrakApps._u16(answer.data, 0);
-          if (answer.status === StatTrakApps.STATUS__OK) {
-            const next = Math.min(offset + StatTrakApps.DATA_BYTES, size);
-            if (expected !== next) {
-              // The answer of an earlier DATA command: the answer to this one comes later
-              await drain();
-              offset = resend(Math.min(expected, offset));
-            } else {
-              offset = next;
-            }
-          } else if (answer.status === StatTrakApps.STATUS__OFFSET) {
-            offset = resend(expected);
-          } else {
-            return refused("DATA", answer.status);
-          }
-          if (onProgress) onProgress(offset / size);
-        }
+  /* After a question on the device: STATUS until the person answers. `yes` = the state of "yes"
+     (1 receiving: send the data; 3 done: the device did it). Returns "yes", "refused" (the person
+     said no) or "timeout" (no answer in 30 s). */
+  async _waitForPerson(yes) {
+    const start = Date.now();
+    for (;;) {
+      await new Promise((resolve) => setTimeout(resolve, StatTrakApps.STATUS_POLL_MS));
+      const state = await this._state();
+      if (state === yes) return "yes";
+      if (state === StatTrakApps.STATE__REFUSED) return "refused";
+      if (state === StatTrakApps.STATE__TIMEOUT) return "timeout";
+      if (state !== StatTrakApps.STATE__WAITING) throw new AppsError("bad answer", "The state is not correct: " + state);
+      if (Date.now() - start > StatTrakApps.QUESTION_WAIT_MS) return "timeout";
+    }
+  }
 
-        // END checks the package and writes it to flash: status 0 = installed
-        let end;
+  /* The DATA and END steps of a transfer: a package (install) or a transfer of docs/DATA.md 5.1.
+     options.sparse: send only the parts that are not all 0, and take each one that the device
+     answers with OK (the preview frame: any order, missing parts are 0).
+     options.doneState: the STATUS state after a good END (default 3), for an END whose answer was
+     lost. Returns { end } (the END answer: status 0, or 10 with the reason in end.data[0]) or
+     "stopped" (the device stopped the transfer: a hold of button 1, or 10 s without data). Throws
+     AppsError for an other status. */
+  async _sendParts(bytes, onProgress, options) {
+    const size = bytes.length;
+    const sparse = !!(options && options.sparse);
+    const doneState = options && options.doneState !== undefined ? options.doneState : StatTrakApps.STATE__INSTALLED;
+    const step = StatTrakApps.DATA_BYTES;
+    // The next part to send from `offset` (sparse: the parts that are all 0 stay out)
+    const next = (offset) => {
+      if (!sparse) return offset;
+      while (offset < size && bytes.subarray(offset, offset + step).every((b) => b === 0)) offset += step;
+      return offset;
+    };
+    let offset = 0;
+    let resends = 0;
+    let noAnswer = 0;
+    const resend = (expected) => {
+      if (expected > size || ++resends > StatTrakApps.MAX_RESENDS) {
+        throw new AppsError("bad answer", "The transfer does not go forward");
+      }
+      return expected;
+    };
+    /* After a lost answer, or an answer that belongs to an earlier command: wait until the
+       late answers are in. Else each next command reads the answer of the command before it. */
+    const drain = () => new Promise((resolve) => setTimeout(resolve, StatTrakApps.DRAIN_MS));
+    /* Status 2 to DATA or END and STATUS 0: the device stopped the transfer (a hold of
+       button 1, or 10 s without data) */
+    const refused = async (cmd, status) => {
+      if (status === StatTrakApps.STATUS__ERROR && (await this._state()) === StatTrakApps.STATE__IDLE) return "stopped";
+      throw new AppsError("status", `StatTrak answered status ${status} to ${cmd}`, { status });
+    };
+    if (onProgress) onProgress(0);
+    for (;;) {
+      while ((offset = next(offset)) < size) {
+        const data = new Uint8Array(16);
+        data[0] = offset & 0xFF;
+        data[1] = offset >> 8;
+        data.set(bytes.subarray(offset, offset + step), 2);
+        let answer;
         try {
-          end = await this._command(StatTrakApps.CMD__END);
+          answer = await this._command(StatTrakApps.CMD__DATA, data);
         } catch (error) {
-          // END writes the app: if only its answer was lost, STATUS says installed (3)
-          if (error.kind === "no answer" && (await this._state()) === StatTrakApps.STATE__INSTALLED) return "installed";
+          // A lost answer: the same data again. The device answers "wrong offset" if it has it.
+          if (error.kind === "no answer" && ++noAnswer < StatTrakApps.NO_ANSWER_TRIES && this.ota.isConnected()) {
+            await drain();
+            continue;
+          }
           throw error;
         }
-        if (end.status === StatTrakApps.STATUS__OK) return "installed";
-        if (end.status === StatTrakApps.STATUS__OFFSET) {
-          offset = resend(StatTrakApps._u16(end.data, 0));
-          continue;
+        noAnswer = 0;
+        const expected = StatTrakApps._u16(answer.data, 0);
+        if (answer.status === StatTrakApps.STATUS__OK) {
+          const after = Math.min(offset + step, size);
+          if (!sparse && expected !== after) {
+            // The answer of an earlier DATA command: the answer to this one comes later
+            await drain();
+            offset = resend(Math.min(expected, offset));
+          } else {
+            offset = after;
+          }
+        } else if (answer.status === StatTrakApps.STATUS__OFFSET && !sparse) {
+          offset = resend(expected);
+        } else {
+          return refused("DATA", answer.status);
         }
-        if (end.status === StatTrakApps.STATUS__BAD_PACKAGE) {
-          const reason = StatTrakApps.RESULT_TEXTS[end.data[0]] || "bad package";
-          throw new AppsError("status", "StatTrak answered status 10 to END", { status: end.status, reason });
-        }
-        return refused("END", end.status);
+        if (onProgress) onProgress(offset / size);
       }
-    });
+
+      // END checks the data and uses it: status 0 = done
+      let end;
+      try {
+        end = await this._command(StatTrakApps.CMD__END);
+      } catch (error) {
+        // END does the work: if only its answer was lost, STATUS says done
+        if (error.kind === "no answer" && (await this._state()) === doneState) {
+          return { end: { status: StatTrakApps.STATUS__OK, data: new Uint8Array(13), lost: true } };
+        }
+        throw error;
+      }
+      if (end.status === StatTrakApps.STATUS__OK || end.status === StatTrakApps.STATUS__BAD_PACKAGE) return { end };
+      if (end.status === StatTrakApps.STATUS__OFFSET && !sparse) {
+        offset = resend(StatTrakApps._u16(end.data, 0));
+        continue;
+      }
+      return refused("END", end.status);
+    }
   }
 
   /* STATUS: the install state (STATE__*) */

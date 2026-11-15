@@ -30,7 +30,17 @@ typedef enum app_sync_state_e {
   APP_SYNC_STATE__INSTALLED,
   APP_SYNC_STATE__REFUSED,
   APP_SYNC_STATE__TIMEOUT,
+  APP_SYNC_STATE__PREVIEW,      // A preview frame shows (docs/DATA.md)
 } app_sync_state_t;
+
+// What a transfer or a question is for (the second byte of STATUS). Values are stable.
+typedef enum app_sync_kind_e {
+  APP_SYNC_KIND__PACKAGE = 0,   // An app install (BEGIN)
+  APP_SYNC_KIND__RESTORE,       // XFER_BEGIN kind 1
+  APP_SYNC_KIND__START_PIC,     // XFER_BEGIN kind 2
+  APP_SYNC_KIND__PREVIEW,       // XFER_BEGIN kind 3
+  APP_SYNC_KIND__CLEAR,         // DATA_CLEAR
+} app_sync_kind_t;
 
 typedef enum app_sync_result_e {
   APP_SYNC_OK = 0,
@@ -51,6 +61,7 @@ typedef enum app_sync_result_e {
 bool              AppSync_isActive(void);
 
 app_sync_state_t  AppSync_getState(void);
+app_sync_kind_t   AppSync_getKind(void);
 bool              AppSync_isWaiting(void);
 
 // The install steps of the Bluetooth commands
@@ -59,6 +70,13 @@ app_sync_result_t AppSync_begin(uint32_t id, uint32_t size, uint32_t crc);
 app_sync_result_t AppSync_ask(const uint8_t* name, uint8_t length);
 app_sync_result_t AppSync_data(uint16_t offset, const uint8_t* data, uint8_t length, uint16_t* expected);
 app_sync_result_t AppSync_end(stapp_result_t* reason, uint16_t* expected);
+
+// docs/DATA.md: a transfer (restore, start picture, preview frame), the "DELETE <NAME> DATA?"
+// question, the end of a preview, and the counts of the last restore (END answer)
+app_sync_result_t AppSync_xferBegin(app_sync_kind_t kind, uint32_t size, uint32_t crc);
+app_sync_result_t AppSync_clearData(uint32_t id);
+void              AppSync_previewStop(void);
+void              AppSync_getRestoreCounts(uint8_t* written, uint8_t* skipped);
 
 // Each loop (App_update): the 30 s limit of the install question, and a transfer that stopped
 void              AppSync_update(uint32_t now);

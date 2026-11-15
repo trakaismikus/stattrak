@@ -100,7 +100,8 @@ void app_main(void)
   if(!s_pendingFwAccept) {
     GfxFx_initCollapse(true);
     GfxFx_reverseCollapse();
-    AppView_set(VIEW_ID__TOTAL);
+    // The start picture, or the first app of the menu (docs/DATA.md section 4)
+    AppView_set(Launcher_getStartView());
   } else {
     GfxFx_initCollapse(false);
     AppView_set(VIEW_ID__FW_ACCEPT);

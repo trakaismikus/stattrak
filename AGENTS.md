@@ -110,7 +110,7 @@ the update mode and the start sequence.
 | Rename, reuse or change the meaning of a flash value in `ENTRY_LIST` (`main/app.h`) | Users lose their counters, or an other firmware version reads a wrong value. |
 | Block the main loop: `while(1)` or a long delay without `vTaskDelay()`, slow code in a `draw` function | Buttons, the display and the update mode stop. The user cannot switch off. |
 | Handle `EVENT__PRESS_BOTH` or `EVENT__LONG_PRESS_B` in a different way in normal views, or remove `SETTINGS` from the app menu (the last line of `_buildMenu()` in `main/views/launcher_view.c`) | "Both short" = app menu, and the app menu always ends with SETTINGS (the way to the update). "Both long" = power off. SETTINGS is added in code, never from the app list in flash: no app, no flash content and no Bluetooth command can remove it. |
-| Let the app commands (`0x0110` to `0x011A` in `main/ble_commands.c`) work outside the view "Apps: SYNC" (`AppSync_isActive()`) | Only there the person sees the install question, and only there the device refuses new firmware while the phone talks to it. |
+| Let the app commands (`0x0110` to `0x011C` and `0x0120` to `0x012A` in `main/ble_commands.c`) work outside the view "Apps: SYNC" (`AppSync_isActive()`) | Only there the person sees the install question, and only there the device refuses new firmware while the phone talks to it. |
 | Write to flash in a `draw` function, also in the app host (`main/views/app_host_view.c`): app errors and saved values are written later, in `AppHost_update()` | The draw function runs each 10 ms. Flash wears out, and a slow write stops the buttons and the display. |
 | Tell the user to run `idf.py flash`, `idf.py erase-flash` or `esptool` | These need a wired connection and replace the bootloader. Only do it if the user asks for it and says that the device has a serial (UART) connection. |
 
@@ -319,8 +319,11 @@ get answers. Read `docs/BLUETOOTH.md` before you use it. The short version:
   a firmware while the user plays. Bluetooth uses battery power: keep it off when the feature
   does not need it.
 - Test each command in the simulator: `tests/test_bluetooth.py` and `python tools/sim.py ... ble:0100`.
-- The app manager of the web updater uses the commands `0x0110` to `0x011A` (`docs/APPS.md`,
+- The app manager of the web updater uses the commands `0x0110` to `0x011C` (`docs/APPS.md`,
   section 6). They work only in the view Settings > "Apps: SYNC". Do not use these numbers.
+- The backup, the app data, the device log, the start picture and the live preview of the
+  Screen Designer use the commands `0x0120` to `0x012A` (`docs/DATA.md`). Also only in
+  "Apps: SYNC". Do not use these numbers.
 - The other side (a web page or an app) uses the Bluetooth service `0x8018`, characteristic
   `0x8023`. `docs/BLUETOOTH.md` has the packet format and a JavaScript example.
 
@@ -333,6 +336,10 @@ main/app_view.c, .h      list of views (VIEW_LIST) and the change between views
 main/views/*.c           one file for each view
 main/ble_commands.c, .h  Bluetooth commands for user features, and the app manager commands
 main/apps.c, .h          the app list (built-in + installed apps) and their storage in flash (docs/APPS.md)
+main/app_data.c, .h      the data store of each app: log() rows (docs/DATA.md)
+main/backup.c, .h        restore of a backup from the sync page (docs/DATA.md)
+main/device_log.c, .h    one entry for each start: why, battery (docs/DATA.md)
+main/start_pic.c, .h     the start picture of the person (docs/DATA.md); main/views/intro_view.c shows it
 main/views/app_*_view.c  app host (runs an installed app), app settings, app sync ("Apps: SYNC")
 main/eeprom.c            values in flash (NVS), with a copy in RAM
 main/battery.c           battery level and critical level for each battery type

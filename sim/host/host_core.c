@@ -45,6 +45,7 @@ void Host_init(const host_config_t* config, const host_frontend_t* frontend) {
   s_ending = false;
 
   HostBoard_setVoltage(s_config.voltageMv);
+  HostBoard_setResetReason(s_config.resetReason);
 
   if(s_config.stateFile != NULL)
     HostState_load(s_config.stateFile);

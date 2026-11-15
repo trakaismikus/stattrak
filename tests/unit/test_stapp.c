@@ -38,7 +38,8 @@ typedef struct {
   uint8_t stringCount;
   bool withSetting;
   bool withBitmap;
-  uint8_t format;       // 1 or 2 (0 = STAPP_FORMAT_VERSION)
+  uint8_t format;       // 1, 2 or 3 (0 = format 2)
+  uint8_t columns;      // Format 3: data columns (header byte 37)
 } spec_t;
 
 static void _put16(uint8_t* p, uint32_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); }
@@ -53,8 +54,8 @@ static void _build(pkg_t* pkg, const spec_t* spec) {
   memset(pkg, 0, sizeof(*pkg));
   uint8_t* d = pkg->data;
   memcpy(d, "STAP", 4);
-  d[4] = spec->format ? spec->format : STAPP_FORMAT_VERSION;
-  d[5] = 1;
+  d[4] = spec->format ? spec->format : 2;
+  d[5] = (d[4] >= 3) ? 2 : 1;
   _put16(d + 6, spec->permissions);
   _put32(d + 8, 0x12345678);
   _put16(d + 12, 3);
@@ -65,13 +66,14 @@ static void _build(pkg_t* pkg, const spec_t* spec) {
   d[34] = spec->withSetting ? 1 : 0;
   d[35] = spec->stringCount;
   d[36] = spec->withBitmap ? 1 : 0;
+  d[37] = spec->columns;
   for(int i = 0; i < STAPP_PICTURE_SIZE; i++)
     d[STAPP_PICTURE_OFFSET + i] = (uint8_t)i;
   const int handlerCount = STAPP_HANDLER_COUNT(d[4]);
   for(int e = 0; e < handlerCount; e++)
     _put16(d + STAPP_HANDLERS_OFFSET + 2 * e, spec->handlers[e]);
 
-  uint32_t p = STAPP_HANDLERS_OFFSET + 2 * handlerCount;   // 304 (format 1) or 308 (format 2)
+  uint32_t p = STAPP_HANDLERS_OFFSET + 2 * handlerCount;   // 304 (format 1), 308 (format 2), 312 (format 3)
   if(spec->withSetting) {
     _put16(d + 38, p);
     memcpy(d + p, "ROUND TIME", 10);
@@ -144,7 +146,7 @@ static int32_t _sys(void* ctx, uint8_t id, const int32_t* args, bool drawing) {
 static stapp_result_t _runCode(const uint8_t* code, uint16_t size, stapp_vm_t* vm, sys_log_t* log) {
   static pkg_t pkg;
   spec_t spec = _spec(code, size);
-  spec.permissions = STAPP_PERM_ALL;
+  spec.permissions = STAPP_PERM_V2;
   _build(&pkg, &spec);
   stapp_info_t info;
   const stapp_result_t check = Stapp_check(pkg.data, pkg.size, &info);
@@ -505,10 +507,124 @@ TEST(engine_sys_table) {
   CHECK_EQ(Stapp_sysPermission(STAPP_SYS__CLICK), STAPP_PERM_SOUND);
   CHECK_EQ(Stapp_sysPermission(STAPP_SYS__TONE), STAPP_PERM_SOUND);
   CHECK_EQ(Stapp_sysArgCount(STAPP_SYS__TONE), 2);
-  CHECK_EQ(Stapp_sysArgCount(26), -1);
+  CHECK_EQ(Stapp_sysArgCount(STAPP_SYS__LOG), 4);
+  CHECK_EQ(Stapp_sysArgCount(STAPP_SYS__LOG_GET), 2);
+  CHECK_EQ(Stapp_sysArgCount(STAPP_SYS__BATTERY_MV), 0);
+  CHECK_EQ(Stapp_sysPermission(STAPP_SYS__LOG), STAPP_PERM_DATA);
+  CHECK_EQ(Stapp_sysPermission(STAPP_SYS__LOG_CLEAR), STAPP_PERM_DATA);
+  CHECK_EQ(Stapp_sysPermission(STAPP_SYS__BATTERY_MV), 0);
+  CHECK_EQ(Stapp_sysArgCount(STAPP_SYS__BACKGROUND), 0);
+  CHECK_EQ(Stapp_sysPermission(STAPP_SYS__BACKGROUND), 0);
+  CHECK_EQ(Stapp_sysArgCount(32), -1);
   CHECK_EQ(Stapp_sysPermission(STAPP_SYS__COUNTER), 0);
   CHECK(strcmp(Stapp_resultText(STAPP_ERR_CRC), "bad crc") == 0);
   CHECK(strcmp(Stapp_resultText((stapp_result_t)99), "unknown") == 0);
+}
+
+// Format 3 (docs/DATA.md section 6): data columns in byte 37, the permissions data and awake
+TEST(format_3_data_columns_and_permissions) {
+  static const uint8_t logCode[] = {
+    OP_PUSH8, 1, OP_PUSH8, 2, OP_PUSH8, 0, OP_PUSH8, 0, OP_SYS, STAPP_SYS__LOG, OP_STORE, 0, OP_HALT,
+  };
+  pkg_t pkg;
+  stapp_info_t info;
+  spec_t spec = _spec(logCode, sizeof(logCode));
+  spec.format = 3;
+  spec.columns = 2;
+  spec.permissions = STAPP_PERM_DATA | STAPP_PERM_AWAKE;
+  spec.strings[0] = "TIME"; spec.strings[1] = "MV"; spec.stringCount = 2;
+  _build(&pkg, &spec);
+  CHECK_EQ(Stapp_check(pkg.data, pkg.size, &info), STAPP_OK);
+  CHECK_EQ(info.columnCount, 2);
+  CHECK_EQ(info.permissions, STAPP_PERM_DATA | STAPP_PERM_AWAKE);
+
+  // Columns need the permission data, and the other way round
+  spec.permissions = STAPP_PERM_AWAKE;
+  _build(&pkg, &spec);
+  CHECK_EQ(Stapp_check(pkg.data, pkg.size, NULL), STAPP_ERR_HEADER);
+  spec.permissions = STAPP_PERM_DATA;
+  spec.columns = 0;
+  _build(&pkg, &spec);
+  CHECK_EQ(Stapp_check(pkg.data, pkg.size, NULL), STAPP_ERR_HEADER);
+  // 5 columns, or more columns than strings
+  spec.columns = 5;
+  _build(&pkg, &spec);
+  CHECK_EQ(Stapp_check(pkg.data, pkg.size, NULL), STAPP_ERR_HEADER);
+  spec.columns = 3;
+  _build(&pkg, &spec);
+  CHECK_EQ(Stapp_check(pkg.data, pkg.size, NULL), STAPP_ERR_HEADER);
+  // A column name of 13 characters
+  spec.columns = 2;
+  spec.strings[1] = "THIRTEEN CHAR";
+  _build(&pkg, &spec);
+  CHECK_EQ(Stapp_check(pkg.data, pkg.size, NULL), STAPP_ERR_STRINGS);
+  spec.strings[1] = "TWELVE CHARS";
+  _build(&pkg, &spec);
+  CHECK_EQ(Stapp_check(pkg.data, pkg.size, NULL), STAPP_OK);
+
+  // log() without the permission: bad sys
+  spec.columns = 0;
+  spec.permissions = STAPP_PERM_AWAKE;
+  _build(&pkg, &spec);
+  CHECK_EQ(Stapp_check(pkg.data, pkg.size, NULL), STAPP_ERR_SYS);
+
+  // Formats 1 and 2: no data, no awake, byte 37 = 0
+  spec.format = 2;
+  spec.permissions = STAPP_PERM_AWAKE;
+  _build(&pkg, &spec);
+  CHECK_EQ(Stapp_check(pkg.data, pkg.size, NULL), STAPP_ERR_HEADER);
+  spec.permissions = 0;
+  spec.columns = 1;
+  _build(&pkg, &spec);
+  CHECK_EQ(Stapp_check(pkg.data, pkg.size, NULL), STAPP_ERR_HEADER);
+}
+
+// Format 3 (docs/APPS.md section 4.6): 12 handlers (also kill, death), the permission background
+TEST(format_3_kill_death_and_background) {
+  static pkg_t pkg;
+  const uint8_t code[] = { OP_PUSH8, 1, OP_PUSH8, 1, OP_PUSH8, 1, OP_SYS, 0, OP_DROP, OP_HALT };
+  stapp_info_t info;
+  stapp_vm_t vm;
+
+  spec_t spec = _spec(code, sizeof(code));
+  spec.format = 3;
+  spec.permissions = STAPP_PERM_BACKGROUND;
+  spec.handlers[STAPP_EVENT__KILL] = 0;
+  _build(&pkg, &spec);
+  CHECK_EQ(pkg.data[44] | (pkg.data[45] << 8), 312);   // The code comes right after 12 handlers
+  CHECK_EQ(Stapp_check(pkg.data, pkg.size, &info), STAPP_OK);
+  CHECK_EQ(info.handlerCount, STAPP_HANDLERS_V3);
+  CHECK_EQ(info.permissions, STAPP_PERM_BACKGROUND);
+  sys_log_t log3 = { 0 };
+  Stapp_load(&vm, pkg.data, &info);
+  CHECK_EQ(Stapp_run(&vm, STAPP_EVENT__DEATH, _sys, &log3), STAPP_OK);   // No handler: nothing
+  CHECK_EQ(log3.calls, 0);
+  CHECK_EQ(Stapp_run(&vm, STAPP_EVENT__KILL, _sys, &log3), STAPP_OK);
+  CHECK_EQ(log3.calls, 1);
+
+  // A kill handler that is not an instruction start
+  spec.handlers[STAPP_EVENT__KILL] = 1;
+  _build(&pkg, &spec);
+  CHECK_EQ(Stapp_check(pkg.data, pkg.size, NULL), STAPP_ERR_HANDLER);
+
+  // Format 2: no kill handler (the events do nothing), and no permission background
+  spec = _spec(code, sizeof(code));
+  spec.format = 2;
+  _build(&pkg, &spec);
+  CHECK_EQ(Stapp_check(pkg.data, pkg.size, &info), STAPP_OK);
+  sys_log_t log2 = { 0 };
+  Stapp_load(&vm, pkg.data, &info);
+  CHECK_EQ(Stapp_run(&vm, STAPP_EVENT__KILL, _sys, &log2), STAPP_OK);
+  CHECK_EQ(Stapp_run(&vm, STAPP_EVENT__DEATH, _sys, &log2), STAPP_OK);
+  CHECK_EQ(log2.calls, 0);
+  spec.permissions = STAPP_PERM_BACKGROUND;
+  _build(&pkg, &spec);
+  CHECK_EQ(Stapp_check(pkg.data, pkg.size, NULL), STAPP_ERR_HEADER);
+  // An unknown permission bit
+  spec.format = 3;
+  spec.permissions = 0x0020;
+  _build(&pkg, &spec);
+  CHECK_EQ(Stapp_check(pkg.data, pkg.size, NULL), STAPP_ERR_HEADER);
 }
 
 /* > Fuzz: random changes to a good package must never crash the check or the engine ************/
@@ -593,6 +709,8 @@ int main(void) {
   RUN(engine_system_call_gets_its_arguments_in_order);
   RUN(engine_drawing_flag_only_in_draw);
   RUN(format_1_and_2_and_the_down_events);
+  RUN(format_3_data_columns_and_permissions);
+  RUN(format_3_kill_death_and_background);
   RUN(engine_limits_stop_the_app);
   RUN(check_ids_and_fixed_string_ids);
   RUN(engine_sys_table);

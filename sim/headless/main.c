@@ -100,6 +100,7 @@ static void _printState(void) {
   printf("ble_name=%s\n", HostOta_getName());
   printf("rolled_back=%d\n", HostOta_wasRolledBack() ? 1 : 0);
   printf("nvs_writes=%lu\n", (unsigned long)HostNvs_getWriteCount());
+  printf("nvs_draw_writes=%lu\n", (unsigned long)HostNvs_getDrawWriteCount());
   printf("nvs_commits=%lu\n", (unsigned long)HostNvs_getCommitCount());
   printf("nvs_erases=%lu\n", (unsigned long)HostNvs_getEraseCount());
   printf("fw_version=%s\n", Board_getFwVersion());
@@ -154,6 +155,8 @@ static void _printState(void) {
   printf("app_running=%lu\n", (unsigned long)(AppHost_isOpen() ? AppHost_getAppId() : 0));
   printf("app_error=%d\n", (int)AppHost_getError());
   printf("app_error_text=%s\n", AppHost_getError() == STAPP_OK ? "" : Stapp_resultText(AppHost_getError()));
+  printf("app_background=%lu\n", (unsigned long)AppHost_getBackgroundId());
+  printf("app_background_error=%d\n", (int)AppHost_getBackgroundError());
   printf("app_install_state=%d\n", (int)AppSync_getState());
   printf("app_settings_id=%lu\n", (unsigned long)AppSettings_getAppId());
   printf("app_settings_row=%u\n", (unsigned)AppSettings_getRow());
@@ -348,6 +351,7 @@ static void _usage(void) {
     "  --hold WHICH     buttons held at power-on: both (default), 1, 2, none\n"
     "  --pending        start as a new firmware that is not accepted yet\n"
     "  --voltage MV     battery voltage in millivolts (default 0)\n"
+    "  --reset N        why the chip started (main/device_log.h reasons; default 1 = power on)\n"
     "  --usb            the power does not depend on the buttons or the latch\n"
     "  --log            print firmware log lines to stderr\n"
     "Commands come from standard input. See the top of sim/headless/main.c.\n");
@@ -364,6 +368,8 @@ int main(int argc, char** argv) {
       hold = argv[++i];
     } else if(strcmp(argv[i], "--voltage") == 0 && (i + 1) < argc) {
       config.voltageMv = (uint16_t)strtoul(argv[++i], NULL, 10);
+    } else if(strcmp(argv[i], "--reset") == 0 && (i + 1) < argc) {
+      config.resetReason = (uint8_t)strtoul(argv[++i], NULL, 10);
     } else if(strcmp(argv[i], "--pending") == 0) {
       config.pendingVerify = true;
     } else if(strcmp(argv[i], "--usb") == 0) {
@@ -382,6 +388,7 @@ int main(int argc, char** argv) {
   };
 
   Host_init(&config, &frontend);
+  HostNvs_drawingHook = AppView_isDrawing;   // nvs_draw_writes: flash writes in a draw (there must be none)
 
   HostButton_setLevel(0, strcmp(hold, "both") == 0 || strcmp(hold, "1") == 0);
   HostButton_setLevel(1, strcmp(hold, "both") == 0 || strcmp(hold, "2") == 0);

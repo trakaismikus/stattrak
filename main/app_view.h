@@ -82,6 +82,7 @@ typedef enum view_id_e {
 /* > Function Declarations *************************************************************************/
 void      AppView_update(void);
 void      AppView_show(void);
+bool      AppView_isDrawing(void);   // true while AppView_show() runs (no flash writes then)
 bool      AppView_eventHandler(uint16_t event);
 void      AppView_set(view_id_t viewId);
 void      AppView_setFrom(view_id_t viewId, app_view_from_t from, uint32_t durationMs);

@@ -88,6 +88,12 @@ uint16_t       Apps_getVersion(uint32_t id);
 uint16_t       Apps_getSize(uint32_t id);
 const uint8_t* Apps_getPicture(uint32_t id);                // 80 x 24 title picture, installed apps only
 
+// Package facts of an installed app (0 / NULL for a built-in or unknown id)
+uint8_t        Apps_getSavedCount(uint32_t id);
+uint16_t       Apps_getPermissions(uint32_t id);
+uint8_t        Apps_getColumnCount(uint32_t id);              // Data columns (docs/DATA.md section 6)
+const char*    Apps_getColumnName(uint32_t id, uint8_t column);
+
 // Settings of an installed app
 uint8_t        Apps_getSettingCount(uint32_t id);
 uint8_t        Apps_getSettingValueCount(uint32_t id, uint8_t setting);
@@ -112,6 +118,12 @@ apps_result_t  Apps_setOrder(const uint32_t* ids, uint8_t count);
 // erases it. Set: 1 to 8 characters 0x20 .. 0x7E, no space at the start or the end; "" = none.
 void           Apps_getDeviceName(char* out);
 apps_result_t  Apps_setDeviceName(const char* name);
+// Settings > Background (docs/APPS.md section 4.6): the one app that runs in the background.
+// APPS_ID__NONE = none (OFF), or the stored app cannot run there now (deleted, no permission
+// "background", switched off for errors). A delete of the app and a factory reset erase it.
+uint32_t       Apps_getBackground(void);
+apps_result_t  Apps_setBackground(uint32_t id);              // APPS_ID__NONE = OFF
+bool           Apps_canRunInBackground(uint32_t id);
 bool           Apps_isDeviceNameValid(const char* name);
 
 // One more run-time error of an installed app. At APPS_ERROR_LIMIT it is hidden and flagged.

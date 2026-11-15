@@ -37,5 +37,9 @@ void Board_powerOff(void);
 
 uint16_t Board_readVoltage(void);
 
+// Why the chip started: a device_log_reason_t value of main/device_log.h (power on, restart,
+// crash, watchdog, brown-out, ...). Only reads; for the device log.
+uint8_t Board_getResetReason(void);
+
 
 #endif // _BOARD_H

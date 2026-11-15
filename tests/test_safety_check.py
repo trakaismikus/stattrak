@@ -64,6 +64,15 @@ class SafetyCheckTest(unittest.TestCase):
 
     # --- Dangerous changes -----------------------------------------------------------------------
 
+    def test_setting_value_in_the_middle(self):
+        self.edit("main/app.h", '"OFF", "30 min", "1 h"', '"OFF", "15 min", "30 min", "1 h"')
+        self.assert_fails("setting-values")
+
+    def test_setting_value_at_the_end_is_good(self):
+        self.edit("main/app.h", '"OFF", "0%", "10%", "20%", "30%")', '"OFF", "0%", "10%", "20%", "30%", "40%")')
+        code, output = self.check()
+        self.assertNotIn("[setting-values]", output)
+
     def test_partition_table_change(self):
         self.edit("partitions.csv", "1472k", "1400k")
         self.assert_fails("partition-table")

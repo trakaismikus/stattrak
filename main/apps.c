@@ -15,6 +15,7 @@
 
 #include "esp_log.h"
 #include "nvs_flash.h"
+#include "app_data.h"
 
 /* > Defines **************************************************************************************/
 #define LIST_VERSION      1
@@ -39,6 +40,10 @@ typedef struct installed_s {
   uint8_t  defaults[STAPP_MAX_SETTINGS];
   uint8_t  settings[STAPP_MAX_SETTINGS];
   uint8_t  errors;
+  uint8_t  savedCount;
+  uint16_t permissions;
+  uint8_t  columnCount;                                   // Format 3: data columns (docs/DATA.md)
+  char     columns[STAPP_MAX_COLUMNS][STAPP_COLUMN_NAME_LEN + 1];
   char     name[STAPP_MAX_NAME + 1];
   uint8_t  picture[STAPP_PICTURE_SIZE];
 } installed_t;
@@ -54,6 +59,7 @@ static uint32_t _usedBytes(void);
 static uint8_t _shownCount(void);
 static bool _writeList(void);
 static bool _writeBlob(char prefix, uint32_t id, const void* data, uint32_t size);
+static uint32_t _readBackground(void);
 static void _eraseKey(char prefix, uint32_t id);
 static bool _commit(void);
 
@@ -253,6 +259,26 @@ const uint8_t* Apps_getPicture(uint32_t id) {
   return app ? app->picture : NULL;
 }
 
+uint8_t Apps_getSavedCount(uint32_t id) {
+  const installed_t* app = _findInstalled(id);
+  return app ? app->savedCount : 0;
+}
+
+uint16_t Apps_getPermissions(uint32_t id) {
+  const installed_t* app = _findInstalled(id);
+  return app ? app->permissions : 0;
+}
+
+uint8_t Apps_getColumnCount(uint32_t id) {
+  const installed_t* app = _findInstalled(id);
+  return app ? app->columnCount : 0;
+}
+
+const char* Apps_getColumnName(uint32_t id, uint8_t column) {
+  const installed_t* app = _findInstalled(id);
+  return (app && column < app->columnCount) ? app->columns[column] : NULL;
+}
+
 uint8_t Apps_getSettingCount(uint32_t id) {
   const installed_t* app = _findInstalled(id);
   return app ? app->settingCount : 0;
@@ -372,6 +398,7 @@ apps_result_t Apps_install(const uint8_t* package, const stapp_info_t* info) {
     _eraseKey('v', info->id);
     _eraseKey('s', info->id);
     _eraseKey('e', info->id);
+    AppData_erase(info->id);
   }
   _cacheInstalled(info->id, package, info, false);
 
@@ -421,7 +448,10 @@ apps_result_t Apps_delete(uint32_t id) {
   _eraseKey('v', id);
   _eraseKey('s', id);
   _eraseKey('e', id);
+  if(s_open && _readBackground() == id)
+    nvs_erase_key(s_handle, "bgapp");   // Settings > Background goes back to OFF
   _commit();
+  AppData_erase(id);    // The data store of the app goes with it
   return listWritten ? APPS_OK : APPS_ERR_FLASH;
 }
 
@@ -583,6 +613,15 @@ static bool _cacheInstalled(uint32_t id, const uint8_t* package, const stapp_inf
 
   app->size = info->size;
   app->version = info->version;
+  app->savedCount = info->savedCount;
+  app->permissions = info->permissions;
+  app->columnCount = info->columnCount;
+  memset(app->columns, 0, sizeof(app->columns));
+  for(uint8_t c = 0; c < info->columnCount && c < STAPP_MAX_COLUMNS; c++) {
+    const char* column = Stapp_string(package, info, c);
+    if(column != NULL)
+      snprintf(app->columns[c], sizeof(app->columns[c]), "%s", column);
+  }
   memcpy(app->name, info->name, sizeof(app->name));
   app->name[STAPP_MAX_NAME] = 0;
   memcpy(app->picture, Stapp_picture(package), STAPP_PICTURE_SIZE);
@@ -704,6 +743,41 @@ apps_result_t Apps_setDeviceName(const char* name) {
     return APPS_ERR_FLASH;
   }
   return _commit() ? APPS_OK : APPS_ERR_FLASH;
+}
+
+uint32_t Apps_getBackground(void) {
+  const uint32_t id = _readBackground();
+  return Apps_canRunInBackground(id) ? id : APPS_ID__NONE;
+}
+
+bool Apps_canRunInBackground(uint32_t id) {
+  return Apps_isInstalled(id) && (Apps_getPermissions(id) & STAPP_PERM_BACKGROUND) != 0 &&
+         (Apps_getFlags(id) & APPS_FLAG__ERROR) == 0;
+}
+
+apps_result_t Apps_setBackground(uint32_t id) {
+  if(id == APPS_ID__NONE) {
+    if(s_open)
+      nvs_erase_key(s_handle, "bgapp");   // ESP_ERR_NVS_NOT_FOUND is good too
+    return _commit() ? APPS_OK : APPS_ERR_FLASH;
+  }
+  if(!Apps_canRunInBackground(id))
+    return APPS_ERR_BAD;
+  const uint8_t raw[4] = { (uint8_t)id, (uint8_t)(id >> 8), (uint8_t)(id >> 16), (uint8_t)(id >> 24) };
+  if(!s_open || nvs_set_blob(s_handle, "bgapp", raw, sizeof(raw)) != ESP_OK) {
+    ESP_LOGE(TAG, "Cannot write the background app");
+    return APPS_ERR_FLASH;
+  }
+  return _commit() ? APPS_OK : APPS_ERR_FLASH;
+}
+
+// The stored id of Settings > Background, not checked (APPS_ID__NONE = none)
+static uint32_t _readBackground(void) {
+  uint8_t raw[4];
+  size_t length = sizeof(raw);
+  if(!s_open || nvs_get_blob(s_handle, "bgapp", raw, &length) != ESP_OK || length != sizeof(raw))
+    return APPS_ID__NONE;
+  return (uint32_t)raw[0] | ((uint32_t)raw[1] << 8) | ((uint32_t)raw[2] << 16) | ((uint32_t)raw[3] << 24);
 }
 
 static void _eraseKey(char prefix, uint32_t id) {
