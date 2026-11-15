@@ -91,7 +91,7 @@ def record():
         for _ in range(2 * len(SETTING_ROWS)):           # right button: down to "Apps: SYNC"
             if dev.state()["settings_row"] == target:
                 break
-            rec.click(2, 360)
+            rec.click(2, 750)                            # a gap: each click shows on its own
         else:
             raise SystemExit('"Apps: SYNC" not found in Settings')
         rec.wait(500)

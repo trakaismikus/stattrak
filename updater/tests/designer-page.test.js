@@ -131,13 +131,15 @@ test("a selection of more parts: border and color for all; a new part ends the s
   assert.equal(await page.evaluate("document.querySelector('.sec__title').textContent"), "Text");
 });
 
-test("the New screen menu fits a small window: Add can be reached", { skip: SKIP }, async (t) => {
+test("New screen is a short menu; the AI help is a window of its own that fits a small screen", { skip: SKIP }, async (t) => {
   const { page, click } = await openDesigner(t);
   await page.send("Emulation.setDeviceMetricsOverride", { width: 1100, height: 640, deviceScaleFactor: 1, mobile: false });
   await click("#addScreen");
-  const fits = await page.evaluate(`(() => { const p = document.querySelector('#newPop').getBoundingClientRect();
-    return p.top >= 0 && p.bottom <= innerHeight && document.querySelector('#newPop').scrollHeight >= document.querySelector('#newPop').clientHeight; })()`);
-  assert.ok(fits);
+  const menu = await page.evaluate("JSON.parse(JSON.stringify(document.querySelector('#newPop').getBoundingClientRect()))");
+  assert.ok(menu.top >= 0 && menu.bottom <= 640 && menu.height < 300, "a short menu");
+  assert.equal(await page.evaluate("!!document.querySelector('#newPop #aiPaste')"), false, "no AI form in the menu");
+  await click("[data-new=ai]");
+  assert.equal(await page.evaluate("document.querySelector('#newPop').hidden && !document.querySelector('#aiModal').hidden"), true);
   await page.evaluate("document.querySelector('#aiPasteAdd').scrollIntoView()");
   const add = await page.evaluate("JSON.parse(JSON.stringify(document.querySelector('#aiPasteAdd').getBoundingClientRect()))");
   assert.ok(add.bottom <= 640 && add.top >= 0, "the Add button is in the window");
@@ -153,6 +155,20 @@ test("Trace keeps a picture under the screen, only in the browser", { skip: SKIP
   await page.waitFor("window.StatTrakDesigner && !document.querySelector('#traceImg').hidden");
   await click("[data-tool=trace]");
   assert.equal(await page.evaluate("document.querySelector('.sec__title').textContent"), "Trace picture");
+  // the size in %: 100 % = as high as the screen (this picture: 64 x 32 display pixels)
+  assert.equal(await page.evaluate("document.querySelector('[data-tr=pct]').value"), "100");
+  // a corner handle: drag the lower right corner 16 display pixels to the right -> 125 %
+  const box = await page.evaluate("JSON.parse(JSON.stringify(document.querySelector('#cvOv').getBoundingClientRect()))");
+  const zoom = box.width / 128;
+  const at = (x, y) => ({ x: box.left + x * zoom, y: box.top + y * zoom });
+  const mouse = (type, p) => page.send("Input.dispatchMouseEvent", { type, x: p.x, y: p.y, button: "left", buttons: type === "mouseReleased" ? 0 : 1, clickCount: 1 });
+  await mouse("mousePressed", at(95.8, 31.8));
+  await mouse("mouseMoved", at(104, 34));
+  await mouse("mouseMoved", at(112, 36));
+  await mouse("mouseReleased", at(112, 36));
+  assert.equal(await page.evaluate("document.querySelector('[data-tr=pct]').value"), "125");
+  await click("[data-act=tr-fith]");
+  assert.equal(await page.evaluate("document.querySelector('[data-tr=pct]').value"), "100");
   const text = await page.evaluate("StatTrakDesign.buildPrompt(StatTrakDesigner.project, window.STATTRAK_ASSETS, {})");
   assert.ok(!text.includes("data:image"), "the trace picture is not in the text for the AI");
 });
@@ -162,11 +178,13 @@ test("New screen takes the answer of an AI tool", { skip: SKIP }, async (t) => {
   const answer = "Here it is:\n```json\n" + JSON.stringify({ format: "stattrak-design", version: 1, name: "X",
     screens: [{ id: "killFeed", name: "Kill feed", note: "", elements: [{ type: "circle", x: 64, y: 16, r: 9, fill: true }] }] }) + "\n```";
   await click("#addScreen");
+  await click("[data-new=ai]");
   assert.match(await page.evaluate("document.querySelector('#aiAsk').textContent"), /stattrak-design/);
   await page.evaluate(`document.querySelector('#aiPaste').value = ${JSON.stringify(answer)}`);
   await click("#aiPasteAdd");
   const ids = await page.evaluate("StatTrakDesigner.project.screens.map(s => s.id)");
   assert.deepEqual(ids.slice(-1), ["killFeed"]);
+  assert.equal(await page.evaluate("document.querySelector('#aiModal').hidden"), true);
   assert.equal(await page.evaluate("StatTrakDesigner.current"), 4);
   assert.match(String(await page.evaluate("StatTrakDesigner.designFromText('no data').error")), /no design data/);
 });

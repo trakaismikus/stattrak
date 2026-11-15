@@ -299,16 +299,14 @@ st-device { display: block; position: relative; width: 100%; aspect-ratio: 1896 
 .tile--add:hover { border-color: var(--accent); color: var(--accent); }
 
 /* new screen popover */
-.pop--new { width: 360px; max-height: calc(100vh - 20px); overflow-y: auto; }
+.pop--new { width: 300px; max-height: calc(100vh - 20px); overflow-y: auto; }
+.modal--ai { max-width: 640px; }
+.ai-paste { width: 100%; height: 110px; resize: vertical; background: #000; border: 1px solid var(--stroke-1); border-radius: var(--r-sm);
+  color: var(--fg2); font-family: var(--font-mono); font-size: 11px; padding: 8px 10px; }
+.ai-paste:focus { outline: none; border-color: var(--accent); }
 .pop__sec { padding: 8px 0 10px; border-top: 1px solid var(--stroke-1); }
 .pop__sec:first-of-type { border-top: 0; padding-top: 0; }
-.pop__sec p { margin: 0 0 8px; font-size: 14px; color: var(--fg2); line-height: 1.35; }
-.pop__sec ol { margin: 0 0 8px; padding-left: 18px; font-size: 14px; color: var(--fg2); line-height: 1.35; }
-.pop__sec textarea { width: 100%; height: 80px; resize: vertical; background: #000; border: 1px solid var(--stroke-1); border-radius: var(--r-sm);
-  color: var(--fg2); font-family: var(--font-mono); font-size: 11px; padding: 6px 8px; margin-bottom: 6px; }
-.pop__sec textarea:focus { outline: none; border-color: var(--accent); }
-.pop__ask { font-family: var(--font-mono); font-size: 12px; color: var(--fg1); background: var(--st-ink-900); border: 1px solid var(--stroke-1); border-radius: var(--r-sm); padding: 8px 10px; margin-bottom: 6px; line-height: 1.4; }
-.ai-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.ai-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; font-style: normal; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
 .tile--add small { font-family: var(--font-body); font-style: normal; font-weight: 600; text-transform: none; font-size: 12px; letter-spacing: 0; color: var(--fg3); text-align: center; line-height: 1.2; }
 .tile--add:hover small { color: var(--accent); }
 .range { width: 100%; accent-color: var(--accent); }
@@ -507,25 +505,46 @@ st-device { display: block; position: relative; width: 100%; aspect-ratio: 1896 
 <!-- new screen popover -->
 <div class="pop pop--new" id="newPop" hidden>
   <div class="pop__sec">
-    <p class="eyebrow pop__title">New screen</p>
-    <div class="btns"><button type="button" class="btn btn--ghost btn--sm" data-new="empty">Empty screen</button></div>
+    <div class="btns"><button type="button" class="btn btn--ghost btn--sm" data-new="empty"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Empty screen</button></div>
   </div>
   <div class="pop__sec">
     <p class="eyebrow pop__title">Copy a StatTrak screen</p>
     <div class="btns" id="newBuiltin"></div>
   </div>
   <div class="pop__sec">
-    <p class="eyebrow pop__title"><span class="ai-badge">AI</span> Get a screen from your AI tool</p>
-    <p>Your AI coding tool can draw any screen of an app as a design for this page. Change it here, then send it back with <b>Send to AI</b>.</p>
-    <ol><li>Say which screen you want. Copy the request and paste it into your AI tool (the one in the StatTrak firmware folder).</li>
-      <li>Paste its answer below and click <b>Add</b>.</li></ol>
-    <label class="fld" style="margin-bottom:8px"><span>Which screen?</span><input type="text" id="aiWhat" maxlength="120" spellcheck="true" placeholder="the main screen of the KILLS app"></label>
-    <div class="pop__ask" id="aiAsk"></div>
-    <div class="btns" style="margin-bottom:10px"><button type="button" class="btn btn--ghost btn--sm" id="aiAskCopy">Copy request</button></div>
-    <textarea id="aiPaste" spellcheck="false" placeholder="Paste the answer of the AI tool here (the design data)"></textarea>
-    <div class="btns"><button type="button" class="btn btn--primary btn--sm" id="aiPasteAdd">Add</button></div>
+    <button type="button" class="btn btn--ghost btn--sm" data-new="ai"><span class="ai-badge">AI</span>Get a screen from your AI tool…</button>
   </div>
 </div>
+
+<!-- a screen from an AI tool -->
+<div class="modal-backdrop" id="aiModal" hidden>
+  <div class="modal modal--ai" role="dialog" aria-modal="true" aria-labelledby="aiTitle">
+    <div class="modal__head">
+      <div>
+        <p class="eyebrow modal__eyebrow">New screen</p>
+        <h2 class="modal__title" id="aiTitle">Get a screen from AI</h2>
+      </div>
+      <button class="btn btn--ghost btn--icon" id="aiClose" type="button" aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal__body">
+      <p class="note" style="margin:0 0 14px">Your AI coding tool can draw any screen of the firmware or of an app as a design. Change it here, then send it back with <b>Send to AI</b>.</p>
+      <label class="fld"><span>1. Which screen do you want?</span>
+        <input type="text" id="aiWhat" maxlength="120" spellcheck="true" placeholder="the main screen of the KILLS app"></label>
+      <div class="fld"><span>2. Copy this request into your AI tool (the one in the StatTrak firmware folder)</span>
+        <div class="pop__ask" id="aiAsk"></div>
+        <div class="btns"><button type="button" class="btn btn--ghost btn--sm" id="aiAskCopy">Copy request</button></div></div>
+      <label class="fld" style="margin-bottom:0"><span>3. Paste its answer here</span>
+        <textarea id="aiPaste" class="ai-paste" spellcheck="false" placeholder="The answer of the AI tool, with the design data"></textarea></label>
+    </div>
+    <div class="modal__foot">
+      <div><p style="margin:0">The AI tool saved a design file? <button type="button" class="btn btn--ghost btn--sm" id="aiFileBtn">Add screens from a file</button></p></div>
+      <button class="btn btn--primary btn--lg" id="aiPasteAdd" type="button">Add screen</button>
+    </div>
+  </div>
+</div>
+<input type="file" id="aiFileIn" accept=".json,application/json,.txt" hidden>
 
 <!-- send to AI dialog -->
 <div class="modal-backdrop" id="sendModal" hidden>
@@ -1007,6 +1026,17 @@ function drawOverlay() {
       ctx.fillRect(ux(hd.x + 0.5) - r, ux(hd.y + 0.5) - r, 2 * r, 2 * r);
     });
   }
+  const tr = tool === 'trace' ? traceOf() : null;
+  if (tr) {
+    const cs = traceCorners(tr);
+    ctx.save(); ctx.strokeStyle = 'rgba(255,122,31,0.8)'; ctx.lineWidth = dpr; ctx.setLineDash([5 * dpr, 4 * dpr]);
+    ctx.strokeRect(ux(cs[0].x) + 0.5, ux(cs[0].y) + 0.5, ux(cs[3].x) - ux(cs[0].x), ux(cs[3].y) - ux(cs[0].y));
+    ctx.restore();
+    ctx.fillStyle = '#FF7A1F';
+    const r = 5 * dpr;
+    // a corner at (or outside) the edge of the screen: its handle stays inside, so it can be seen and taken
+    cs.forEach(c => ctx.fillRect(clamp(ux(c.x) - r, 0, cvOv.width - 2 * r), clamp(ux(c.y) - r, 0, cvOv.height - 2 * r), 2 * r, 2 * r));
+  }
   if ((tool === 'pencil' || tool === 'eraser') && cursorPix) {
     ctx.strokeStyle = tool === 'pencil' ? '#FF7A1F' : 'rgba(226,52,52,0.9)'; ctx.lineWidth = 1.5 * dpr;
     ctx.strokeRect(ux(cursorPix.x) + 1, ux(cursorPix.y) + 1, ux(cursorPix.x + 1) - ux(cursorPix.x) - 2, ux(cursorPix.y + 1) - ux(cursorPix.y) - 2);
@@ -1234,7 +1264,13 @@ cvOv.addEventListener('pointerdown', e => {
   if (tool === 'trace') {
     const t = traceOf();
     if (!t) { $('#traceIn').click(); return; }
-    drag = { mode: 'trace', start: toPixF(e), orig: { x: t.x, y: t.y } };
+    const q = toPixF(e), k = traceCornerAt(t, q);
+    if (k >= 0) {
+      const anchor = traceCorners(t)[3 - k];        // the opposite corner stays
+      drag = { mode: 'traceSize', anchor, left: k === 0 || k === 2, top: k < 2 };
+    } else {
+      drag = { mode: 'trace', start: q, orig: { x: t.x, y: t.y } };
+    }
     return;
   }
   if (group && inRect(p, group.rect) && (tool === 'marquee' || (tool === 'select' && !e.shiftKey))) { startGroupMove(p); return; }
@@ -1312,14 +1348,27 @@ cvOv.addEventListener('pointermove', e => {
       cvOv.style.cursor = hd ? (hd.k === 'size' ? 'nwse-resize' : hd.k === 'radius' ? 'ew-resize' : 'crosshair') : ((h >= 0 || (group && inRect(p, group.rect))) ? 'move' : 'default');
     } else if (tool === 'marquee') {
       cvOv.style.cursor = (group && inRect(p, group.rect)) ? 'move' : 'crosshair';
+    } else if (tool === 'trace') {
+      const t = traceOf(), k = t ? traceCornerAt(t, toPixF(e)) : -1;
+      cvOv.style.cursor = k < 0 ? 'move' : (k === 0 || k === 3) ? 'nwse-resize' : 'nesw-resize';
     }
     if (h !== hover || tool === 'pencil' || tool === 'eraser') { hover = h; drawOverlay(); }
     return;
   }
   const el = EL();
+  if (drag.mode === 'traceSize') {
+    const t = traceOf(), q = toPixF(e), a = drag.anchor;
+    if (t) {
+      t.w = Math.max(2, Math.abs(q.x - a.x), Math.abs(q.y - a.y) / t.ratio);
+      t.x = drag.left ? a.x - t.w : a.x;
+      t.y = drag.top ? a.y - t.w * t.ratio : a.y;
+      placeTrace(); syncTracePanel(); drawOverlay();
+    }
+    return;
+  }
   if (drag.mode === 'trace') {
     const t = traceOf(), q = toPixF(e);
-    if (t) { t.x = Math.round((drag.orig.x + q.x - drag.start.x) * 4) / 4; t.y = Math.round((drag.orig.y + q.y - drag.start.y) * 4) / 4; placeTrace(); syncTracePanel(); }
+    if (t) { t.x = Math.round((drag.orig.x + q.x - drag.start.x) * 4) / 4; t.y = Math.round((drag.orig.y + q.y - drag.start.y) * 4) / 4; placeTrace(); syncTracePanel(); drawOverlay(); }
     return;
   }
   if (drag.mode === 'marquee') { drag.cur = p; drawOverlay(); return; }
@@ -1361,7 +1410,7 @@ cvOv.addEventListener('pointerleave', () => { $('#coords').innerHTML = 'X <b>–
 function endDrag() {
   if (!drag) return;
   const el = EL();
-  if (drag.mode === 'trace') { drag = null; saveTraces(); return; }
+  if (drag.mode === 'trace' || drag.mode === 'traceSize') { drag = null; saveTraces(); return; }
   if (drag.mode === 'marquee') {
     const r = marqueeRect(drag.start, drag.cur);
     drag = null;
@@ -1951,7 +2000,7 @@ document.addEventListener('keydown', e => {
   const formField = textField || tag === 'select' || tag === 'input';
   const mod = e.ctrlKey || e.metaKey;
   const key = (e.key || '').toLowerCase();
-  const modalOpen = !$('#sendModal').hidden;
+  const modalOpen = !$('#sendModal').hidden || !$('#aiModal').hidden;
 
   if (mod && !e.altKey && key === 's') { e.preventDefault(); saveFile(); return; }
   // Ctrl+Z in a text field is the normal text undo of the browser
@@ -1962,6 +2011,7 @@ document.addEventListener('keydown', e => {
     return;
   }
   if (e.key === 'Escape') {
+    if (!$('#aiModal').hidden) { closeAi(); return; }
     if (modalOpen) { closeSend(); return; }
     if (!$('#newPop').hidden) { closeNewPop(); return; }
     if (formField) { t.blur(); return; }
@@ -2024,6 +2074,18 @@ function moveTrace(oldId, newId) {
   traces[newId] = traces[oldId]; delete traces[oldId]; saveTraces();
 }
 function toPixF(e) { const r = cvOv.getBoundingClientRect(); return { x: (e.clientX - r.left) / zoom, y: (e.clientY - r.top) / zoom }; }
+/* The size in %: 100 = as high as the screen */
+function tracePct(t) { return Math.round(t.w * t.ratio / H * 100); }
+/* The 4 corners of the picture, in display pixels */
+function traceCorners(t) {
+  const h = t.w * t.ratio;
+  return [{ x: t.x, y: t.y }, { x: t.x + t.w, y: t.y }, { x: t.x, y: t.y + h }, { x: t.x + t.w, y: t.y + h }];
+}
+/* The corner under the pointer (a corner can be a bit outside the screen), or -1 */
+function traceCornerAt(t, q) {
+  const near = 8 / zoom;
+  return traceCorners(t).findIndex(c => Math.abs(clamp(c.x, 0, W) - q.x) <= near && Math.abs(clamp(c.y, 0, H) - q.y) <= near);
+}
 function placeTrace() {
   const img = $('#traceImg'), t = traceOf();
   if (!t) { img.hidden = true; img.removeAttribute('src'); return; }
@@ -2043,19 +2105,23 @@ function renderTracePanel() {
       <div class="btns" style="margin-bottom:14px"><button type="button" class="btn btn--primary btn--sm" data-act="tr-pick">${ic('trace', 14)}${t ? 'Other picture' : 'Choose a picture'}</button></div>
       ${t ? `
       <label class="fld"><span>See-through</span><input class="range" type="range" min="10" max="100" step="5" data-tr="opacity" value="${Math.round(t.opacity * 100)}"></label>
-      <label class="fld"><span>Size (width in display pixels)</span><input class="range" type="range" min="8" max="512" step="1" data-tr="w" value="${t.w}"></label>
+      <div class="row2"><label class="fld"><span>Size (%)</span><input type="number" min="1" max="2000" step="5" data-tr="pct" value="${tracePct(t)}"></label>
+        <div class="fld"><span>&nbsp;</span><button type="button" class="btn btn--ghost btn--sm" data-act="tr-fith" title="The picture is as high as the screen">100 %</button></div></div>
       <div class="row2"><label class="fld"><span>X</span><input type="number" step="0.25" data-tr="x" value="${t.x}"></label><label class="fld"><span>Y</span><input type="number" step="0.25" data-tr="y" value="${t.y}"></label></div>
       <div class="btns">
         <button type="button" class="btn btn--ghost btn--sm" data-act="tr-fitw">Fit width</button>
-        <button type="button" class="btn btn--ghost btn--sm" data-act="tr-fith">Fit height</button>
         <button type="button" class="btn btn--danger-ghost btn--sm" data-act="tr-del">${ic('trash', 14)}Remove</button>
       </div>
-      <p class="note" style="margin:12px 0 0">Drag on the screen to move the picture. Use Draw (D) to draw over it.</p>` : ''}
+      <p class="note" style="margin:12px 0 0">Drag the picture to move it. Drag a corner to make it larger or smaller. 100 % = as high as the screen. Use Draw (D) to draw over it.</p>` : ''}
     </div>`;
 }
 function syncTracePanel() {
   const t = traceOf(); if (!t || tool !== 'trace') return;
-  insp.querySelectorAll('[data-tr]').forEach(inp => { if (inp !== document.activeElement) inp.value = inp.dataset.tr === 'opacity' ? Math.round(t.opacity * 100) : t[inp.dataset.tr]; });
+  insp.querySelectorAll('[data-tr]').forEach(inp => {
+    if (inp === document.activeElement) return;
+    const k = inp.dataset.tr;
+    inp.value = k === 'opacity' ? Math.round(t.opacity * 100) : k === 'pct' ? tracePct(t) : Math.round(t[k] * 100) / 100;
+  });
 }
 function traceAction(act) {
   const t = traceOf();
@@ -2065,15 +2131,19 @@ function traceAction(act) {
   if (act === 'tr-del') { delete traces[S().id]; saveTraces(); placeTrace(); renderTracePanel(); return; }
   if (act === 'tr-fitw') { t.w = W; t.x = 0; t.y = (H - W * t.ratio) / 2; }
   if (act === 'tr-fith') { t.w = H / t.ratio; t.y = 0; t.x = (W - t.w) / 2; }
-  saveTraces(); placeTrace(); syncTracePanel();
+  saveTraces(); placeTrace(); syncTracePanel(); drawOverlay();
 }
 insp.addEventListener('input', e => {
   const k = e.target.dataset.tr, t = traceOf(); if (!k || !t) return;
   const v = parseFloat(e.target.value); if (isNaN(v)) return;
   if (k === 'opacity') t.opacity = clamp(v / 100, 0.1, 1);
-  else if (k === 'w') t.w = clamp(v, 1, 2048);
+  else if (k === 'pct') {                          // larger or smaller around the middle of the picture
+    const cx = t.x + t.w / 2, cy = t.y + t.w * t.ratio / 2;
+    t.w = clamp(v, 1, 2000) / 100 * H / t.ratio;
+    t.x = cx - t.w / 2; t.y = cy - t.w * t.ratio / 2;
+  }
   else t[k] = clamp(v, -LIMIT, LIMIT);
-  placeTrace(); saveTraces();
+  placeTrace(); saveTraces(); drawOverlay();
 });
 /* A large picture is made smaller (it is kept in the browser storage) */
 $('#traceIn').addEventListener('change', e => {
@@ -2088,8 +2158,8 @@ $('#traceIn').addEventListener('change', e => {
     c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
     URL.revokeObjectURL(url);
     const ratio = c.height / c.width;
-    const w = ratio > H / W ? H / ratio : W;          // the whole picture fits on the screen
-    traces[S().id] = { src: c.toDataURL('image/jpeg', 0.85), ratio, w, x: (W - w) / 2, y: (H - w * ratio) / 2, opacity: 0.5 };
+    const w = H / ratio;                              // 100 %: as high as the screen
+    traces[S().id] = { src: c.toDataURL('image/jpeg', 0.85), ratio, w, x: (W - w) / 2, y: 0, opacity: 0.5 };
     saveTraces();
     if (tool !== 'trace') setTool('trace'); else renderInspector();
     placeTrace();
@@ -2115,7 +2185,7 @@ function openNewPop() {
   const b = $('#addScreen').getBoundingClientRect(), pop = $('#newPop');
   pop.hidden = false;
   const h = pop.offsetHeight;
-  pop.style.left = clamp(b.left, 10, window.innerWidth - 370) + 'px';
+  pop.style.left = clamp(b.left, 10, window.innerWidth - 310) + 'px';
   pop.style.top = Math.max(10, b.top - h - 10) + 'px';
 }
 function closeNewPop() { $('#newPop').hidden = true; }
@@ -2144,6 +2214,9 @@ $('#newPop').addEventListener('click', e => {
   } else if (b.dataset.builtin !== undefined) {
     closeNewPop();
     addScreens([builtinScreens()[+b.dataset.builtin]]);
+  } else if (b.dataset.new === 'ai') {
+    closeNewPop();
+    openAi();
   }
 });
 $('#aiAskCopy').addEventListener('click', async () => {
@@ -2165,13 +2238,24 @@ function designFromText(text) {
   if (r.problems.length || !r.design) return { error: 'The design data has problems.', lines: r.problems.slice(0, 3) };
   return { screens: r.design.screens };
 }
-$('#aiPasteAdd').addEventListener('click', () => {
-  const res = designFromText($('#aiPaste').value);
-  if (res.error) { toast(res.error + ' Nothing was added.', null, null, true, res.lines); return; }
-  closeNewPop();
-  $('#aiPaste').value = '';
+function openAi() { $('#aiModal').hidden = false; $('#aiWhat').focus(); }
+function closeAi() { $('#aiModal').hidden = true; }
+$('#aiClose').addEventListener('click', closeAi);
+$('#aiModal').addEventListener('pointerdown', e => { if (e.target === $('#aiModal')) closeAi(); });
+function addFromText(text) {
+  const res = designFromText(text);
+  if (res.error) { toast(res.error + ' Nothing was added.', null, null, true, res.lines); return false; }
+  closeAi();
   addScreens(res.screens);
   toast(`Added ${res.screens.length} screen${res.screens.length === 1 ? '' : 's'} from your AI tool.`);
+  return true;
+}
+$('#aiPasteAdd').addEventListener('click', () => { if (addFromText($('#aiPaste').value)) $('#aiPaste').value = ''; });
+$('#aiFileBtn').addEventListener('click', () => $('#aiFileIn').click());
+$('#aiFileIn').addEventListener('change', e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  const rd = new FileReader(); rd.onload = () => addFromText(String(rd.result)); rd.readAsText(f);
 });
 
 /* ================================================================================================
