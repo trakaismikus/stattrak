@@ -299,7 +299,7 @@ st-device { display: block; position: relative; width: 100%; aspect-ratio: 1896 
 .tile--add:hover { border-color: var(--accent); color: var(--accent); }
 
 /* new screen popover */
-.pop--new { width: 360px; }
+.pop--new { width: 360px; max-height: calc(100vh - 20px); overflow-y: auto; }
 .pop__sec { padding: 8px 0 10px; border-top: 1px solid var(--stroke-1); }
 .pop__sec:first-of-type { border-top: 0; padding-top: 0; }
 .pop__sec p { margin: 0 0 8px; font-size: 14px; color: var(--fg2); line-height: 1.35; }
@@ -1076,6 +1076,7 @@ function newCircle(x, y) { return { type: 'circle', color: 1, note: '', border: 
 function addElement(el) {
   S().elements.push(fixElement(el));
   sel = S().elements.length - 1;
+  group = null;
 }
 function moveEl(el, dx, dy) {
   if (el.type === 'line') { el.x1 += dx; el.x2 += dx; el.y1 += dy; el.y2 += dy; }
@@ -1237,6 +1238,7 @@ cvOv.addEventListener('pointerdown', e => {
     return;
   }
   if (group && inRect(p, group.rect) && (tool === 'marquee' || (tool === 'select' && !e.shiftKey))) { startGroupMove(p); return; }
+  if (tool !== 'select') group = null;   // a new part (or a drawing) ends the selection of more parts
   if (tool === 'marquee') {
     sel = -1; group = null;
     drag = { mode: 'marquee', start: p, cur: p };
@@ -1421,7 +1423,7 @@ function renderScreenPanel() {
       : `<p class="empty">Nothing here yet. Pick Text, Box, Circle, Line or Draw on the left.</p>`}
     </div>`;
 }
-const borderSeg = v => `<div class="fld"><span>Cut-out border</span>${seg('border', [0, 1, 2, 3, 4].map(n => ({ v: n, html: n === 0 ? 'None' : n + ' px' })), v, 'seg--num')}</div>
+const borderSeg = (v, act = 'border') => `<div class="fld"><span>Cut-out border</span>${seg(act, [0, 1, 2, 3, 4].map(n => ({ v: n, html: n === 0 ? 'None' : n + ' px' })), v, 'seg--num')}</div>
       <p class="note">Switches off the pixels around this part, so it stays clear on top of other parts. It follows the shape.</p>`;
 function renderGroupPanel() {
   const n = group.els.length, m = group.parts.length;
@@ -1432,7 +1434,7 @@ function renderGroupPanel() {
         <button type="button" class="btn btn--ghost btn--sm" data-act="deselect" title="Back to the screen details (Esc)">Done</button></div>
       <p class="note" style="margin-top:0">${n ? `${n} part${n === 1 ? '' : 's'}` : ''}${n && m ? ' and ' : ''}${m ? `pixels of ${m} drawing${m === 1 ? '' : 's'}` : ''}. Drag the box or use the arrow keys to move ${n + m === 1 ? 'it' : 'them'} together. Shift moves 8 pixels.</p>
       <div class="fld"><span>Color</span>${seg('gcolor', [{ v: 1, html: 'White' }, { v: 0, html: 'Black (cuts out)' }], colors.size === 1 ? [...colors][0] : '')}</div>
-      ${borderSeg(borders.size === 1 ? [...borders][0] : '').replace("data-act=\"border\"", "data-act=\"gborder\"")}
+      ${borderSeg(borders.size === 1 ? [...borders][0] : '', 'gborder')}
       <div class="btns">
         <button type="button" class="btn btn--ghost btn--sm" data-act="gdup" title="Duplicate (${MOD}+D)">${ic('dup', 14)}Duplicate</button>
         <button type="button" class="btn btn--danger-ghost btn--sm" data-act="gdel">${ic('trash', 14)}Delete</button>

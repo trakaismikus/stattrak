@@ -10,7 +10,7 @@
       "permissions": [
         "counters"
       ],
-      "description": "Counts kills and headshots and shows the headshot percentage. Button 1: kill, button 2: headshot, hold: undo.",
+      "description": "Counts kills and headshots and shows the headshot percentage. Left button: kill, right button: headshot, hold: undo.",
       "file": "headshot.stapp",
       "picture": "AAAAAAAAAAAAAIDAwCDAwIAAAAAAAAAAAAAAwAAAAMAAwEBAQEAAwEBAQMAAwEBAQIAAwEBAQEAAwAAAAMAAwEBAQMAAQEDAQEAAAAAAAAAAAAAAAAAEBAAbO3v/jv97OxsABAQAAAAAAADnoaGh5wDnpaWlJADnoaGh5wDnJCQkIwDlpaWlJwDnQYEB5wAnJOQkJwAAAAcAAAAAAAAAAAAAAAAAAAwODg8PDw8PDw8PDw4ODAAAAAAAAAMAAAAAAAMCAgICAAMAAQICAAMCAgICAAMCAgICAAMAAAEDAAAAAwAAAAAAAAAAAAAAAAAA",
       "settings": []
@@ -36,7 +36,7 @@
       "permissions": [
         "sound"
       ],
-      "description": "Times each round: button 1 starts and pauses, button 2 goes to the next round. It beeps at the end.",
+      "description": "Times each round: the left button starts and pauses, the right button goes to the next round. It beeps at the end.",
       "file": "round-timer.stapp",
       "picture": "AAAAAAAAAAAAAAAAAAAAAAAAgIBAUHBQQICAwAAAAAAAAAAAwEBAQMAAwEBAQMAAwAAAAMAAwIAAAMAAwEBAQIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD4BgEAAAAAPyAgIAABBvgAAAAAAAAnIeMlJQAnJOQkJwDnRIRE5wDnoKGiJwDnpKSk4wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADBAgIEBAQEBAICAQDAAAAAAAAAAAAAwAAAAICAwICAAMAAAADAAMCAgICAAMAAQICAAAAAAAAAAAAAAAAAAAA",
       "settings": [

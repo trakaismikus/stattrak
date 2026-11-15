@@ -111,6 +111,38 @@ test("Select takes part of a drawing and moves it as a group; undo puts it back"
   assert.deepEqual([back[0].x, back[0].y, back[0].rows[0].length], [10, 10, 31]);
 });
 
+test("a selection of more parts: border and color for all; a new part ends the selection", { skip: SKIP }, async (t) => {
+  const { page, drag, click, elements, newScreen } = await openDesigner(t);
+  await newScreen();
+  for (const x of [20, 60]) {
+    await click("[data-tool=circle]");
+    await drag({ x, y: 15 }, { x: x + 5, y: 15 });
+  }
+  await click("[data-tool=marquee]");
+  await drag({ x: 5, y: 2 }, { x: 80, y: 29 });
+  assert.deepEqual((await page.evaluate("StatTrakDesigner.group")).els, [0, 1]);
+  await click("[data-act=gborder][data-v='2']");
+  await click("[data-act=gcolor][data-v='0']");
+  assert.deepEqual((await elements()).map((e) => [e.border, e.color]), [[2, 0], [2, 0]]);
+  await click("[data-tool=text]");
+  await drag({ x: 100, y: 5 }, { x: 100, y: 5 });
+  assert.equal(await page.evaluate("StatTrakDesigner.group"), null);
+  assert.equal((await elements()).at(-1).type, "text");
+  assert.equal(await page.evaluate("document.querySelector('.sec__title').textContent"), "Text");
+});
+
+test("the New screen menu fits a small window: Add can be reached", { skip: SKIP }, async (t) => {
+  const { page, click } = await openDesigner(t);
+  await page.send("Emulation.setDeviceMetricsOverride", { width: 1100, height: 640, deviceScaleFactor: 1, mobile: false });
+  await click("#addScreen");
+  const fits = await page.evaluate(`(() => { const p = document.querySelector('#newPop').getBoundingClientRect();
+    return p.top >= 0 && p.bottom <= innerHeight && document.querySelector('#newPop').scrollHeight >= document.querySelector('#newPop').clientHeight; })()`);
+  assert.ok(fits);
+  await page.evaluate("document.querySelector('#aiPasteAdd').scrollIntoView()");
+  const add = await page.evaluate("JSON.parse(JSON.stringify(document.querySelector('#aiPasteAdd').getBoundingClientRect()))");
+  assert.ok(add.bottom <= 640 && add.top >= 0, "the Add button is in the window");
+});
+
 test("Trace keeps a picture under the screen, only in the browser", { skip: SKIP }, async (t) => {
   const { page, click } = await openDesigner(t);
   await page.evaluate(`(() => { const c = document.createElement('canvas'); c.width = 40; c.height = 20;
