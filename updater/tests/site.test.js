@@ -1,5 +1,5 @@
 /* The StatTrak web site: one folder (updater/) with three pages that share one menu.
- *   index.html           Firmware and Apps (the web updater)
+ *   index.html           Firmware and My device (the web updater)
  *   start/index.html     Get started
  *   designer/index.html  the Screen Designer
  * Each page must have the same menu, and each local link and file must exist, also when the page
@@ -12,9 +12,9 @@ const path = require("node:path");
 
 const SITE = path.join(__dirname, "..");
 const PAGES = ["index.html", "start/index.html", "designer/index.html"];
-const MENU = ["Get started", "Firmware", "Apps", "Designer"];
+const MENU = ["Get started", "Firmware", "My device", "Designer"];
 // Where each menu entry goes, seen from the site root
-const TARGETS = ["start/index.html", "index.html#firmware", "index.html#apps", "designer/index.html"];
+const TARGETS = ["start/index.html", "index.html#firmware", "index.html#device", "designer/index.html"];
 
 const read = (page) => fs.readFileSync(path.join(SITE, page), "utf8");
 const strip = (html) => html.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
@@ -30,7 +30,7 @@ function menuOf(page) {
   }));
 }
 
-// A link seen from the site root: "../index.html#apps" on start/index.html -> "index.html#apps"
+// A link seen from the site root: "../index.html#device" on start/index.html -> "index.html#device"
 function fromRoot(page, href) {
   const [file, hash] = href.split("#");
   const resolved = file ? path.posix.normalize(path.posix.join(path.posix.dirname(page), file)) : page;
@@ -80,4 +80,26 @@ test("the links inside the Get started page go to its own sections", () => {
 test("the published site leaves out the tests and the notes for developers", () => {
   const ignore = fs.readFileSync(path.join(SITE, ".vercelignore"), "utf8").split(/\r?\n/);
   for (const name of ["tests", "package.json", "README.md"]) assert.ok(ignore.includes(name), name);
+});
+
+/* A site that adds its own parts (an extra tab, a sign-in button, its styles and scripts) puts them
+   at these places. The site works without them: they are comments. */
+test("every page has the places for added parts, and the StatTrak button or a Connect link", () => {
+  for (const page of PAGES) {
+    const html = read(page);
+    for (const mark of ["site:head", "site:nav", "site:meta", "site:body"]) {
+      assert.equal(html.split(`<!-- ${mark} -->`).length, 2, `${page}: one <!-- ${mark} -->`);
+    }
+    assert.ok(html.indexOf("<!-- site:head -->") < html.indexOf("</head>"), page);
+    assert.ok(html.indexOf("<!-- site:body -->") > html.lastIndexOf("<script"), `${page}: site:body after the scripts`);
+    // site:nav is in the menu, right after My device
+    const nav = html.match(/<nav class="site-nav"[^>]*>([\s\S]*?)<\/nav>/)[1];
+    assert.match(nav, />My device<\/a>\s*<!-- site:nav -->/, page);
+    if (page === "index.html") {
+      assert.match(html, /<div class="devbar" id="devBar"><\/div>/);
+      assert.equal(html.split("<!-- site:views -->").length, 2);
+    } else {
+      assert.match(html, /<a class="devbtn devbtn--off" href="\.\.\/index\.html#device"/, page);
+    }
+  }
 });

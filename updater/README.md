@@ -5,7 +5,7 @@ one menu (Get started, Firmware, Apps, Designer):
 
 | Page | What it is |
 | --- | --- |
-| `index.html` | The web updater: sends a firmware file to a StatTrak over Bluetooth (tab "Firmware"), and manages the apps on the device (tab "Apps"). Most of this file is about it. |
+| `index.html` | The web updater: sends a firmware file to a StatTrak over Bluetooth (tab "Firmware"), and manages the apps on the device (tab "My device"). Most of this file is about it. |
 | `start/index.html` | Get started: what StatTrak is, how to update, install apps, design screens and make your own app. Pictures in `start/img/` (copies of `docs/images/`). |
 | `designer/index.html` | The Screen Designer (docs/DESIGNS.md). It also works from a disk, without the internet. |
 
@@ -57,9 +57,9 @@ firmware. For a transfer that an other browser made, the button
 The page does not send a confirmation at each connection: firmware 1.0.1 shows "Accepted" on
 its display for each confirmation command, also when no new firmware waits.
 
-## The Apps tab
+## My device
 
-`index.html#apps`. The person opens Settings > "Apps: SYNC" on the device, holds the right button, and
+`index.html#device` (the old address `#apps` works too). The person opens Settings > "Apps: SYNC" on the device, holds the right button, and
 clicks **Connect**. Then the page shows the apps of the device in menu order (SETTINGS is always
 last) and the storage of the 24 KB for apps. The person can show or hide an app, move it (drag,
 arrows, or the arrow keys on the handle), change its settings, and delete it (the page asks in the
@@ -89,7 +89,7 @@ nothing.
 **Bluetooth name.** When the firmware has the command DEVICE_NAME, the tab shows the Bluetooth
 name of StatTrak in "Apps: SYNC" and can change the part after "StatTrak | " (1 to 12 characters
 0x20 .. 0x7E, no space at the start or the end) or remove it (back to "StatTrak"). StatTrak uses a new name the next time the
-person opens Apps: SYNC. The update view always uses "StatTrak". The Apps tab finds a StatTrak
+person opens Apps: SYNC. The update view always uses "StatTrak". My device finds a StatTrak
 with any name: its device chooser looks for a name that starts with "StatTrak", and for the
 service UUID that the device advertises (`03b80e5a-ede8-4b33-a751-6ce34ec4c700`). This is the standard number of the Bluetooth MIDI
 service, so the chooser can also list MIDI keyboards near the computer. A browser that refuses
@@ -98,7 +98,7 @@ that filter gets the name start filter "StatTrak" only. The firmware tab looks f
 
 - The tab has its own Bluetooth connection and sends only the app commands of `docs/APPS.md`
   section 6, never a firmware update command (a test checks this).
-- The tabs do not change while a firmware update or an app install runs. Opening the Apps tab
+- The tabs do not change while a firmware update or an app install runs. Opening My device
   closes a connection of the firmware tab: the device cannot show the update screen and
   "Apps: SYNC" at the same time.
 - An old firmware (no app commands): "Update the firmware first", with a link to the firmware tab.
@@ -108,6 +108,39 @@ that filter gets the name start filter "StatTrak" only. The firmware tab looks f
 - The device has no command for the title picture or the setting names of an installed app. The
   page knows them for catalog apps and for a file installed in this page session; other apps show
   their name as the picture, and their settings are changed on the device.
+- **Update available.** An installed app that is older than the same app in the catalog (or in
+  the apps of an added script, below) shows "Update available (v1 → v2)" and an **Update**
+  button. The update is a normal install of the new package (the device asks first).
+
+## The StatTrak button (header)
+
+`js/devbar.js`. The header of `index.html` shows which StatTrak the page talks to: **Connect**
+when none, else the name of the device (the part after "StatTrak | ", or "StatTrak") and the
+number of app updates. A click opens a panel: serial, firmware, app storage, the updates (each
+with Update), My device, Disconnect. Connect in the panel uses the connection of My device (the
+device in "Apps: SYNC"); from the firmware tab it opens My device first. During a firmware
+update the button shows the device of the firmware tab. The other pages have a **Connect**
+link to `index.html#device`.
+
+## Places for added parts
+
+A site that is built from this folder can add its own parts (an extra tab, a sign-in button,
+its styles and scripts) without changes to these files. Each page has HTML comments at the
+places: `<!-- site:head -->` (end of `<head>`), `<!-- site:nav -->` (in the menu, after My
+device), `<!-- site:meta -->` (right side of the header), `<!-- site:body -->` (after the
+scripts); `index.html` also has `<!-- site:views -->` (after the My device view). The site works
+without them: they are comments. The added scripts use:
+
+- `AppsTab.api.addTab(name, { tab, view, onShow })`: a tab at `#<name>` (also `#<name>/...`)
+  that keeps the "Apps: SYNC" connection when the person goes between it and My device. The
+  firmware tab ends that connection, as before.
+- `AppsTab.api.addCatalog(source, items)`: apps that the added script can install
+  (`AppsTab.api.install(item)`); they also give "Update available".
+- `AppsTab.api.subscribe(fn)`: called after each change of the state of My device.
+- The browser event `stattrak:device` (`js/utils.js`, `SiteEvents`): `connected`, `flashed`
+  (after a confirmed firmware update, with the version before) and `disconnected`, with the
+  serial (the device id, as Settings > Serial on StatTrak), the firmware version and the name.
+  The page itself sends nothing over the network for it.
 
 ## Files
 
@@ -119,7 +152,8 @@ that filter gets the name start filter "StatTrak" only. The firmware tab looks f
 | `js/main.js` | The steps of the page |
 | `js/apps-protocol.js` | The app commands (`StatTrakApps`: install, list, Bluetooth name, the device chooser of the Apps tab) and the check of a `.stapp` file (`StappFile`) |
 | `js/apps-pictures.js` | Title pictures, and the device display in "Apps: SYNC": a port of `_draw()` of `../main/views/app_sync_view.c`, pixel by pixel |
-| `js/apps.js`, `css/apps.css` | The tabs and the Apps tab |
+| `js/apps.js`, `css/apps.css` | The tabs and My device |
+| `js/devbar.js`, `css/site.css` | The StatTrak button in the header |
 | `js/device.js` | The device picture with a live display (`<st-device anim=...>`): step 1 of the firmware update (the way to the update mode on firmware 1.0.1) and the Apps tab (the screens of "Apps: SYNC" from `js/apps-pictures.js`). Its numbers (where the display and the round buttons are) are in `../tools/device_art/README.md` |
 | `assets/device.webp` | The device: a render of the 3D model, made by `../tools/device_art/` (also the picture of the web simulator) |
 | `assets/sync-path.js` | The display of the firmware of this repository on the way to "Apps: SYNC", from the headless simulator (`../tools/device_art/make_sync_path.py`). The Apps tab plays it before Connect |
@@ -132,6 +166,7 @@ that filter gets the name start filter "StatTrak" only. The firmware tab looks f
 | `tests/sync-screens.json` | Screens of "Apps: SYNC" from the firmware (the headless simulator, `../tests/stattrak_sim.py`). Make them again after a change to `_draw()` of `app_sync_view.c` (`python tests/make_sync_screens.py`); the firmware check `../tests/test_updater_screens.py` fails until then |
 | `tests/apps-page.test.js` | Tests of the Apps tab in a headless Chrome: connect, list, hide, move, delete, settings, install (the question first, then the transfer, then "Installed"), no, no answer in 30 s, the transfer stopped on the device, OPEN (a calm message), SYNC MORE, a lost answer, no space, format 2 on an older firmware, the Bluetooth name, a renamed device, old firmware, not in "Apps: SYNC", bad files, lost connection, the tab lock |
 | `tests/device.test.js` | Tests of `js/device.js` in Node.js: the 1.0.1 frames, the Apps screens are the screens of `js/apps-pictures.js`, the display is at the same place in the page and in the web simulator |
+| `tests/devbar-page.test.js` | Tests in a headless Chrome of My device (`#device`, `#apps`), the StatTrak button (Connect, name, serial, firmware, storage, Disconnect), Update available and the update from the button, an added tab that keeps the connection, the event `stattrak:device` |
 | `tests/files.test.js` | Tests of the fonts, of files from other sites, and that the Bluetooth numbers of the page are the numbers of the firmware |
 
 ## Run it on your computer

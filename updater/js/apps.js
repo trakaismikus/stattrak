@@ -1,9 +1,14 @@
-/* StatTrak updater: the "Apps" tab. Manages the apps on the device over Bluetooth, while the
- * device shows Settings > "Apps: SYNC" (docs/APPS.md section 6).
+/* StatTrak updater: the "My device" tab (address #device; the old #apps works too). Manages the
+ * apps on the device over Bluetooth, while the device shows Settings > "Apps: SYNC"
+ * (docs/APPS.md section 6).
  *
  * The tab has its own connection (js/ble.js) and sends only app commands (js/apps-protocol.js):
  * never a firmware update command. The tabs cannot change while a firmware update or an app
  * install runs.
+ *
+ * Other tabs can use the same connection (AppsTab.api.addTab): a page that adds its own scripts
+ * puts a tab and a view into the page, and the connection stays when the person goes between
+ * My device and that tab. AppsTab.api is the small interface for those scripts.
  */
 
 const AppsTab = (() => {
@@ -34,8 +39,12 @@ const AppsTab = (() => {
     nameDraft: "",          // the text in the name field
     nameMsg: null,          // { kind: ok | err, text } under the name field
     catalog: null,          // [item]
+    extra: {},              // source -> [item]: apps that an added script knows (AppsTab.api.addCatalog)
     known: {},              // idHex -> { picture, settings } of catalog and file apps
+    serial: "",             // the device id, 12 hex digits (Settings > Serial on StatTrak)
   };
+  const tabs = new Map();   // name -> { tab, view, onShow } of the added tabs (AppsTab.api.addTab)
+  const listeners = [];     // AppsTab.api.subscribe()
 
   const $ = (selector) => document.querySelector(selector);
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -92,6 +101,19 @@ const AppsTab = (() => {
     const known = knownOf(app);
     return known && known.settings && known.settings.length === app.settingCount && app.settingCount > 0 ? known.settings : null;
   }
+
+  /* All apps that the page can install: the catalog, then the apps of added scripts */
+  const allItems = () => (A.catalog || []).concat(...Object.values(A.extra));
+  /* The newest item with the id of this installed app, when it is newer */
+  function updateFor(app) {
+    if (app.builtin) return null;
+    let best = null;
+    for (const item of allItems()) {
+      if (item.id === app.id && item.version > app.version && (!best || item.version > best.version)) best = item;
+    }
+    return best;
+  }
+  const updates = () => A.list.map((app) => ({ app, item: updateFor(app) })).filter((u) => u.item);
 
   /* Can this app go on the device? null = yes, else the text in place of Install */
   function roomFor(item) {
@@ -155,16 +177,20 @@ const AppsTab = (() => {
     if (A.fresh === app.id) return `<span class="tag new">${icon("check", 13)}Installed · ${kb(app.size)}</span>`;
     let h = `<span class="tag">${app.builtin ? "Built-in" : "Installed · " + kb(app.size)}</span>`;
     if (app.error) h += '<span class="tag tag--err">App error</span>';
+    const update = updateFor(app);
+    if (update) h += `<span class="tag tag--upd">Update available (v${app.version} → v${update.version})</span>`;
     return h;
   }
 
   function vRow(app, i, last) {
     const n = esc(app.name), del = A.del === app.id, edit = A.edit === app.id, settings = settingsOf(app);
-    let h = `<div class="row${app.hidden ? " row--off" : ""}${del ? " row--del" : ""}${A.fresh === app.id ? " row--new" : ""}" data-id="${app.id}">` +
+    const update = updateFor(app);
+    let h = `<div class="row${app.hidden ? " row--off" : ""}${del ? " row--del" : ""}${A.fresh === app.id ? " row--new" : ""}${update ? " row--upd" : ""}" data-id="${app.id}">` +
       `<div class="row__main"><button class="grip" data-grip type="button" aria-label="Drag to move ${n}. Arrow keys move it.">${icon("grip")}</button>` +
       `<img class="pic${app.hidden ? " pic--off" : ""}" alt="" src="${pictureOf(app)}">` +
       `<div class="row__info"><div class="row__name">${n}</div><div class="row__meta">${meta(app)}</div></div>` +
       '<div class="row__acts">' +
+      (update ? `<button class="btn btn--primary btn--sm" type="button" data-act="update"${busy() ? " disabled" : ""}>Update</button>` : "") +
       `<button class="sw" role="switch" type="button" aria-checked="${!app.hidden}" aria-label="Show ${n} in the menu"${canHide(app) ? "" : ' aria-disabled="true"'} data-act="toggle"><span class="sw__track"></span><span class="lbl">${app.hidden ? "Hidden" : "Shown"}</span></button>` +
       `<span class="mv"><button class="icon-btn" type="button" data-act="up" aria-label="Move up"${i === 0 ? " disabled" : ""}>${icon("up")}</button>` +
       `<button class="icon-btn" type="button" data-act="down" aria-label="Move down"${i === last ? " disabled" : ""}>${icon("down")}</button></span>` +
@@ -237,7 +263,8 @@ const AppsTab = (() => {
     let h = vStatus();
     h += `<section><div class="sec-head"><h2 class="h2">On your StatTrak</h2></div><div class="list${busy() ? " list--busy" : ""}" id="appsList">` +
       A.list.map((app, i) => vRow(app, i, last)).join("") + vSettingsRow() + "</div></section>";
-    const items = (A.catalog || []).concat(A.fileItem ? [A.fileItem] : []);
+    const working = allItems().filter((i) => !(A.catalog || []).includes(i) && ((A.inst && A.inst.key === i.key) || (A.err && A.err.key === i.key)));
+    const items = (A.catalog || []).concat(working, A.fileItem ? [A.fileItem] : []);
     h += `<section><div class="sec-head"><h2 class="h2">Add apps</h2><button class="btn btn--ghost btn--sm" type="button" data-act="file"${busy() ? " disabled" : ""}>${icon("upload", 14)}From file</button></div>` +
       (A.fileErr ? `<div class="banner banner--error" role="alert"><span class="banner__icon">${icon("alert", 20)}</span>` +
         `<div><div class="banner__title">Not a StatTrak app</div><div class="banner__body">${esc(A.fileErr)}</div>` +
@@ -272,18 +299,31 @@ const AppsTab = (() => {
   function render() {
     renderTabs();
     const main = $("#appsMain");
-    if (!main) return;
-    if (A.conn === "on") main.innerHTML = vList();
-    else if (A.conn === "oldfw") main.innerHTML = vOldFw();
-    else main.innerHTML = vConnect();
+    if (main) {
+      if (A.conn === "on") main.innerHTML = vList();
+      else if (A.conn === "oldfw") main.innerHTML = vOldFw();
+      else main.innerHTML = vConnect();
+    }
+    notify();
+  }
+
+  function notify() {
+    for (const fn of listeners) {
+      try { fn(A); } catch (error) { console.error(error); }
+    }
   }
 
   function renderProgress() {
     const panel = $("#instpanel");
-    if (!panel || !$("#instpanel .prog__fill")) return render();
+    if (!panel || !$("#instpanel .prog__fill")) {
+      // My device is not open (an added tab shows the install): only the listeners
+      if (A.tab !== "apps") return notify();
+      return render();
+    }
     const pct = Math.round(A.inst.pct);
     panel.querySelector(".pct").textContent = pct + "%";
     panel.querySelector(".prog__fill").style.width = pct + "%";
+    notify();
   }
 
   const reveal = (selector) => {
@@ -297,17 +337,24 @@ const AppsTab = (() => {
   const firmwareBusy = () => typeof state !== "undefined" &&
     (state.flashState === "flashing" || state.flashState === "verifying" || state.connState === "scanning" || state.confirmOpen);
 
+  // The tabs that use the "Apps: SYNC" connection: My device and the added tabs
+  const usesSync = (name) => name === "apps" || tabs.has(name);
+
   function renderTabs() {
     const fwTab = $("#tabFirmware"), appsTab = $("#tabApps");
     if (!fwTab || !appsTab) return;
-    const blocked = { firmware: A.tab === "apps" && busy(), apps: A.tab === "firmware" && firmwareBusy() };
-    for (const [name, el] of [["firmware", fwTab], ["apps", appsTab]]) {
-      el.classList.toggle("tab--on", A.tab === name);
-      if (A.tab === name) el.setAttribute("aria-current", "page"); else el.removeAttribute("aria-current");
-      if (blocked[name]) el.setAttribute("aria-disabled", "true"); else el.removeAttribute("aria-disabled");
+    const all = [["firmware", fwTab, $("#firmwareView")], ["apps", appsTab, $("#appsView")]]
+      .concat([...tabs].map(([name, t]) => [name, t.tab, t.view]));
+    for (const [name, el, view] of all) {
+      // An install blocks the firmware tab; a firmware update blocks the others
+      const blocked = name === "firmware" ? usesSync(A.tab) && busy() : A.tab === "firmware" && firmwareBusy();
+      if (el) {
+        el.classList.toggle("tab--on", A.tab === name);
+        if (A.tab === name) el.setAttribute("aria-current", "page"); else el.removeAttribute("aria-current");
+        if (blocked) el.setAttribute("aria-disabled", "true"); else el.removeAttribute("aria-disabled");
+      }
+      if (view) view.hidden = A.tab !== name;
     }
-    $("#firmwareView").hidden = A.tab !== "firmware";
-    $("#appsView").hidden = A.tab !== "apps";
     // The links to the other pages leave this page: not while a transfer or an install runs
     const leaving = busy() || firmwareBusy();
     for (const id of ["siteLogo", "tabStart", "tabDesigner"]) {
@@ -317,19 +364,26 @@ const AppsTab = (() => {
     }
   }
 
+  const hashOf = (name) => (name === "apps" ? "#device" : "#" + name);
+
   function showTab(name) {
-    if (name === A.tab) return render();
-    if ((name === "apps" && firmwareBusy()) || (name === "firmware" && busy())) {
-      history.replaceState(null, "", A.tab === "apps" ? "#apps" : "#firmware");
+    const show = tabs.get(name);
+    if (name === A.tab) {
+      render();
+      if (show && show.onShow) show.onShow();
+      return;
+    }
+    if ((usesSync(name) && firmwareBusy()) || (name === "firmware" && busy())) {
+      history.replaceState(null, "", hashOf(A.tab));
       return renderTabs();
     }
-    if (name === "apps") {
+    if (usesSync(name)) {
       // The device cannot be in the update screen and in "Apps: SYNC": the firmware tab lets go of it
       if (typeof state !== "undefined" && (state.device || (typeof bleOta !== "undefined" && bleOta && bleOta.isConnected()))) {
         const button = document.getElementById("disconnectBtn");
         if (button) button.click();
       }
-      A.tab = "apps";
+      A.tab = name;
       loadCatalog();
     } else {
       disconnect(null);
@@ -337,11 +391,22 @@ const AppsTab = (() => {
     }
     render();
     if (typeof window.scrollTo === "function") window.scrollTo(0, 0);
+    if (show && show.onShow) show.onShow();
+  }
+
+  /* The tab of an address: #device (or the old #apps) = My device, #<name> or #<name>/... = an
+     added tab, else the firmware tab */
+  function tabOfHash(hash) {
+    const first = String(hash || "").replace(/^#/, "").split("/")[0];
+    if (first === "device" || first === "apps") return "apps";
+    if (tabs.has(first)) return first;
+    return "firmware";
   }
 
   /* ---- connection ---------------------------------------------------------------------- */
 
   function disconnect(newBanner) {
+    if (A.conn === "on") SiteEvents.emitDevice({ event: "disconnected", serial: A.serial });
     const ota = A.ota;
     A.ota = null;
     A.apps = null;
@@ -357,6 +422,7 @@ const AppsTab = (() => {
     A.edit = A.del = A.hint = A.fresh = A.err = null;
     A.opened = A.devName = A.nameMsg = null;
     A.nameDraft = "";
+    A.serial = "";
     clearTimeout(watchTimer);
     A.fileErr = null;
     A.fileItem = null;
@@ -402,8 +468,12 @@ const AppsTab = (() => {
       if (ota !== A.ota) return;
       A.devName = await A.apps.deviceName();
       if (ota !== A.ota) return;
+      const uid = await ota.getUid();
+      if (ota !== A.ota) return;
+      A.serial = uid ? Array.from(uid).map((b) => b.toString(16).padStart(2, "0").toUpperCase()).join("") : "";
       A.conn = "on";
       log(`connected, firmware ${A.fw}, ${A.list.length} apps, ${A.info.free} bytes free`, "ok");
+      SiteEvents.emitDevice({ event: "connected", serial: A.serial, fw: A.fw, name: namePart() });
     } catch (error) {
       if (ota !== A.ota) return;
       // Firmware 1.0.1 does not answer user commands at all
@@ -577,6 +647,9 @@ const AppsTab = (() => {
     [StatTrakApps.STATUS__ERROR]: "StatTrak refused the app.",
   };
   const NEWER_FORMAT = "Update the firmware first: this app needs a newer StatTrak firmware.";
+
+  /* The part of the Bluetooth name after "StatTrak | " ("" = the standard name "StatTrak") */
+  const namePart = () => (A.devName && A.devName.custom ? A.devName.name.slice(StatTrakApps.NAME_PREFIX.length) : "");
 
   async function startInstall(item) {
     if (busy() || !A.apps) return;
@@ -774,8 +847,13 @@ const AppsTab = (() => {
     if (act === "dismiss") { A.err = null; A.fileErr = null; if (A.fileItem && !busy()) A.fileItem = null; return render(); }
     if (act === "name-reset") return saveName("", true);
     if (act === "install" && cat) {
-      const item = (A.catalog || []).concat(A.fileItem ? [A.fileItem] : []).find((i) => i.key === cat.dataset.key);
+      const item = allItems().concat(A.fileItem ? [A.fileItem] : []).find((i) => i.key === cat.dataset.key);
       if (item) startInstall(item);
+      return;
+    }
+    if (act === "update" && app) {
+      const item = updateFor(app);
+      if (item && !busy()) startInstall(item);
       return;
     }
     if (!app || busy()) return;
@@ -852,19 +930,52 @@ const AppsTab = (() => {
         if (event.currentTarget.getAttribute("aria-disabled") === "true") event.preventDefault();
       });
     }
+    // A locked added tab (a firmware update runs)
+    document.addEventListener("click", (event) => {
+      const el = event.target.closest && event.target.closest(".site-nav .tab");
+      if (el && el.getAttribute("aria-disabled") === "true") event.preventDefault();
+    });
     $("#appsFile").addEventListener("change", (event) => {
       const file = event.target.files && event.target.files[0];
       event.target.value = "";
       onFile(file);
     });
-    const fromHash = () => showTab(location.hash === "#apps" ? "apps" : "firmware");
+    const fromHash = () => showTab(tabOfHash(location.hash));
     window.addEventListener("hashchange", fromHash);
     // Also a typed address or Back: the browser asks first during a transfer or an install
     window.addEventListener("beforeunload", (event) => { if (busy() || firmwareBusy()) event.preventDefault(); });
     fromHash();
   }
 
-  return { init, render, renderTabs, state: A, onFile };
+  /* The interface for scripts that a page adds (see the comment at the top). */
+  const api = {
+    state: A,
+    /* A tab that uses the "Apps: SYNC" connection: `tab` = the link in the header (href "#<name>"),
+       `view` = the element to show, `onShow` = called when the tab opens (also for #<name>/...) */
+    addTab(name, { tab, view, onShow }) {
+      tabs.set(name, { tab, view, onShow });
+      if (tab) tab.addEventListener("click", (event) => { if (tab.getAttribute("aria-disabled") === "true") event.preventDefault(); });
+      if (tabOfHash(location.hash) === name && A.tab !== name) showTab(name); else renderTabs();
+    },
+    /* Apps that the added script can install: [{ key, id, name, version, size, file | bytes,
+       picture, settings, permissions, desc }]. They also give "Update available" in My device. */
+    addCatalog(source, items) {
+      A.extra[source] = items.map((item) => Object.assign({ desc: "", permissions: [], settings: [] }, item));
+      for (const item of A.extra[source]) if (!A.known[hex(item.id)]) A.known[hex(item.id)] = { picture: item.picture, settings: item.settings || [] };
+      render();
+    },
+    connect,
+    disconnect() { disconnect(null); render(); },
+    install(item) { return startInstall(item); },
+    updates,
+    usedBytes,
+    maxBytes: MAX_BYTES,
+    namePart,
+    busy,
+    subscribe(fn) { listeners.push(fn); },
+  };
+
+  return { init, render, renderTabs, state: A, onFile, api };
 })();
 
 function renderTabs() { AppsTab.renderTabs(); }

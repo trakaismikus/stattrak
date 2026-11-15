@@ -51,3 +51,21 @@ function crc16_ccitt(buffer) {
   }
   return crc;
 }
+/* The site tells other scripts of the page about the StatTrak that it talks to. One browser event,
+ * "stattrak:device", with detail = { event, serial, fw, previousFw, name }:
+ *   event: "connected" | "flashed" | "disconnected"
+ *   serial: the 12 hex digits of the device id (the same text as Settings > Serial on StatTrak)
+ *   fw: the firmware version; previousFw: the version before a firmware update ("flashed" only)
+ *   name: the part of the Bluetooth name after "StatTrak | " ("" = the standard name "StatTrak")
+ * This page sends nothing over the network for it: a page that adds its own scripts can listen.
+ * SiteEvents.device is the last one (null after "disconnected"). */
+const SiteEvents = {
+  device: null,
+  emitDevice(detail) {
+    const d = Object.assign({ serial: "", fw: "", previousFw: "", name: "" }, detail);
+    SiteEvents.device = d.event === "disconnected" ? null : d;
+    if (typeof window !== "undefined" && typeof window.dispatchEvent === "function" && typeof CustomEvent === "function") {
+      window.dispatchEvent(new CustomEvent("stattrak:device", { detail: d }));
+    }
+  },
+};

@@ -60,6 +60,12 @@ This repository (`trakaismikus/stattrak`) is private until these are done:
 
 ## Shipped
 
+- **2026-11: My device and the StatTrak button.** The Apps tab is now **My device**
+  (`#device`; `#apps` still works). The header shows the connected StatTrak (its name, the
+  number of app updates; a panel with serial, firmware, storage, the updates, Disconnect), and
+  Connect from any tab. Installed apps with a newer catalog version show "Update available".
+  The site has places for added parts (an extra tab, a sign-in button) and tells added scripts
+  about the device with the event `stattrak:device`; the site itself sends nothing.
 - **2026-11: App Sync how-to and Screen Designer tools.** The Apps tab shows the whole way to
   App Sync on the current firmware (counter, app menu, Settings, "Apps: SYNC", hold the right
   button, each click shown) with the lit buttons, at the size of the firmware how-to; "Apps: SYNC"

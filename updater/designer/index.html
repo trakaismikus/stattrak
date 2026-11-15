@@ -401,6 +401,7 @@ st-device { display: block; position: relative; width: 100%; aspect-ratio: 1896 
   .sec { padding: 14px 14px; }
 }
 </style>
+<!-- site:head -->
 </head>
 <body>
 
@@ -411,9 +412,14 @@ st-device { display: block; position: relative; width: 100%; aspect-ratio: 1896 
     <nav class="site-nav" aria-label="StatTrak tools">
       <a class="tab tab--start" href="../start/index.html">Get started</a>
       <a class="tab" href="../index.html#firmware">Firmware</a>
-      <a class="tab" href="../index.html#apps">Apps</a>
+      <a class="tab" href="../index.html#device">My device</a>
+      <!-- site:nav -->
       <a class="tab tab--on" href="index.html" aria-current="page">Designer</a>
     </nav>
+    <div class="site-header__meta">
+      <a class="devbtn devbtn--off" href="../index.html#device" title="Connect your StatTrak on My device"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg><span>Connect</span></a>
+      <!-- site:meta -->
+    </div>
   </div>
 </header>
 
@@ -2332,5 +2338,6 @@ window.StatTrakDesigner = {
 };
 })();
 </script>
+<!-- site:body -->
 </body>
 </html>

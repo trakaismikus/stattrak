@@ -66,6 +66,12 @@ function askAccept(ota) {
   return acceptRequest.promise;
 }
 
+// The part of a Bluetooth name after "StatTrak | " ("" = the standard name "StatTrak")
+function bleNamePart(name) {
+  const m = /^StatTrak \| (.+)$/.exec(name || "");
+  return m ? m[1] : "";
+}
+
 function setPendingAccept(info) {
   try {
     localStorage.setItem(PENDING_KEY, JSON.stringify({ uid: info.uid, version: info.version, time: Date.now() }));
@@ -152,6 +158,7 @@ function activeStepNumber() {
 // --- Render -----------------------------------------------------------
 function render() {
   if (typeof renderTabs === "function") renderTabs(); // js/apps.js: no tab change during an update
+  if (typeof DevBar !== "undefined") DevBar.render();   // js/devbar.js: the StatTrak button in the header
   renderBanner();
   renderNotice();
   renderSteps();
@@ -483,6 +490,7 @@ async function onBleConnected() {
       fw: (version || "unknown").replace(/[\s\x00]+$/g, ""),
     };
     pushLog(`> device info: fw ${state.device.fw}, uid ${uidHex}`, "ok");
+    SiteEvents.emitDevice({ event: "connected", serial: uidHex, fw: state.device.fw, name: bleNamePart(state.device.name) });
   } catch (err) {
     console.error(err);
     pushLog(`> device info read failed: ${err.message}`, "warn");
@@ -506,6 +514,7 @@ async function onBleConnected() {
 function onBleDisconnected() {
   pushLog("> disconnected from device.", "warn");
   state.connState = "idle";
+  if (state.device) SiteEvents.emitDevice({ event: "disconnected", serial: state.device.id });
   state.device = null;
   state.step1Confirmed = false;
   if (state.flashState === "flashing" || state.flashState === "verifying") sawDisconnect = true;
@@ -571,6 +580,7 @@ async function onFlashConfirm() {
   }
 
   state.flashState = "flashing";
+  state.flashFromFw = state.device?.fw || "";
   state.progress = 0;
   state.notice = null;
   sawDisconnect = false;
@@ -681,6 +691,8 @@ async function tryConfirmAfterTransfer() {
     // The work is done. Do not connect again when the device leaves the update screen.
     bleOta.wantConnection = false;
     pushLog(`> the device confirmed the new firmware (${state.device?.fw || "?"}).`, "ok");
+    SiteEvents.emitDevice({ event: "flashed", serial: state.device?.id || "", fw: state.device?.fw || "",
+      previousFw: state.flashFromFw || "", name: bleNamePart(state.device?.name) });
     return;
   }
 
@@ -923,6 +935,7 @@ function wireEvents() {
     try {
       if (bleOta) bleOta.disconnect();
     } catch (_) {}
+    if (state.device) SiteEvents.emitDevice({ event: "disconnected", serial: state.device.id });
     state.device = null;
     state.step1Confirmed = false;
     state.connState = "idle";
@@ -992,6 +1005,7 @@ function wireEvents() {
     try {
       if (bleOta) bleOta.disconnect();
     } catch (_) {}
+    if (state.device) SiteEvents.emitDevice({ event: "disconnected", serial: state.device.id });
     state.notice = null;
     state.flashState = "ready";
     state.progress = 0;

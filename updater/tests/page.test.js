@@ -577,3 +577,21 @@ test("the page has no links without a target", { skip: SKIP }, async (t) => {
   }).length`);
   assert.equal(dead, 0);
 });
+
+test("the firmware tab tells added scripts about the device: connected, flashed, disconnected", { skip: SKIP }, async (t) => {
+  const page = await open(t, { version: "1.0.1" });
+  await page.evaluate(`window.__events = []; window.addEventListener("stattrak:device", (e) => window.__events.push(e.detail))`);
+  await startUpdate(page, { version: "2.0.0" });
+  await page.waitFor(visible("successPanel"));
+  const events = await page.evaluate("window.__events");
+  assert.deepEqual(events[0], { event: "connected", serial: "34B7DA010203", fw: "1.0.1", previousFw: "", name: "" });
+  const flashed = events.find((e) => e.event === "flashed");
+  assert.deepEqual(flashed, { event: "flashed", serial: "34B7DA010203", fw: "2.0.0", previousFw: "1.0.1", name: "" });
+  assert.equal(await page.evaluate("SiteEvents.device.fw"), "2.0.0");
+  // The StatTrak button of the header shows the device of the firmware tab
+  assert.match(await page.evaluate(`document.querySelector("#devBar .devbtn").textContent`), /StatTrak/);
+  await click(page, "doneBtn");
+  assert.equal((await page.evaluate("window.__events")).at(-1).event, "disconnected");
+  assert.equal(await page.evaluate("SiteEvents.device"), null);
+  assert.match(await page.evaluate(`document.querySelector("#devBar .devbtn").textContent`), /Connect/);
+});

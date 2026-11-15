@@ -44,6 +44,8 @@
 
 .apps .tag { display: inline-flex; align-items: center; gap: 5px; font-size: 14px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--fg2); white-space: nowrap; }
 .apps .tag--err { color: var(--st-kill-red); }
+.apps .tag--upd { color: var(--accent); text-transform: none; letter-spacing: 0; }
+.apps .row--upd { border-color: rgba(255, 122, 31, 0.55); }
 .apps .perm { display: inline-flex; align-items: center; gap: 5px; font-size: 14px; color: var(--st-warning); }
 .apps .new { color: var(--st-success); }
 
