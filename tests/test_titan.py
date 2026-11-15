@@ -226,6 +226,29 @@ class TitanTest(SimTestCase):
         self.assertEqual(state["titan_rounds"], 30)
         self.assertEqual(state["titan_reloads"], 2)
 
+    def test_power_off_saves_the_count(self):
+        # Holding both buttons switches off without the deinit of the view (Sol review S2)
+        self.open_connected(mag=3, rounds=30)
+        self.dev.gate_info(fired=4)
+        self.dev.run(100)
+        self.dev.long_press_both()
+        self.assert_powered_off()
+        self.dev.boot()
+        self.dev.gate_add(SERIAL, PIN)
+        state = self.open_titan()
+        self.assertEqual(state["titan_rounds"], 26)
+        self.assertEqual(state["titan_shots"], 4)
+
+    def test_a_reopened_count_is_uncertain_until_a_reload(self):
+        # Also with a full mag: shots while the app was closed are not known (Sol review S3)
+        state = self.open_connected(mag=3, rounds=30)
+        self.assertEqual(state["titan_uncertain"], 1)
+        self.dev.click(1)                            # Reload
+        self.assertEqual(self.state()["titan_uncertain"], 0)
+        self.go_to_view("TOTAL")
+        self.dev.run(500)
+        self.assertEqual(self.open_titan()["titan_uncertain"], 1)
+
     def test_count_and_session_are_saved_and_marked_uncertain(self):
         self.open_connected(mag=3, rounds=30)
         self.dev.gate_info(fired=4)
@@ -242,6 +265,9 @@ class TitanTest(SimTestCase):
     def test_low_battery_needs_three_seconds(self):
         self.open_connected(battery=0)               # 2S LIPO: under 7.0 V
         self.dev.gate_info(voltage_mv=6800)          # A drop while firing
+        for _ in range(20):                          # Not in the first frames either (Sol review S1)
+            self.dev.run(10)
+            self.assertEqual(self.state()["titan_alerts"] & LOW_BATT, 0)
         self.dev.run(1000)
         self.dev.gate_info(voltage_mv=7500)
         self.dev.run(3000)
@@ -269,7 +295,10 @@ class TitanTest(SimTestCase):
     def test_link_lost_and_back(self):
         self.open_connected(mag=3, rounds=30)
         self.dev.gate_range(SERIAL, False)
-        self.dev.run(4000)
+        for _ in range(20):                          # Not in the first frames either (Sol review S1)
+            self.dev.run(10)
+            self.assertEqual(self.state()["titan_alerts"] & LINK_LOST, 0)
+        self.dev.run(3800)
         self.assertEqual(self.state()["titan_alert"], 0, "LINK LOST only after 5 s")
         self.dev.run(1500)
         state = self.state()

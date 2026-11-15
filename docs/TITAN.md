@@ -129,7 +129,8 @@ Button 1 / 2 = previous / next row. Hold button 1 / 2 = previous / next value.
   count; a read gives the last value again.
 - Flash: NVS namespace `titan`, blob `cfg` (32 bytes, version 1): serial, PIN, MAG SIZE,
   AMMO ALERT, GUN BATT, rounds left, session shots, reloads, session time. Written at pairing,
-  at a settings change, at a new session and when the app closes. Never for each shot.
+  at a settings change, at a new session, when the app closes and at power-off. Never for
+  each shot.
 - Built-in app id 4 (`APPS_ID__TITAN`). Devices that get this firmware get TITAN in the app
   menu, last before SETTINGS. The web updater shows it as "Built-in", with its name as the
   picture.

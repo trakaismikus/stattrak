@@ -97,12 +97,14 @@ static uint32_t  s_retryAt = 0;
 static uint32_t  s_pinSentAt = 0;
 static uint32_t  s_lastReadAt = 0;
 static bool      s_wasReady = false;
-static uint32_t  s_lostAt = 0;           // The time of the lost connection (0 = connected or never)
+static bool      s_lost = false;         // The connection was lost (after READY) and is not back
+static uint32_t  s_lostAt = 0;           // The time of the lost connection
 
 // ETU state
 static gate_info_t s_info;
 static bool      s_haveInfo = false;
-static uint32_t  s_lowSince = 0;         // The voltage is under the limit since (0 = not under)
+static bool      s_low = false;          // The voltage is under the limit
+static uint32_t  s_lowSince = 0;         // ... since this time
 
 // Alerts
 static uint8_t   s_activeAlerts = 0;
@@ -209,7 +211,7 @@ void Titan_setBattery(uint8_t type) {
   if(type >= TITAN_BATT_COUNT)
     return;
   s_cfg.battery = type;
-  s_lowSince = 0;
+  s_low = false;
   _save();
 }
 
@@ -231,9 +233,9 @@ void Titan_open(uint32_t now) {
   s_activeAlerts = 0;
   s_pendingAlerts = 0;
   s_haveInfo = false;
-  s_lowSince = 0;
-  // Shots while the app was closed are not counted
-  s_uncertain = (s_cfg.magSize > 0) ? (s_cfg.rounds != Titan_getCapacity()) : (s_cfg.sessionShots > 0);
+  s_low = false;
+  // Shots while the app was closed are not counted: "~" until the next reload
+  s_uncertain = (s_cfg.magSize > 0) || (s_cfg.sessionShots > 0);
 }
 
 void Titan_close(uint32_t now) {
@@ -292,14 +294,14 @@ void Titan_linkStart(const char* serial, const char* pin, uint32_t now) {
   s_phase = PHASE__WAIT;
   s_retryAt = now;
   s_wasReady = false;
-  s_lostAt = 0;
+  s_lost = false;
 }
 
 void Titan_linkStop(void) {
   if(s_phase != PHASE__OFF)
     GateBle_disconnect();
   s_phase = PHASE__OFF;
-  s_lostAt = 0;
+  s_lost = false;
 }
 
 uint8_t Titan_getLink(void) {
@@ -504,7 +506,7 @@ static void _handleEvent(const gate_ble_event_t* event, uint32_t now) {
       if(answer == GATE_ANSWER__OK) {
         s_phase = PHASE__READY;
         s_wasReady = true;
-        s_lostAt = 0;
+        s_lost = false;
         s_haveInfo = false;
         s_lastReadAt = now;
         GateBle_readInfo();
@@ -550,10 +552,12 @@ static void _applyInfo(const gate_info_t* info, bool notification, uint32_t now)
   const uint16_t limit = Titan_batteryLimitMv(s_cfg.battery);
   if(info->voltageMv != GATE_VOLTAGE_UNKNOWN) {
     if(limit > 0 && info->voltageMv < limit) {
-      if(s_lowSince == 0)
-        s_lowSince = now | 1u;
+      if(!s_low) {
+        s_low = true;
+        s_lowSince = now;
+      }
     } else {
-      s_lowSince = 0;
+      s_low = false;
     }
   }
 
@@ -562,10 +566,11 @@ static void _applyInfo(const gate_info_t* info, bool notification, uint32_t now)
 }
 
 static void _lost(uint32_t now) {
-  s_lostAt = now | 1u;
+  s_lost = true;
+  s_lostAt = now;
   s_uncertain = true;
   s_haveInfo = false;
-  s_lowSince = 0;
+  s_low = false;
 }
 
 static void _updateLink(uint32_t now) {
@@ -602,9 +607,9 @@ static void _updateAlerts(uint32_t now) {
   uint8_t active = 0;
   const bool ready = (s_phase == PHASE__READY);
 
-  if(s_wasReady && !ready && s_lostAt != 0 && (now - s_lostAt) >= TITAN_LINK_LOST_MS)
+  if(s_wasReady && !ready && s_lost && (now - s_lostAt) >= TITAN_LINK_LOST_MS)
     active |= TITAN_ALERT__LINK_LOST;
-  if(ready && s_lowSince != 0 && (now - s_lowSince) >= TITAN_LOW_BATT_MS)
+  if(ready && s_low && (now - s_lowSince) >= TITAN_LOW_BATT_MS)
     active |= TITAN_ALERT__LOW_BATT;
   if(ready && s_haveInfo && s_info.fireLocked)
     active |= TITAN_ALERT__FIRE_LOCKED;

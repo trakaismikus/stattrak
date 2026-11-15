@@ -13,6 +13,9 @@
 // Each loop (App_update): radio events and screen changes while TITAN is open
 void TitanView_update(uint32_t now);
 
+// The device switches off (the view gets no deinit then): save the count
+void TitanView_onShutdown(void);
+
 // For the simulator and the tests: the screen of the view (titan_screen_t)
 uint8_t     TitanView_getScreen(void);
 const char* TitanView_getScreenName(void);

@@ -239,6 +239,7 @@ void App_update(void) {
   if(s_shutdownReq == 1) {
     s_shutdownReq = 2;
     AppHost_onShutdown();   // The saved values of an open app
+    TitanView_onShutdown(); // The count of the TITAN app
     App_click(800);
     GfxFx_startCollapse();
   } else if(s_shutdownReq == 2 && GfxFx_isCollapsed()) {

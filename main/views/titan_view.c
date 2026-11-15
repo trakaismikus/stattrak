@@ -94,7 +94,8 @@ static uint8_t        s_pinPos = 0;
 static bool           s_repair = false;      // PIN: a new PIN for the paired ETU (no battery question)
 static uint8_t        s_battery = TITAN_BATT__2S_LIPO;
 static uint8_t        s_lastAlert = 0;
-static uint32_t       s_reloadAt = 0;        // The "FULL" sign after a reload
+static bool           s_reloaded = false;    // The "FULL" sign after a reload ...
+static uint32_t       s_reloadAt = 0;        // ... since this time
 
 /* > Function Definitions *************************************************************************/
 
@@ -161,6 +162,11 @@ void TitanView_update(uint32_t now) {
   s_lastAlert = alert;
 }
 
+void TitanView_onShutdown(void) {
+  if(s_active)
+    Titan_close(Time_getMillis());   // The count and the session time go to flash
+}
+
 uint8_t TitanView_getScreen(void) {
   return s_screen;
 }
@@ -186,7 +192,7 @@ static void _init(void) {
   s_active = true;
   s_radioOn = false;
   s_lastAlert = 0;
-  s_reloadAt = 0;
+  s_reloaded = false;
   s_repair = false;
   _setScreen(Titan_isPaired() ? SCR__CONNECTING : SCR__PAIR);
   BtStart_begin(VIEW_ID__TITAN, _startRadio);   // The radio starts a moment later (soft start)
@@ -353,7 +359,8 @@ static bool _eventHandler(uint16_t event) {
       if(event == EVENT__PRESS_1) {
         if(Titan_getCapacity() > 0) {
           Titan_reload();
-          s_reloadAt = now | 1u;
+          s_reloaded = true;
+          s_reloadAt = now;
           App_click(1500);
         }
         return true;
@@ -550,7 +557,7 @@ static void _drawPlay(uint32_t now) {
       Gfx_fillRect(cx - 2, 0, SCREEN_W - cx + 2, 7, 1);
       Gfx_drawString(cx, 1, "EMPTY", &font5x5, 0, 0, GFX_ROTATION__0);
     }
-  } else if(s_reloadAt != 0 && (now - s_reloadAt) < 800) {
+  } else if(s_reloaded && (now - s_reloadAt) < 800) {
     Gfx_drawString(cx, 1, "FULL", &font5x5, 1, 0, GFX_ROTATION__0);
   } else if(capacity > 0) {
     snprintf(str, sizeof(str), "/%u", (unsigned)capacity);
