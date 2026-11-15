@@ -78,6 +78,38 @@ static void _removeEntry(host_nvs_entry_t* entry) {
   memmove(&s_entries[idx], &s_entries[idx + 1], (s_entryCount - idx) * sizeof(s_entries[0]));
 }
 
+/* The NVS entries of 32 bytes that the table uses (see nvs_get_stats in nvs_flash.h) */
+#define PAGE_ENTRIES    126u
+#define PAGE_COUNT      12u        /* 48 KB */
+#define BLOB_PART_MAX   4000u
+static uint32_t _blobEntries(uint32_t length) {
+  const uint32_t parts = (length + BLOB_PART_MAX - 1) / BLOB_PART_MAX;
+  return 1u + (parts ? parts : 1u) + (length + 31u) / 32u;
+}
+static uint32_t _namespaceCount(void) {
+  char seen[HOST_NVS_MAX_ENTRIES + HOST_NVS_MAX_BLOBS][16];
+  uint32_t count = 0;
+  for(uint32_t i = 0; i < s_entryCount + s_blobCount; i++) {
+    const char* ns = (i < s_entryCount) ? s_entries[i].ns : s_blobs[i - s_entryCount].ns;
+    uint32_t j = 0;
+    while(j < count && strcmp(seen[j], ns) != 0)
+      j++;
+    if(j == count)
+      strcpy(seen[count++], ns);
+  }
+  return count;
+}
+static uint32_t _usedEntries(void) {
+  uint32_t used = s_entryCount + _namespaceCount();
+  for(uint32_t i = 0; i < s_blobCount; i++)
+    used += _blobEntries(s_blobs[i].length);
+  return used;
+}
+/* Room for `extra` more entries (one page stays free, as in the real NVS) */
+static bool _fits(uint32_t extra) {
+  return _usedEntries() + extra + PAGE_ENTRIES <= PAGE_ENTRIES * PAGE_COUNT;
+}
+
 static bool _handleValid(nvs_handle_t handle) {
   return (handle >= 1 && handle <= MAX_HANDLES && s_handles[handle - 1].open);
 }
@@ -103,7 +135,7 @@ bool HostNvs_put(const char* ns, const char* key, uint32_t value) {
 
   host_nvs_entry_t* entry = _find(ns, key);
   if(entry == NULL) {
-    if(s_entryCount >= HOST_NVS_MAX_ENTRIES)
+    if(s_entryCount >= HOST_NVS_MAX_ENTRIES || !_fits(2))
       return false;
     entry = &s_entries[s_entryCount++];
     strcpy(entry->ns, ns);
@@ -127,6 +159,9 @@ bool HostNvs_putBlob(const char* ns, const char* key, const uint8_t* data, uint3
   host_nvs_blob_t* blob = _findBlob(ns, key);
   const uint32_t others = _blobBytes() - (blob ? blob->length : 0);
   if(others + length > HOST_NVS_BLOB_SPACE)
+    return false;
+  /* The real NVS writes the new blob before it erases the old one: the new one must fit */
+  if(!_fits(_blobEntries(length) + 1u))
     return false;
 
   uint8_t* copy = (uint8_t*)malloc(length > 0 ? length : 1);
@@ -296,6 +331,20 @@ esp_err_t nvs_get_blob(nvs_handle_t handle, const char* key, void* out_value, si
 
   memcpy(out_value, blob->data, blob->length);
   *length = blob->length;
+  return ESP_OK;
+}
+
+esp_err_t nvs_get_stats(const char* part_name, nvs_stats_t* nvs_stats) {
+  (void)part_name;
+  if(nvs_stats == NULL)
+    return ESP_ERR_INVALID_ARG;
+  const uint32_t total = PAGE_ENTRIES * PAGE_COUNT;
+  const uint32_t used = _usedEntries();
+  nvs_stats->used_entries = used;
+  nvs_stats->total_entries = total;
+  nvs_stats->free_entries = (used < total) ? total - used : 0;
+  nvs_stats->available_entries = (used + PAGE_ENTRIES < total) ? total - used - PAGE_ENTRIES : 0;
+  nvs_stats->namespace_count = _namespaceCount();
   return ESP_OK;
 }
 

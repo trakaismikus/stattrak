@@ -334,7 +334,7 @@ test("the .stapp check: the catalog files are good, damaged and other files are 
   const tiny = FakeStatTrak.makeApp({ name: "TINY", size: 310 });
   assert.equal(StappFile.inspect(tiny).ok, true, "310 bytes is a good format 1 size");
   assert.equal(StappFile.inspect(withFormat(tiny, 2)).problem, "damaged", "310 bytes is too small for format 2");
-  assert.equal(StappFile.inspect(withFormat(good, 3)).problem, "newer format");
+  assert.equal(StappFile.inspect(withFormat(good, 4)).problem, "newer format");
   assert.equal(StappFile.inspect(withFormat(good, 0)).problem, "damaged");
 });
 

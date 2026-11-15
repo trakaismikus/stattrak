@@ -110,10 +110,27 @@ test("the app command numbers of the page are the numbers of the firmware", { sk
   const header = fs.readFileSync(path.join(ROOT, "..", "main", "ble_commands.h"), "utf8");
   const page = read("js/apps-protocol.js");
   const firmware = {};
-  for (const match of header.matchAll(/BLE_COMMAND__APP_([A-Z_]+)\s*=\s*(0x[0-9A-Fa-f]+)/g)) firmware["CMD__" + match[1]] = Number(match[2]);
+  // The app manager: 0x0110 .. 0x011F (APP_VALUES 0x0122 belongs to docs/DATA.md: the next test)
+  for (const match of header.matchAll(/BLE_COMMAND__APP_([A-Z_]+)\s*=\s*(0x[0-9A-Fa-f]+)/g)) {
+    if (Number(match[2]) < 0x0120) firmware["CMD__" + match[1]] = Number(match[2]);
+  }
   for (const match of header.matchAll(/BLE_COMMAND_STATUS__([A-Z_]+)\s*=\s*(\d+)/g)) firmware["STATUS__" + match[1]] = Number(match[2]);
   const ours = {};
   for (const match of page.matchAll(/static ((?:CMD|STATUS)__[A-Z_]+)\s*=\s*(0x[0-9A-Fa-f]+|\d+);/g)) ours[match[1]] = Number(match[2]);
   assert.ok(Object.keys(firmware).length >= 25, "the firmware numbers were not found");
+  assert.deepEqual(ours, firmware);
+});
+
+/* The commands of docs/DATA.md (0x0120 .. 0x012F): js/data-protocol.js and main/ble_commands.h */
+test("the backup and data command numbers of the page are the numbers of the firmware", { skip: !fs.existsSync(path.join(ROOT, "..", "main", "ble_commands.h")) && "the firmware source is not here" }, () => {
+  const header = fs.readFileSync(path.join(ROOT, "..", "main", "ble_commands.h"), "utf8");
+  const firmware = {};
+  for (const match of header.matchAll(/BLE_COMMAND__([A-Z_]+)\s*=\s*(0x[0-9A-Fa-f]+)/g)) {
+    const number = Number(match[2]);
+    if (number >= 0x0120 && number <= 0x012F) firmware["CMD__" + match[1]] = number;
+  }
+  const ours = {};
+  for (const match of read("js/data-protocol.js").matchAll(/static (CMD__[A-Z_]+)\s*=\s*(0x[0-9A-Fa-f]+);/g)) ours[match[1]] = Number(match[2]);
+  assert.ok(Object.keys(firmware).length >= 11, "the firmware numbers were not found");
   assert.deepEqual(ours, firmware);
 });

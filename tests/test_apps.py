@@ -323,7 +323,7 @@ class InstallTest(AppTestCase):
         state = self.dev.state()
         self.assertEqual(state["app_install_state"], WAITING_STATE)
         status, data = self.cmd(APP_CMD_STATUS)
-        self.assertEqual(data, bytes([WAITING_STATE]))
+        self.assertEqual(data, bytes([WAITING_STATE, 0]))   # state, kind (package)
         # Nothing can change the apps while the person answers, and no data comes before the answer
         self.assertEqual(self.cmd(APP_CMD_BEGIN, struct.pack("<IHI", 0x77, 400, 0))[0], WAITING)
         self.assertEqual(self.cmd(APP_CMD_ASK, b"OTHER".ljust(16, b"\0"))[0], WAITING)
@@ -333,7 +333,7 @@ class InstallTest(AppTestCase):
         self.assertGreater(sum(row.count("#") for row in self.dev.frame()[10:30]), 100)
         self.dev.long_press(2)
         # Yes: the device takes the data now; nothing is installed before END
-        self.assertEqual(self.cmd(APP_CMD_STATUS)[1], bytes([RECEIVING]))
+        self.assertEqual(self.cmd(APP_CMD_STATUS)[1], bytes([RECEIVING, 0]))   # state, kind (package)
         self.assertEqual(self.apps_list(), [KILLS, KILL_DEAD, STATS])
 
     def test_no_data_before_the_question(self):
@@ -346,9 +346,9 @@ class InstallTest(AppTestCase):
         self.assertEqual(self.cmd(APP_CMD_END)[0], ERROR)
         self.assertEqual(self.cmd(APP_CMD_ASK, b"counter".ljust(16, b"\0"))[0], ERROR)     # small letters
         self.assertEqual(self.cmd(APP_CMD_ASK, b"COUNTER\0X".ljust(16, b"\0"))[0], ERROR)  # bytes after the end
-        self.assertEqual(self.cmd(APP_CMD_STATUS)[1], bytes([IDLE]))
+        self.assertEqual(self.cmd(APP_CMD_STATUS)[1], bytes([IDLE, 0]))   # state, kind (package)
         self.assertEqual(self.cmd(APP_CMD_ASK, b"COUNTER".ljust(16, b"\0"))[0], OK)
-        self.assertEqual(self.cmd(APP_CMD_STATUS)[1], bytes([WAITING_STATE]))
+        self.assertEqual(self.cmd(APP_CMD_STATUS)[1], bytes([WAITING_STATE, 0]))   # state, kind (package)
 
     def test_only_a_hold_that_starts_during_the_question_answers_it(self):
         self.dev.open_app_sync()
@@ -359,7 +359,7 @@ class InstallTest(AppTestCase):
         self.dev.run(1500)                                  # Long press and its repeats
         self.dev.release(2)
         self.dev.run(400)
-        self.assertEqual(self.cmd(APP_CMD_STATUS)[1], bytes([WAITING_STATE]))
+        self.assertEqual(self.cmd(APP_CMD_STATUS)[1], bytes([WAITING_STATE, 0]))   # state, kind (package)
         # The hold fills the YES button (x 102 .. 123, y 21 .. 29) from the left
         def yes_pixels():
             return sum(row[103:123].count("#") for row in self.dev.frame()[22:29])
@@ -371,7 +371,7 @@ class InstallTest(AppTestCase):
         self.dev.run(500)
         self.dev.release(2)
         self.dev.run(400)
-        self.assertEqual(self.cmd(APP_CMD_STATUS)[1], bytes([RECEIVING]))
+        self.assertEqual(self.cmd(APP_CMD_STATUS)[1], bytes([RECEIVING, 0]))   # state, kind (package)
 
     def test_after_the_install_sync_more_or_open(self):
         self.assert_installed(counter_app())
@@ -380,11 +380,11 @@ class InstallTest(AppTestCase):
         # A short press does nothing: the buttons on the display answer a hold
         self.dev.click(1, settle_ms=600)
         self.dev.click(2, settle_ms=600)
-        self.assertEqual(self.cmd(APP_CMD_STATUS)[1], bytes([INSTALLED]))
+        self.assertEqual(self.cmd(APP_CMD_STATUS)[1], bytes([INSTALLED, 0]))   # state, kind (package)
         self.assertEqual(self.dev.view, "APP_SYNC")
         # SYNC MORE (hold 1): back to "Waiting", Bluetooth stays on
         self.dev.long_press(1)
-        self.assertEqual(self.cmd(APP_CMD_STATUS)[1], bytes([IDLE]))
+        self.assertEqual(self.cmd(APP_CMD_STATUS)[1], bytes([IDLE, 0]))   # state, kind (package)
         self.assertEqual(self.dev.view, "APP_SYNC")
         self.assertNotEqual("\n".join(self.dev.frame()), frame)
         # The next install, then OPEN (button 2): the app runs and Bluetooth is off
@@ -405,7 +405,7 @@ class InstallTest(AppTestCase):
         result = self.install(counter_app(), name=b"OTHER APP")
         self.assertEqual((result["step"], result["status"]), ("end", BAD_PACKAGE), result)
         self.assertEqual(self.apps_list(), [KILLS, KILL_DEAD, STATS])
-        self.assertEqual(self.cmd(APP_CMD_STATUS)[1], bytes([IDLE]))
+        self.assertEqual(self.cmd(APP_CMD_STATUS)[1], bytes([IDLE, 0]))   # state, kind (package)
 
     def test_bad_crc(self):
         result = self.install(counter_app(), crc=0x12345678)
@@ -483,7 +483,7 @@ class InstallTest(AppTestCase):
         status, data = self.cmd(APP_CMD_INFO)
         self.assertEqual(status, OK)
         engine, fmt, free, max_size, count, max_apps = struct.unpack("<BBHHBB", data)
-        self.assertEqual((engine, fmt, max_size, count, max_apps), (1, 2, 4096, 1, 8))
+        self.assertEqual((engine, fmt, max_size, count, max_apps), (2, 3, 4096, 1, 8))
         self.assertEqual(free, 24 * 1024 - len(counter_app()))
 
         status, data = self.cmd(APP_CMD_LIST, bytes([0]))

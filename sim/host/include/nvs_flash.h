@@ -39,6 +39,18 @@ typedef enum {
 
 typedef uint32_t nvs_handle_t;
 
+/* nvs_get_stats(): the entries of 32 bytes. The stand-in counts them as the real NVS does (about):
+   a u32 = 1 entry, a blob = 1 index entry + for each part of at most 4000 bytes 1 entry + its data
+   in entries of 32 bytes, a namespace = 1 entry. 12 pages of 126 entries; one page stays free. */
+typedef struct {
+  size_t used_entries;
+  size_t free_entries;
+  size_t available_entries;   /* free_entries without the page that the NVS keeps free */
+  size_t total_entries;
+  size_t namespace_count;
+} nvs_stats_t;
+esp_err_t nvs_get_stats(const char* part_name, nvs_stats_t* nvs_stats);
+
 esp_err_t nvs_flash_init(void);
 esp_err_t nvs_flash_erase(void);
 

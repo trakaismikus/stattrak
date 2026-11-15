@@ -132,7 +132,7 @@ class Device:
     def is_on(self):
         return self._proc is not None and self.ended is None
 
-    def power_on(self, hold="both", pending=False, voltage=None, usb=False, log=False):
+    def power_on(self, hold="both", pending=False, voltage=None, usb=False, log=False, reset=None):
         """Start a power session. `hold` = buttons held at power-on: "both", "1", "2" or "none".
 
         The buttons stay held until you call release(). Use boot() for a normal start.
@@ -147,6 +147,8 @@ class Device:
             args += ["--voltage", str(int(voltage))]
         if usb:
             args.append("--usb")
+        if reset is not None:
+            args += ["--reset", str(int(reset))]    # why the chip started (main/device_log.h)
         if log:
             args.append("--log")
 
@@ -162,9 +164,9 @@ class Device:
         )
         return self
 
-    def boot(self, pending=False, voltage=None, settle_ms=1000):
+    def boot(self, pending=False, voltage=None, settle_ms=1000, reset=None):
         """Normal start: hold both buttons, release them, wait for the start animation."""
-        self.power_on(hold="both", pending=pending, voltage=voltage)
+        self.power_on(hold="both", pending=pending, voltage=voltage, reset=reset)
         self.run(400)
         if self.is_on:
             self.release(1)

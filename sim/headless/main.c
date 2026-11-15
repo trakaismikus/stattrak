@@ -348,6 +348,7 @@ static void _usage(void) {
     "  --hold WHICH     buttons held at power-on: both (default), 1, 2, none\n"
     "  --pending        start as a new firmware that is not accepted yet\n"
     "  --voltage MV     battery voltage in millivolts (default 0)\n"
+    "  --reset N        why the chip started (main/device_log.h reasons; default 1 = power on)\n"
     "  --usb            the power does not depend on the buttons or the latch\n"
     "  --log            print firmware log lines to stderr\n"
     "Commands come from standard input. See the top of sim/headless/main.c.\n");
@@ -364,6 +365,8 @@ int main(int argc, char** argv) {
       hold = argv[++i];
     } else if(strcmp(argv[i], "--voltage") == 0 && (i + 1) < argc) {
       config.voltageMv = (uint16_t)strtoul(argv[++i], NULL, 10);
+    } else if(strcmp(argv[i], "--reset") == 0 && (i + 1) < argc) {
+      config.resetReason = (uint8_t)strtoul(argv[++i], NULL, 10);
     } else if(strcmp(argv[i], "--pending") == 0) {
       config.pendingVerify = true;
     } else if(strcmp(argv[i], "--usb") == 0) {

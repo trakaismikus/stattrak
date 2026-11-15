@@ -1,0 +1,83 @@
+# CLIP MARKS: a time mark for each kill, for the video editor.
+#   Button 2: START, at the moment the camera starts. A new clip each time.
+#   Button 1: a kill. It counts like KILLS and adds a mark: the time since START.
+#   Hold button 1: -1 kill (no mark).  Hold button 2: delete all marks.
+#   Read the marks on the sync page (Apps, App data, Download CSV): the TIME column is also there
+#   as mm:ss.mmm, so you can jump to each kill in the video.
+
+app "CLIP MARKS"
+version 1
+description "Press 2 when the camera starts, 1 for each kill. Each kill gets a time mark for your video editor (CSV)."
+picture icon crosshair "CLIP" "MARKS"
+permission counters, sound
+
+data "TIME" "CLIP" "KILLS"
+
+saved clip = 0         # the number of the clip (kept when the app is closed)
+var start = 0          # time() of START
+var started = 0
+var full = 0
+var flash = 0          # time() until the "MARK" text shows
+
+on open {
+  started = 0
+}
+
+on press2 {
+  clip += 1
+  start = time()
+  started = 1
+  click(1500)
+  save()
+}
+
+on press1 {
+  var kills = add_counter(game_kills, 1)
+  if started {
+    if log(time() - start, clip, kills) {
+      flash = time() + 600
+    } else {
+      full = 1
+    }
+  }
+  click(1000)
+}
+
+on long1 {
+  add_counter(game_kills, -1)
+  click(600)
+}
+
+on long2 {
+  log_clear()
+  full = 0
+  clip = 0
+  started = 0
+  click(600)
+  save()
+}
+
+on draw {
+  bignum(2, 4, counter(game_kills), 3, 3, on)
+
+  if !started {
+    text(126, 2, "PRESS 2", small, on, right)
+    text(126, 9, "AT CAMERA", small, on, right)
+    text(126, 16, "START", small, on, right)
+  } else {
+    # Time since START: M:SS
+    var s = (time() - start) / 1000
+    text(126, 2, "CLIP", small, on, right)
+    num(126, 9, clip, 0, caps, on, right)
+    num(110, 18, s / 60, 0, caps, on, right)
+    text(110, 18, ":", caps, on, left)
+    num(126, 18, s % 60, 2, caps, on, right)
+  }
+
+  if full {
+    text(64, 26, "FULL", small, on, center)
+  } else if time() < flash {
+    text(64, 26, "MARK", small, invert, center)
+  }
+  num(2, 26, log_count(), 0, small, on, left)
+}

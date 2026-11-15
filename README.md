@@ -247,12 +247,35 @@ app in the menu, so you can always get to the firmware update.
 
 | App | What it does |
 | --- | --- |
+| **BATTERY LOG** | Logs the battery voltage each 1, 2 or 5 minutes until the battery is empty. Download the log on the Apps tab. |
+| **CLIP MARKS** | For video: press 2 when the camera starts, 1 for each kill. Each kill gets a time mark that you download for your video editor. |
 | **HEADSHOT %** | Counts kills and headshots and shows the headshot percentage. |
 | **REACTION** | A reaction game: wait for GO, then press a button as fast as you can. |
 | **ROUND TIMER** | Times each round, and beeps at the end. |
 | **RUNNER** | An endless runner: jump over the cacti. The game gets faster. |
 | **SLOTS** | A slot machine. Three the same wins, with confetti and a song on the buzzer. |
 | **WALLPAPER** | Looks like the big KILLS counter, but shows your own number. |
+
+### Backup, app data, start picture
+
+These parts of the Apps tab need firmware 1.2.0-b2 or newer.
+
+- **Backup.** *Download backup* saves your stats, your settings, the app menu, the settings and
+  saved values of each app, the Bluetooth name and the start picture in one file. *Restore from
+  file* puts them back, on this StatTrak or on a new one. You pick the parts (for example only
+  the settings, to copy them to a friend's StatTrak). The StatTrak asks "RESTORE BACKUP?" first.
+  The app files are not in the backup: install the apps first, the page tells you which.
+- **App data.** Apps like BATTERY LOG and CLIP MARKS keep rows of numbers on the StatTrak
+  (4 KB for each app). *Download CSV* gives you a file for a spreadsheet or a video editor.
+  *Delete data* asks on the StatTrak first.
+- **Start picture.** Choose a PNG or JPG: the StatTrak shows it for 2 seconds when you switch it
+  on, then your first app slides in. Make one in the Screen Designer and use *Download PNG*
+  there. Without a start picture, the StatTrak starts with your first app at once.
+- **Device log.** Why the StatTrak started the last 64 times (switched on, restart, brown-out,
+  crash) and the battery level. It helps when you report a fault.
+
+In the Screen Designer, **Live preview** shows the screen that you draw on your StatTrak, while
+you draw. Open `Apps: SYNC` on the StatTrak first.
 
 ### Make your own app
 
@@ -354,6 +377,7 @@ docs/          SAFETY.md, BLUETOOTH.md, DESIGNS.md, APPS.md, AUDIT.md, ROADMAP.m
 | [docs/SAFETY.md](docs/SAFETY.md) | How a device can get bricked, and how to prevent it |
 | [docs/DESIGNS.md](docs/DESIGNS.md) | Screen design files |
 | [docs/APPS.md](docs/APPS.md) | Apps: the app file, the app engine and App Sync |
+| [docs/DATA.md](docs/DATA.md) | Backup, app data, device log, start picture and live preview |
 | [docs/BLUETOOTH.md](docs/BLUETOOTH.md) | Bluetooth for your own features |
 | [sim/README.md](sim/README.md) | The simulator |
 | [updater/README.md](updater/README.md) | The Web Updater |

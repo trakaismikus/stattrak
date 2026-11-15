@@ -41,6 +41,20 @@ enum ble_command_e {
   BLE_COMMAND__APP_ASK        = 0x011B,   // After BEGIN: the name; the device asks "INSTALL <NAME>?"
   BLE_COMMAND__APP_DEVICE_NAME = 0x011C,  // Read or set the Bluetooth name of "Apps: SYNC"
 
+  // Backup, app data, device log, start picture, live preview (docs/DATA.md section 5). Also only
+  // in "Apps: SYNC".
+  BLE_COMMAND__CONFIG_INFO    = 0x0120,
+  BLE_COMMAND__CONFIG_ENTRY   = 0x0121,
+  BLE_COMMAND__APP_VALUES     = 0x0122,
+  BLE_COMMAND__XFER_BEGIN     = 0x0123,
+  BLE_COMMAND__START_PIC      = 0x0124,
+  BLE_COMMAND__PREVIEW_STOP   = 0x0125,
+  BLE_COMMAND__DATA_INFO      = 0x0126,
+  BLE_COMMAND__DATA_COLUMN    = 0x0127,
+  BLE_COMMAND__DATA_READ      = 0x0128,
+  BLE_COMMAND__DATA_CLEAR     = 0x0129,
+  BLE_COMMAND__LOG_READ       = 0x012A,
+
   // Add your commands here
 };
 

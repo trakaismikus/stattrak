@@ -6,6 +6,8 @@
 #include "esp_sleep.h"
 #include "esp_mac.h"
 #include "esp_app_desc.h"
+#include "esp_system.h"
+#include "device_log.h"
 
 #include "bsp_adc.h"
 #include "bsp_buzzer.h"
@@ -55,6 +57,21 @@ uint16_t Board_readVoltage(void) {
 
 void Board_getUID(uint8_t* uid) {
   esp_efuse_mac_get_default(uid);
+}
+
+uint8_t Board_getResetReason(void) {
+  switch(esp_reset_reason()) {
+    case ESP_RST_POWERON:   return DEVICE_LOG_REASON__POWER_ON;
+    case ESP_RST_SW:        return DEVICE_LOG_REASON__RESTART;
+    case ESP_RST_PANIC:     return DEVICE_LOG_REASON__CRASH;
+    case ESP_RST_INT_WDT:
+    case ESP_RST_TASK_WDT:
+    case ESP_RST_WDT:       return DEVICE_LOG_REASON__WATCHDOG;
+    case ESP_RST_BROWNOUT:  return DEVICE_LOG_REASON__BROWN_OUT;
+    case ESP_RST_DEEPSLEEP: return DEVICE_LOG_REASON__WAKE;
+    case ESP_RST_UNKNOWN:   return DEVICE_LOG_REASON__UNKNOWN;
+    default:                return DEVICE_LOG_REASON__OTHER;
+  }
 }
 
 const char* Board_getFwVersion(void) {

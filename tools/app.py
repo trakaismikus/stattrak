@@ -37,8 +37,9 @@ import design  # noqa: E402
 
 # --- Limits and numbers (the same as components/stapp/stapp.h) ------------------------------------
 
-ENGINE_VERSION = 1
-FORMAT_VERSION = 2     # The newest format. A package without down1 / down2 is written as format 1.
+ENGINE_VERSION = 2     # 2: log(), log_count(), log_get(), log_clear(), battery_mv() (docs/DATA.md section 6)
+FORMAT_VERSION = 3     # The newest format. Format 3 only for an app with data columns, "awake" or an
+                       # engine 2 call; format 2 only for down1 / down2; all other packages stay format 1.
 MAGIC = b"STAP"
 
 HEADER_SIZE = 48
@@ -72,8 +73,17 @@ RESERVED_IDS = 0xFF          # ids 1 .. 255 are for the built-in apps (1 KILLS, 
 
 PERM_COUNTERS = 0x0001
 PERM_SOUND = 0x0002
-PERM_ALL = PERM_COUNTERS | PERM_SOUND
-PERMISSIONS = {"counters": PERM_COUNTERS, "sound": PERM_SOUND}
+PERM_DATA = 0x0004       # Format 3: the app has a data store (the `data` line sets it)
+PERM_AWAKE = 0x0008      # Format 3: auto-off waits while the app is open
+PERM_V2 = PERM_COUNTERS | PERM_SOUND
+PERM_ALL = PERM_V2 | PERM_DATA | PERM_AWAKE
+PERMISSIONS = {"counters": PERM_COUNTERS, "sound": PERM_SOUND, "data": PERM_DATA, "awake": PERM_AWAKE}
+SCRIPT_PERMISSIONS = ("counters", "sound", "awake")   # `data` comes from the `data` line
+
+MAX_COLUMNS = 4          # Format 3: data columns (header byte 37)
+COLUMN_NAME_LEN = 12
+DATA_APP_VALUES = 1024   # The store of one app: 4096 bytes (the firmware also has 8192 for all apps)
+SYS_ENGINE2 = (26, 27, 28, 29, 30)
 
 EVENTS = ("open", "draw", "press1", "press2", "long1", "long2", "tick", "close", "down1", "down2")
 HANDLERS_V1 = 8        # Format 1 has the handlers up to close; format 2 also down1 and down2
@@ -141,6 +151,11 @@ SYSCALLS = {
     23: ("save", (), 0, False),
     24: ("redraw", (), 0, False),
     25: ("tone", ("freq", "ms"), PERM_SOUND, False),
+    26: ("log", ("a", "b", "c", "d"), PERM_DATA, False),
+    27: ("log_count", (), PERM_DATA, False),
+    28: ("log_get", ("row", "column"), PERM_DATA, False),
+    29: ("log_clear", (), PERM_DATA, False),
+    30: ("battery_mv", (), 0, False),
 }
 SYS_BY_NAME = {value[0]: key for key, value in SYSCALLS.items()}
 SYS_TEXT = SYS_BY_NAME["text"]
@@ -278,8 +293,16 @@ def check(data):
     if (permissions & ~PERM_ALL or app_id <= RESERVED_IDS or app_id == 0xFFFFFFFF or name is None
             or any(char not in NAME_CHARS for char in name)
             or global_count > MAX_GLOBALS or saved_count > MAX_SAVED or saved_count > global_count
-            or setting_count > MAX_SETTINGS or string_count > MAX_STRINGS or bitmap_count > MAX_BITMAPS
-            or reserved != 0):
+            or setting_count > MAX_SETTINGS or string_count > MAX_STRINGS or bitmap_count > MAX_BITMAPS):
+        return ERR_HEADER, None
+    # Format 3: byte 37 = data columns, permissions data / awake. Formats 1, 2: byte 37 = 0, bits 0, 1 only.
+    columns = 0
+    if data[4] >= 3:
+        columns = reserved
+        if (columns > MAX_COLUMNS or bool(permissions & PERM_DATA) != (columns > 0)
+                or columns > string_count):
+            return ERR_HEADER, None
+    elif reserved != 0 or permissions & ~PERM_V2:
         return ERR_HEADER, None
 
     # 3. Layout: the blocks are inside the data area and do not overlap
@@ -332,6 +355,8 @@ def check(data):
         end = data.find(b"\0", offset, data_end)
         if end < 0 or end - offset > MAX_STRING_LEN or any(b < 0x20 or b > 0x7E for b in data[offset:end]):
             return ERR_STRINGS, None
+        if index < columns and not 1 <= end - offset <= COLUMN_NAME_LEN:
+            return ERR_STRINGS, None     # A column name: 1 to 12 characters
 
     # 6. Bitmaps
     for index in range(bitmap_count):
@@ -382,7 +407,7 @@ def check(data):
     info = {
         "id": app_id, "version": _u16(data, 12), "size": size, "permissions": permissions, "name": name,
         "global_count": global_count, "saved_count": saved_count, "setting_count": setting_count,
-        "string_count": string_count, "bitmap_count": bitmap_count,
+        "string_count": string_count, "bitmap_count": bitmap_count, "columns": columns,
     }
     return OK, info
 
@@ -416,6 +441,7 @@ def package_parts(data):
         offset = _u16(data, strings_offset + 2 * index)
         strings.append(data[offset:data.index(b"\0", offset)].decode("ascii"))
     parts["strings"] = strings
+    parts["column_names"] = strings[:info["columns"]]
     bitmaps = []
     for index in range(info["bitmap_count"]):
         width, height, offset = struct.unpack_from("<BBH", data, bitmaps_offset + 4 * index)
@@ -683,6 +709,7 @@ class Program:
         self.description = ""
         self.picture = None        # (kind, icon, lines, path, line)
         self.permissions = 0
+        self.columns = []          # the names of the data columns (the `data` line)
         self.settings = []         # (key, name, values, default, line)
         self.saved = []            # (name, value expression, line)
         self.vars = []
@@ -780,8 +807,8 @@ class Parser:
             handler = getattr(self, "top_" + word, None)
             if handler is None:
                 self.error(line, "\"%s\" is not known here. A line starts with: app, version, id, "
-                                 "description, picture, permission, setting, const, saved, var, bitmap, "
-                                 "on or func." % word)
+                                 "description, picture, permission, data, setting, const, saved, var, "
+                                 "bitmap, on or func." % word)
             handler(program, line)
             self.end_statement()
         if program.name is None:
@@ -847,13 +874,29 @@ class Parser:
 
     def top_permission(self, program, line):
         while True:
-            token = self.expect("name", "counters or sound")
-            if token[1] not in PERMISSIONS:
-                self.error(line, "the permissions are: counters, sound.")
+            token = self.expect("name", "counters, sound or awake")
+            if token[1] == "data":
+                self.error(line, "the data store comes from the line: data \"NAME\" ... (1 to 4 column names).")
+            if token[1] not in SCRIPT_PERMISSIONS:
+                self.error(line, "the permissions are: counters, sound, awake.")
             program.permissions |= PERMISSIONS[token[1]]
             if not self.is_op(","):
                 break
             self.take()
+
+    def top_data(self, program, line):
+        """data "TIME" "MV": a data store with these columns (docs/DATA.md section 6)"""
+        self._once(program, "data", line)
+        names = self.strings()
+        if not 1 <= len(names) <= MAX_COLUMNS:
+            self.error(line, "data needs 1 to %d column names in quotes, for example: data \"TIME\" \"MV\"" % MAX_COLUMNS)
+        for name in names:
+            if not 1 <= len(name) <= COLUMN_NAME_LEN or any(ord(char) < 0x20 or ord(char) > 0x7E for char in name):
+                self.error(line, "the column name \"%s\" must have 1 to %d characters (space to ~)." % (name, COLUMN_NAME_LEN))
+        if len(set(names)) != len(names):
+            self.error(line, "two data columns have the same name.")
+        program.columns = names
+        program.permissions |= PERM_DATA
 
     def top_setting(self, program, line):
         key = self.expect("name", "a short name for the setting (used in setting(NAME))")[1]
@@ -1072,6 +1115,10 @@ class Compiler:
         self.warnings = []
         self.global_names = {}     # slot -> name (for the disassembly)
         self.used_permissions = {}
+        self.engine2 = False       # a call of engine version 2: the package is format 3
+        # The data column names are the first strings (docs/DATA.md section 6)
+        for column in program.columns:
+            self.strings.append(column)
 
     def error(self, line, text):
         raise AppError("%s, line %d: %s" % (self.filename, line, text))
@@ -1201,6 +1248,18 @@ class Compiler:
         elif name in SYS_BY_NAME:
             sys_id = SYS_BY_NAME[name]
             _, arg_names, permission, draws = SYSCALLS[sys_id]
+            if sys_id in SYS_ENGINE2:
+                self.engine2 = True
+            if name == "log":
+                columns = len(self.program.columns)
+                if not columns:
+                    self.error(line, "log() needs a data store. Add a line like: data \"TIME\" \"MV\"")
+                if len(args) != columns:
+                    self.error(line, "log() needs %d value%s: one for each data column (%s)."
+                               % (columns, "" if columns == 1 else "s", ", ".join(self.program.columns)))
+                args = list(args) + [("num", 0, line)] * (4 - columns)
+            elif permission == PERM_DATA and not self.program.columns:
+                self.error(line, "%s() needs a data store. Add a line like: data \"TIME\" \"MV\"" % name)
             if len(args) != len(arg_names):
                 self.error(line, "%s() needs %d value%s: %s(%s)." % (name, len(arg_names), "" if len(arg_names) == 1
                                                                       else "s", name, ", ".join(arg_names)))
@@ -1492,7 +1551,7 @@ class Compiler:
         handlers = [offsets[handler_labels[event]] if event in handler_labels else NO_HANDLER for event in EVENTS]
         return {
             "code": code, "handlers": handlers, "global_count": global_count, "saved_count": saved_count,
-            "strings": list(self.strings), "warnings": self.warnings,
+            "strings": list(self.strings), "warnings": self.warnings, "engine2": self.engine2,
             "global_names": {slot: "/".join(names) if isinstance(names, list) else names
                              for slot, names in self.global_names.items()},
         }
@@ -1540,12 +1599,22 @@ def make_app_id(name):
 
 
 def assemble_package(name, app_id, version, permissions, picture, handlers, settings, strings, bitmaps,
-                     code, global_count, saved_count, engine_version=ENGINE_VERSION):
+                     code, global_count, saved_count, engine_version=None, columns=0, format_version=None):
     """Put the parts together as a package (docs/APPS.md section 3). `settings`: list of
     (name, values, default). `bitmaps`: list of (width, height, data). Blocks in this order after
     the handler table: settings, string table, strings, bitmap table, bitmap data, code, CRC.
-    Format 2 only if the app has a down1 or down2 handler: other packages stay format 1."""
-    format_version = 2 if any(offset != NO_HANDLER for offset in handlers[HANDLERS_V1:]) else 1
+    Format 3 for data columns, the permissions data / awake or an engine 2 call (`engine_version` 2);
+    format 2 only if the app has a down1 or down2 handler: other packages stay format 1, so that
+    older firmware can install them."""
+    if format_version is None:
+        if columns or permissions & ~PERM_V2 or engine_version == 2:
+            format_version = 3
+        elif any(offset != NO_HANDLER for offset in handlers[HANDLERS_V1:]):
+            format_version = 2
+        else:
+            format_version = 1
+    if engine_version is None:
+        engine_version = 2 if format_version >= 3 else 1
     handlers = list(handlers[:handler_count(format_version)])
     first = data_start(format_version)
     body = bytearray()
@@ -1579,7 +1648,7 @@ def assemble_package(name, app_id, version, permissions, picture, handlers, sett
     header[5] = engine_version
     struct.pack_into("<HIHH", header, 6, permissions, app_id, version, size)
     header[16:32] = name.encode("ascii").ljust(16, b"\0")
-    header[32:38] = bytes([global_count, saved_count, len(settings), len(strings), len(bitmaps), 0])
+    header[32:38] = bytes([global_count, saved_count, len(settings), len(strings), len(bitmaps), columns])
     struct.pack_into("<5H", header, 38, settings_offset, strings_offset, bitmaps_offset, code_offset, len(code))
     package = bytes(header) + bytes(picture) + struct.pack("<%dH" % len(handlers), *handlers) + bytes(body)
     return package + struct.pack("<I", zlib.crc32(package) & 0xFFFFFFFF)
@@ -1613,7 +1682,8 @@ def compile_source(source, filename="app.sts", base_dir="."):
     settings = [(setting_name, values, default) for _, setting_name, values, default, _ in program.settings]
     package = assemble_package(name, program.app_id or make_app_id(name), program.version, program.permissions,
                                picture_bytes(rows), result["handlers"], settings, result["strings"], bitmaps,
-                               result["code"], result["global_count"], result["saved_count"])
+                               result["code"], result["global_count"], result["saved_count"],
+                               engine_version=2 if result["engine2"] else None, columns=len(program.columns))
     if len(package) > MAX_SIZE:
         raise AppError("%s: the package has %d bytes; %d is the most." % (filename, len(package), MAX_SIZE))
     status, info = check(package)
@@ -1689,6 +1759,8 @@ def describe(data, global_names=None):
     out.append("App \"%s\", version %d, id %08x, %d bytes (engine version %d)"
                % (parts["name"], parts["version"], parts["id"], parts["size"], parts["engine_version"]))
     out.append("Permissions: %s" % (", ".join(permission_words(parts["permissions"])) or "none"))
+    if parts["column_names"]:
+        out.append("Data columns: %s" % ", ".join(parts["column_names"]))
     out.append("Variables: %d (%d saved)" % (parts["global_count"], parts["saved_count"]))
     out.append("Title picture (80 x 24):")
     out.extend("  " + row for row in bitmap_to_rows(parts["picture"], PICTURE_W, PICTURE_H))
@@ -1739,6 +1811,9 @@ class Machine:
         self.settings = [setting["default"] for setting in self.parts["settings"]]
         self.now = 10000
         self.battery = 80
+        self.battery_mv = 3900
+        self.data = []             # the rows of the data store (docs/DATA.md section 2)
+        self.data_capacity = DATA_APP_VALUES
         self.random = random.Random(seed)
         self.clicks = []
         self.saves = 0
@@ -1924,6 +1999,24 @@ class Machine:
             return 0
         if name == "battery":
             return self.battery
+        if name == "battery_mv":
+            return self.battery_mv if self.battery >= 0 else -1
+        columns = self.parts["columns"]
+        if name == "log":
+            # Full = stop. Not in draw (the firmware writes the rows later, never while it draws).
+            if drawing or not columns or (len(self.data) + 1) * columns > self.data_capacity:
+                return 0
+            self.data.append(list(args[:columns]))
+            return 1
+        if name == "log_count":
+            return len(self.data)
+        if name == "log_get":
+            row, column = args
+            return self.data[row][column] if 0 <= row < len(self.data) and 0 <= column < columns else 0
+        if name == "log_clear":
+            if not drawing:
+                self.data = []
+            return 1 if not drawing else 0
         if name == "random":
             return self.random.randrange(args[0]) if 1 <= args[0] <= 65535 else 0
         if name == "save":
@@ -2001,13 +2094,24 @@ def run_actions(machine, actions):
         elif action == "frame":
             out.extend(machine.frame())
             result = "ok"
+        elif action.startswith("battery:"):
+            machine.battery = int(action[8:])
+            result = "ok"
+        elif action.startswith("mv:"):
+            machine.battery_mv = int(action[3:])
+            result = "ok"
+        elif action == "data":
+            names = machine.parts["column_names"]
+            out.append(",".join(names))
+            out.extend(",".join(str(value) for value in row) for row in machine.data)
+            result = "ok"
         elif action.startswith("png:"):
             write_png(action[4:], machine.frame())
             out.append("Wrote %s" % action[4:])
             result = "ok"
         else:
             raise AppError("Unknown action %r. Actions: press1 press2 long1 long2 down1 down2 tick wait:MS frame png:FILE "
-                           "counter:NAME=N setting:N=V random:SEED" % action)
+                           "counter:NAME=N setting:N=V random:SEED battery:PERCENT mv:MILLIVOLTS data" % action)
         if result != "ok":
             out.append("App error after %s: %s" % (action, result))
     return out

@@ -22,7 +22,7 @@ This page is the specification. It is for AI coding tools and developers.
 | App host | `main/views/app_host_view.c` | Runs the selected installed app as a view. |
 | App settings | `main/views/app_settings_view.c` | The settings of one app (hold button 2 on its title picture in the app menu). |
 | App sync | `main/views/app_sync_view.c` + setting "Apps: SYNC" | Bluetooth on for the app manager, firmware update refused, install question. |
-| Bluetooth commands | `main/ble_commands.c` | `0x0110` to `0x011A` (section 6). |
+| Bluetooth commands | `main/ble_commands.c` | `0x0110` to `0x011C` (section 6); the data commands `0x0120` to `0x012A` are in [DATA.md](DATA.md). |
 | Compiler | `tools/app.py` | `.sts` source -> `.stapp` package, with the same check as the engine. |
 | Catalog | `apps/` -> `updater/apps/catalog.json` + `updater/apps/*.stapp` | The apps that the web updater offers. |
 
@@ -42,7 +42,11 @@ This page is the specification. It is for AI coding tools and developers.
 | Steps for one event | 4000 instructions (draw included). More = app error. |
 | Stack | 32 values. Call depth 8. |
 
-## 3. Package format (versions 1 and 2)
+## 3. Package format (versions 1, 2 and 3)
+
+Format 3 (firmware 1.2.0-b2, engine version 2) adds a data store, the permission `awake` and
+the calls `log()`, `log_count()`, `log_get()`, `log_clear()`, `battery_mv()`: see
+[DATA.md](DATA.md) section 6. The compiler writes format 3 only for an app that uses them.
 
 Little-endian. All offsets are from the start of the package.
 
@@ -205,6 +209,7 @@ The arguments are pushed left to right. Each call pushes one result (0 if nothin
 | 23 | `save()` | save the saved variables now (the firmware also saves at close; at most once in 30 s) |
 | 24 | `redraw()` | nothing (the screen is drawn every 10 ms); kept for later |
 | 25 | `tone(freq, ms)` | permission "sound". One note: 200..4000 Hz for 10..1000 ms. It does not wait; a new note or click replaces the note that plays. Follows the Sound setting |
+| 26 .. 30 | `log`, `log_count`, `log_get`, `log_clear`, `battery_mv` | engine version 2, format 3: [DATA.md](DATA.md) section 6 |
 
 Drawing calls work only in the draw handler. In other handlers they do nothing.
 
@@ -257,6 +262,9 @@ Both buttons are never sent to an app: short = app menu, long = power off.
 
 Saved values are written when the app closes, at power-off and by `save()` (at most once in 30 s). A factory reset deletes all apps.
 
+The data store of an app (`log()` rows) is in the namespace `data` ([DATA.md](DATA.md)). A
+delete of the app deletes it; a new version of the app keeps it.
+
 A missing or broken `list` = the default list (the 3 built-in apps, shown). An entry whose
 package is missing or fails the check is left out of the menu. At least one app before SETTINGS
 is always shown: if all are hidden, KILLS is shown.
@@ -284,7 +292,7 @@ display (any command that changes apps answers 11 until the person answers), 12 
 | `0x011B` | ASK | 16 bytes: the name field of the package (offset 16) | after BEGIN: the display shows "INSTALL <NAME>?" (STATUS 2). Status 2 without BEGIN or for a bad name. END later refuses a package with an other name or id (status 10) |
 | `0x0114` | DATA | u16 offset, 14 bytes | only after "yes" (STATUS 1). Answer: u16 next expected offset (also when it is ok). Status 8 = wrong offset: send again from the expected offset |
 | `0x0115` | END | | checks the CRC and the package, then writes it to flash: status 9 bad CRC, 10 bad package (u8 reason = `stapp_result_t`), 8 missing data (u16 expected offset), 2 the flash write failed. Status 0 = installed: the display shows "APP INSTALLED", SYNC MORE and OPEN |
-| `0x0116` | STATUS | | u8 install state: 0 idle, 1 receiving (the person said yes: send DATA), 2 waiting for the person, 3 installed, 4 refused, 5 timeout (30 s; the display shows "REFUSED") |
+| `0x0116` | STATUS | | u8 install state (byte 2, firmware 1.2.0-b2: u8 kind, [DATA.md](DATA.md) 5.1): 0 idle, 1 receiving (the person said yes: send DATA), 2 waiting for the person, 3 installed, 4 refused, 5 timeout (30 s; the display shows "REFUSED") |
 | `0x0117` | DELETE | u32 id | deletes the package and its values. Status 12 for a built-in app, 2 for an unknown id |
 | `0x0118` | SET_ORDER | u8 count, 3 x u32 id, u8 part | every part has this layout (16 bytes); part numbers go from 0 in order; ids after the end are 0. The order must have each app of the list one time. Applied when the last part is in |
 | `0x0119` | SET_HIDDEN | u32 id, u8 hidden (0 / 1) | hidden 0 also sets the error count back to 0. Status 13 = the last shown app cannot be hidden |

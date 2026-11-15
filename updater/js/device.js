@@ -11,6 +11,8 @@
  *   firmware draws them in an other way.
  * - "update-1.0.1": the way to the update mode on firmware 1.0.1 (assets/update-path-1.0.1.js,
  *   from the 1.0.1 simulator: tools/device_art/fw101/make_update_path.py). index.html loads it.
+ * - "still": one picture of the page (the start picture of the Apps tab): arg = the id that
+ *   StDevice.still(pixels) gives. A new arg on the element shows the new picture.
  *
  * The animations run on one clock: a list that the page draws again continues where it was.
  * With "reduce motion" on, the element shows one frame.
@@ -34,7 +36,10 @@ const StDevice = (() => {
   /* ---- animations: name -> function (arg) -> [{ b: pixels, ms, press }] (or a Promise of it) ---
      press: "" none, "1" / "2" a short press, "H1" / "H2" held, "B" both buttons */
   const HOLD_MS = 700;                             // a long press (main/app.h)
+  const stills = new Map();                        // id -> 128 x 32 pixels (StDevice.still)
+  let stillCount = 0;
   const anims = {
+    "still": (id) => (stills.has(id) ? [{ b: { w: 128, h: 32, d: stills.get(id) }, ms: 1000, press: "" }] : []),
     "sync-idle": () => [0, 1, 2, 3].map((dots) => ({ b: AppPictures.syncScreen("idle", dots), ms: 512, press: "" })),
     "sync-question": (name) => {
       const frames = [{ b: AppPictures.syncScreen("question", name), ms: 1100, press: "" }];
@@ -111,6 +116,12 @@ const StDevice = (() => {
 
     disconnectedCallback() { this.stop(); }
 
+    // A new anim or arg (for example a new "still" picture): show it
+    static get observedAttributes() { return ["anim", "arg"]; }
+    attributeChangedCallback() {
+      if (this.built && this.isConnected) { this.index = -1; this.start(); }
+    }
+
     start() {
       this.stop();
       const { key, frames } = framesOf(this.getAttribute("anim"), this.getAttribute("arg"));
@@ -173,5 +184,14 @@ const StDevice = (() => {
 
   if (typeof customElements !== "undefined" && !customElements.get("st-device")) customElements.define("st-device", Element);
 
-  return { SCREEN, anims, fromRows, framesOf, draw };
+  /* A picture for anim="still": 128 x 32 pixels (0 / 1). Returns its id (the arg). `old` = an
+     id that is not needed any more. */
+  function still(pixels, old) {
+    if (old) { stills.delete(old); cache.delete("still\u0000" + old); starts.delete("still\u0000" + old); }
+    const id = "p" + (++stillCount);
+    stills.set(id, Uint8Array.from(pixels));
+    return id;
+  }
+
+  return { SCREEN, anims, fromRows, framesOf, draw, still };
 })();

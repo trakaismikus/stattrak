@@ -181,6 +181,12 @@ enum entry_max_enum {
 
 void App_init(void);
 void App_update(void);
+void App_reloadSettings(void);   // The settings from flash into use (after a restore of a backup)
+
+// The flash values of ENTRY_LIST (for the backup): count, key (NULL out of range), largest value
+uint8_t     App_getEntryCount(void);
+const char* App_getEntryKey(uint8_t index);
+uint32_t    App_getEntryMax(uint8_t index);
 
 void App_updateSetting(uint8_t id, uint32_t value);
 void App_updateActivity(uint32_t time);

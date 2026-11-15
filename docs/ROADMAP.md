@@ -60,6 +60,22 @@ This repository (`trakaismikus/stattrak`) is private until these are done:
 
 ## Shipped
 
+- **2026-11: backup, app data, device log, start picture, live preview (firmware 1.2.0-b2).**
+  On the Apps tab: a backup file of the stats, the settings, the app menu, the app settings and
+  saved values, the Bluetooth name and the start picture, and a restore that asks "RESTORE
+  BACKUP?" on the device first and checks each value (`main/backup.c`). A data store for each
+  app (4 KB each, 8 KB for all; full = stop; the settings and the counters always keep 5 KB of
+  flash), with `log()` in the app scripts (package format 3, engine version 2), CSV download and
+  a delete that the device asks first (`main/app_data.c`). Two example apps: BATTERY LOG and
+  CLIP MARKS. A device log of the last 64 starts (why, battery, new firmware;
+  `main/device_log.c`). A start picture that the person chooses (none by default: the device
+  starts with the first app of the menu), with on / off and delete on the page
+  (`main/start_pic.c`, `main/views/intro_view.c`). "Live preview" and "Download PNG" in the
+  Screen Designer. A safety rule keeps the order of the setting values (a backup stores
+  positions). Specification: [DATA.md](DATA.md). Not tried on a device yet: the flash use of
+  full app stores next to 24 KB of apps was only tested with a model of the NVS in the
+  simulator.
+
 - **2026-11: new device picture for the web updater and the web simulator.** A render of the 3D model
   (matte black anodised aluminium, etched text, a glass that fills the rounded pocket) that looks
   right on black and on white pages, with a live display on top (`updater/js/device.js`, plain pixels with no drawn gaps). Step 1

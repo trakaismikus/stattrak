@@ -88,6 +88,12 @@ uint16_t       Apps_getVersion(uint32_t id);
 uint16_t       Apps_getSize(uint32_t id);
 const uint8_t* Apps_getPicture(uint32_t id);                // 80 x 24 title picture, installed apps only
 
+// Package facts of an installed app (0 / NULL for a built-in or unknown id)
+uint8_t        Apps_getSavedCount(uint32_t id);
+uint16_t       Apps_getPermissions(uint32_t id);
+uint8_t        Apps_getColumnCount(uint32_t id);              // Data columns (docs/DATA.md section 6)
+const char*    Apps_getColumnName(uint32_t id, uint8_t column);
+
 // Settings of an installed app
 uint8_t        Apps_getSettingCount(uint32_t id);
 uint8_t        Apps_getSettingValueCount(uint32_t id, uint8_t setting);

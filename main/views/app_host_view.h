@@ -37,4 +37,7 @@ void           AppHost_update(uint32_t now);
 // The device switches off: save the values of the open app now
 void           AppHost_onShutdown(void);
 
+// true while an app with the permission "awake" is the open view: auto-off waits (docs/DATA.md)
+bool           AppHost_keepsAwake(void);
+
 #endif // _APP_HOST_VIEW_H

@@ -170,6 +170,56 @@
 .apps .res span { color: var(--fg1); }
 .apps .res--err { color: var(--st-kill-red); }
 
+/* --- the parts under the app list (js/apps-data.js) ---------------------- */
+.apps .sync__msg { font-size: 15px; }
+.apps .sync__msg--ok { color: var(--st-success); }
+.apps .sync__msg--err { color: var(--st-kill-red); }
+.apps .sync__msg--warn { color: var(--st-warning); }
+.apps .sync__old { color: var(--fg1); }
+.apps .sync__link { color: var(--accent); font-size: 15px; text-decoration: underline; text-underline-offset: 3px; align-self: flex-start; }
+.apps .sync__link:hover { color: var(--accent-hover); }
+.apps .sync__ask { display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; padding: 12px 14px; border-radius: var(--r-sm); border: 1px solid rgba(226,52,52,0.6); background: rgba(226,52,52,0.06); }
+.apps .sync__ask .msg { flex: 1 1 220px; font-size: 16px; }
+.apps .sync__row { padding-left: 14px; }
+.apps .sync__row .row__acts { gap: 8px; }
+
+/* start picture: the 128 x 32 pixels, 2x */
+.apps .spic__now { display: flex; align-items: center; gap: 12px 20px; flex-wrap: wrap; }
+.apps .spic__img { display: block; width: 256px; height: 64px; image-rendering: pixelated; border-radius: 3px; background: #050505; box-shadow: 0 0 0 1px var(--stroke-1); }
+.apps .spic__acts { display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap; }
+.apps .spic__new { display: flex; flex-direction: column; gap: 10px; }
+.apps .spic__edit { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+.apps .spic__edit st-device { width: 300px; max-width: 100%; flex: 0 1 auto; }
+.apps .spic__ctl { flex: 1 1 220px; display: flex; flex-direction: column; gap: 10px; }
+.apps .spic__dark { display: flex; justify-content: space-between; font-weight: 700; font-size: 15px; }
+.apps .spic__dark output { font-family: var(--font-mono); color: var(--accent); font-weight: 400; }
+.apps .spic__ctl input[type="range"] { width: 100%; accent-color: var(--accent); min-height: 28px; }
+
+/* backup: the table "On the device now / In the file" */
+.apps .sync__restore { display: flex; flex-direction: column; gap: 12px; border-top: 1px solid var(--stroke-1); padding-top: 14px; }
+.apps .bk__wrap { overflow-x: auto; }
+.apps .bk { width: 100%; border-collapse: collapse; font-size: 15px; }
+.apps .bk th, .apps .bk td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--stroke-1); vertical-align: top; }
+.apps .bk thead th { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg2); }
+.apps .bk td:first-child { color: var(--fg2); }
+.apps .bk__part th { padding-top: 14px; }
+.apps .bk__part .chk { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; font-size: 16px; cursor: pointer; }
+.apps .bk__part input { width: 18px; height: 18px; accent-color: var(--accent); }
+.apps .bk__diff td:nth-child(3) { color: var(--accent); font-weight: 700; }
+.apps .bk__off td { opacity: 0.4; }
+.apps .res--ok { color: var(--st-success); font-weight: 700; }
+.apps .sync__skipped b { display: block; color: var(--st-warning); margin-bottom: 4px; }
+.apps .sync__skipped ul { margin: 0; padding-left: 20px; font-size: 15px; }
+
+/* device log */
+.apps .sec-head .btn + .btn { margin-left: 0; }
+.apps .dlog { list-style: none; margin: 0; padding: 0; max-height: 300px; overflow-y: auto; border: 1px solid var(--stroke-1); border-radius: var(--r-sm); }
+.apps .dlog li { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; padding: 7px 12px; border-bottom: 1px solid var(--stroke-1); font-size: 15px; }
+.apps .dlog li:last-child { border-bottom: 0; }
+.apps .dlog__boot { font-family: var(--font-mono); font-size: 13px; color: var(--fg2); min-width: 72px; }
+.apps .dlog__why { flex: 1 1 200px; }
+.apps .dlog__bat { font-family: var(--font-mono); font-size: 13px; color: var(--fg2); }
+
 /* --- phone ----------------------------------------------------------- */
 @media (max-width: 700px) {
   .apps { margin-top: 18px; gap: 22px; }

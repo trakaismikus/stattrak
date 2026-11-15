@@ -9,7 +9,8 @@
 const AppsTab = (() => {
   const CATALOG_URL = "apps/catalog.json";
   const MAX_BYTES = 24 * 1024;          // all installed packages together (docs/APPS.md section 2)
-  const PERMISSION_TEXT = { sound: "Uses sound", counters: "Changes your kill counts" };
+  const PERMISSION_TEXT = { sound: "Uses sound", counters: "Changes your kill counts",
+                            data: "Keeps data on the device", awake: "Keeps the device on while open" };
 
   const A = {
     tab: "firmware",
@@ -42,7 +43,8 @@ const AppsTab = (() => {
   const hex = (id) => (id >>> 0).toString(16).padStart(8, "0");
   const kb = (bytes) => (Math.round((bytes / 1024) * 10) / 10).toFixed(1).replace(/\.0$/, "") + " KB";
   const log = (message, kind) => { if (typeof pushLog === "function") pushLog("> apps: " + message, kind); };
-  const busy = () => !!A.inst;
+  // An install, or a transfer of the parts under the app list (js/apps-data.js): the controls are locked
+  const busy = () => !!A.inst || SyncParts.busy();
 
   /* ---- line icons (the stroke style of the updater) ---- */
   const P = {
@@ -197,12 +199,12 @@ const AppsTab = (() => {
   function vCat(item) {
     const inst = A.inst && A.inst.key === item.key, err = A.err && A.err.key === item.key;
     if (!item.fromFile && A.list.some((a) => a.id === item.id) && !inst && !err) return "";
-    if (busy() && !inst) return "";
+    if (A.inst && !inst) return "";
     let act = "";
     if (!inst && !err) {
       const room = roomFor(item);
       act = room ? `<div class="need">${esc(room.text)}${room.small ? `<small>· ${esc(room.small)}</small>` : ""}</div>`
-        : '<button class="btn btn--primary btn--sm" type="button" data-act="install">Install</button>';
+        : `<button class="btn btn--primary btn--sm" type="button" data-act="install"${busy() ? " disabled" : ""}>Install</button>`;
     }
     let h = `<div class="row cat" data-key="${item.key}"><div class="row__main"><img class="pic" alt="" src="${AppPictures.app(item.id, item.name, item.picture)}">` +
       `<div class="row__info"><div class="row__name">${esc(item.name)}</div>${item.desc ? `<div class="row__desc">${esc(item.desc)}</div>` : ""}` +
@@ -241,7 +243,7 @@ const AppsTab = (() => {
         '<button class="btn btn--ghost btn--sm banner__more" type="button" data-act="file">Pick another file</button></div>' +
         `<button class="icon-btn banner__close" type="button" data-act="dismiss" aria-label="Close">${icon("x")}</button></div>` : "") +
       `<div class="list">${items.map(vCat).join("")}</div></section>`;
-    return h + vName();
+    return h + vName() + SyncParts.view();
   }
 
   /* The Bluetooth name of StatTrak in "Apps: SYNC" (DEVICE_NAME) */
@@ -358,6 +360,7 @@ const AppsTab = (() => {
     A.fileErr = null;
     A.fileItem = null;
     A.values = {};
+    SyncParts.reset();
   }
 
   const LOST = { kind: "error", title: "Connection lost", body: "Turn on Apps: SYNC again, then connect." };
@@ -408,6 +411,8 @@ const AppsTab = (() => {
       return fail(error);
     }
     render();
+    // The start picture, the backup, the app data and the device log (after the list is there)
+    SyncParts.connected(A.apps);
   }
 
   function onDisconnected(event) {
@@ -459,6 +464,7 @@ const AppsTab = (() => {
   async function refresh() {
     A.info = await A.apps.info();
     A.list = await A.apps.list();
+    SyncParts.listChanged();
   }
 
   /* An error of a command: the views for "old firmware", "not in Apps: SYNC" and a lost
@@ -764,6 +770,7 @@ const AppsTab = (() => {
     const row = b.closest("[data-id]"), cat = b.closest("[data-key]");
     const app = row ? appById(Number(row.dataset.id)) : null;
     if (act !== "set") A.fresh = null;
+    if (act.startsWith("sync-")) return SyncParts.onClick(b);
 
     if (act === "connect") return connect();
     if (act === "disconnect") { disconnect(null); return render(); }
@@ -839,7 +846,13 @@ const AppsTab = (() => {
       const input = $("#appsName");
       saveName(input ? input.value : "");
     });
-    main.addEventListener("input", (event) => { if (event.target.id === "appsName") onNameInput(event.target); });
+    main.addEventListener("input", (event) => { if (event.target.id === "appsName") onNameInput(event.target); else SyncParts.onInput(event.target); });
+    main.addEventListener("change", (event) => SyncParts.onChange(event.target));
+    SyncParts.init({
+      apps: () => A.apps, list: () => A.list, fw: () => A.fw, busy, render, fail, toast, log,
+      // After a restore: the list and the Bluetooth name again
+      refresh: async () => { await refresh(); A.devName = await A.apps.deviceName(); },
+    });
     main.addEventListener("keydown", onKeyDown);
     main.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("pointermove", onPointerMove);

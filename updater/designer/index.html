@@ -91,9 +91,14 @@ code { font-family: var(--font-mono); font-size: 0.85em; }
   border-bottom: 1px solid var(--stroke-1);
   background: var(--bg-elevated);
   position: relative; z-index: 4;
+  min-width: 0;                      /* a narrow window: the project name and "Saved" shrink, the buttons stay */
 }
 .topbar .eyebrow { margin: 0; white-space: nowrap; }
-.proj { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.proj { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 0 1 auto; }
+.proj .proj__name { flex: 0 1 240px; }
+.proj .save-state { min-width: 0; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; }
+.topbar__acts { flex: 0 0 auto; }
+@media (max-width: 1180px) { .topbar .eyebrow { display: none; } }   /* the site menu says "Designer" */
 .proj__name {
   background: transparent; border: 1px solid transparent; border-radius: var(--r-sm);
   font-family: var(--font-display); font-weight: 800; font-style: italic; text-transform: uppercase;
@@ -112,6 +117,18 @@ code { font-family: var(--font-mono); font-size: 0.85em; }
 .topbar__spacer { flex: 1; }
 .topbar__acts { display: flex; gap: 8px; align-items: center; }
 .topbar__div { width: 1px; height: 28px; background: var(--stroke-1); margin: 0 4px; }
+/* Live preview: the state under the tool bar, at the right */
+.live-state {
+  position: absolute; top: calc(100% + 8px); right: 16px; z-index: 5; max-width: 420px;
+  background: var(--st-ink-800); border: 1px solid var(--stroke-2); border-radius: var(--r-sm);
+  padding: 7px 12px; font-size: 14px; line-height: 1.3; box-shadow: var(--shadow-2);
+  display: flex; align-items: center; gap: 8px;
+}
+.live-state::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: 0 0 auto; }
+.live-state.is-on::before { background: var(--st-success); }
+.live-state.is-err { border-color: rgba(226,52,52,0.6); }
+.live-state.is-err::before { background: var(--st-kill-red); }
+.btn.is-live { border-color: var(--st-success); color: var(--st-success); }
 
 /* ---------- workbench ---------- */
 .work { display: grid; grid-template-columns: 78px minmax(0, 1fr) 300px; min-height: 0; }
@@ -422,12 +439,21 @@ code { font-family: var(--font-mono); font-size: 0.85em; }
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       Save
     </button>
+    <button class="btn btn--ghost" id="pngBtn" type="button" title="Save the selected screen as a 128 x 32 picture (white = on). Use it as the start picture in Apps.">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>
+      Download PNG
+    </button>
     <span class="topbar__div"></span>
+    <button class="btn btn--ghost" id="liveBtn" type="button" title="Show the selected screen on your StatTrak while you draw (Bluetooth)">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg>
+      <span id="liveLbl">Live preview</span>
+    </button>
     <button class="btn btn--primary btn--lg" id="sendBtn" type="button">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg>
       Send to AI
     </button>
   </div>
+  <div class="live-state" id="liveState" role="status" hidden></div>
 </div>
 
 <!-- ================= WORKBENCH ================= -->
@@ -553,6 +579,11 @@ code { font-family: var(--font-mono); font-size: 0.85em; }
 
 <script src="assets.js"></script>
 <script src="design.js"></script>
+<!-- Live preview: the Bluetooth code of the Apps tab (plain scripts: they also load from a disk) -->
+<script src="../js/utils.js"></script>
+<script src="../js/ble.js"></script>
+<script src="../js/apps-protocol.js"></script>
+<script src="../js/data-protocol.js"></script>
 <script>
 (function () {
 'use strict';
@@ -935,6 +966,7 @@ function render() {
   const tc = document.querySelector(`.tile[data-i="${cur}"] canvas`);
   if (tc) bufToCanvas(tc, buf);
   if (!$('#sendModal').hidden) updateAiText();
+  liveChanged();
 }
 function fitZoom() {
   const sc = $('#scroll');
@@ -1680,6 +1712,152 @@ $('#dlPics').addEventListener('click', () => {
 $('#saveFromSend').addEventListener('click', saveFile);
 
 /* ================================================================================================
+ * Download PNG: the selected screen as an exact 128 x 32 picture (white = on, black = off). The
+ * Apps tab takes it as the start picture.
+ * ============================================================================================== */
+function screenPng(screen, done) {
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  bufToCanvas(c, pixelsOf(screen), [255, 255, 255], [0, 0, 0]);
+  c.toBlob(done, 'image/png');
+}
+$('#pngBtn').addEventListener('click', () => {
+  endStep();
+  const name = D.fileName(S().name).replace(/\.json$/, '') + '.png';
+  screenPng(S(), blob => download(name, blob));
+  toast(`Saved as ${name} in your Downloads folder.`);
+});
+
+/* ================================================================================================
+ * Live preview: the selected screen on the device over Bluetooth, while the device shows
+ * Settings > Apps: SYNC. The same connection and commands as the Apps tab (../js/ble.js,
+ * ../js/apps-protocol.js, ../js/data-protocol.js): a preview frame (docs/DATA.md 5.1, kind 3),
+ * about 400 ms after the last change, one frame at a time. Nothing is written to flash.
+ * ============================================================================================== */
+const LIVE_WAIT_MS = 400;
+// var: render() can run before this line (then there is no preview yet)
+var Live = { ota: null, data: null, on: false, pairing: false, sending: false, again: false, timer: null, last: null, frames: 0 };
+const OPEN_SYNC = 'Open Settings > Apps: SYNC on the device';
+function liveState(text, kind) {
+  const el = $('#liveState');
+  el.hidden = !text;
+  el.textContent = text || '';
+  el.className = 'live-state' + (kind ? ' is-' + kind : '');
+}
+function liveButton() {
+  const b = $('#liveBtn');
+  const supported = !!(navigator.bluetooth && typeof navigator.bluetooth.requestDevice === 'function');
+  if (!supported) {
+    b.disabled = true;
+    $('#liveLbl').textContent = 'Live preview needs Chrome or Edge';
+    b.title = 'Live preview uses Bluetooth in the browser: open this page in Chrome or Edge on a computer.';
+    return;
+  }
+  const busy = Live.pairing || (!!Live.ota && !Live.on);
+  b.disabled = busy;
+  $('#liveLbl').textContent = Live.on ? 'Stop' : (busy ? 'Connecting…' : 'Live preview');
+  b.classList.toggle('is-live', Live.on);
+}
+function liveEnd(text, kind) {
+  const ota = Live.ota;
+  clearTimeout(Live.timer);
+  Object.assign(Live, { ota: null, data: null, on: false, sending: false, again: false, timer: null, last: null });
+  if (ota) {
+    ota.removeEventListener('bleConnected', liveConnected);
+    ota.removeEventListener('bleDisconnected', liveLost);
+    ota.removeEventListener('bleConnectFailed', liveFailed);
+    try { ota.disconnect(); } catch (e) { /* already gone */ }
+  }
+  liveState(text, kind);
+  liveButton();
+}
+async function liveStart() {
+  if (Live.ota || Live.pairing) return;
+  liveState(OPEN_SYNC + ', then pick StatTrak in the list.');
+  Live.pairing = true;
+  liveButton();
+  let ota;
+  try {
+    ota = await StatTrakApps.pair();
+  } catch (e) {
+    Live.pairing = false;
+    liveEnd(e && e.name === 'NotFoundError' ? '' : 'Could not connect. ' + OPEN_SYNC + ', then try again.', e && e.name === 'NotFoundError' ? '' : 'err');
+    return;
+  }
+  Live.pairing = false;
+  Live.ota = ota;
+  ota.addEventListener('bleConnected', liveConnected);
+  ota.addEventListener('bleDisconnected', liveLost);
+  ota.addEventListener('bleConnectFailed', liveFailed);
+  liveState('Connecting… ' + OPEN_SYNC + '.');
+  liveButton();
+}
+function liveConnected(event) {
+  if (event.target !== Live.ota) return;
+  Live.ota.wantConnection = false;   // One connection: when it is lost, the person connects again
+  Live.data = new StatTrakData(new StatTrakApps(Live.ota));
+  Live.on = true;
+  liveButton();
+  liveSend();
+}
+function liveLost(event) {
+  if (event.target !== Live.ota) return;
+  liveEnd('Connection lost. ' + OPEN_SYNC + ', then start the live preview again.', 'err');
+}
+function liveFailed(event) {
+  if (event.target !== Live.ota) return;
+  liveEnd('Could not connect. ' + OPEN_SYNC + ', then try again.', 'err');
+}
+/* A change of the screen: send it about 400 ms after the last change */
+function liveChanged() {
+  if (!Live || !Live.on) return;
+  clearTimeout(Live.timer);
+  Live.timer = setTimeout(liveSend, LIVE_WAIT_MS);
+}
+/* Never two frames at once: a change during a send gives one more send after it */
+async function liveSend() {
+  if (!Live.on) return;
+  if (Live.sending) { Live.again = true; return; }
+  const data = Live.data;
+  Live.sending = true;
+  try {
+    do {
+      Live.again = false;
+      const frame = FrameBuffer.fromPixels(pixelsOf(S()));
+      const result = await data.sendPreview(frame);
+      if (data !== Live.data) return;
+      if (result.result !== 'done') throw Object.assign(new Error('stopped'), { kind: 'stopped' });
+      Live.last = frame;
+      Live.frames++;
+    } while (Live.again && Live.on);
+    liveState('Connected — the device shows your screen. A button on the device ends it; draw again to show it again.', 'on');
+  } catch (e) {
+    if (data !== Live.data) return;
+    const k = e && e.kind;
+    if (k === 'old firmware') return liveEnd('Update the firmware of StatTrak: it has no live preview.', 'err');
+    if (k === 'not in sync') return liveEnd('StatTrak does not show Apps: SYNC. ' + OPEN_SYNC + ', then try again.', 'err');
+    if (k === 'waiting') liveState('Answer the question on StatTrak first.', 'err');
+    else if (k === 'no answer' || k === 'bad answer') return liveEnd('No answer from StatTrak. ' + OPEN_SYNC + ', then try again.', 'err');
+    else liveState('StatTrak did not show the screen. Draw again to try again.', 'err');
+  } finally {
+    if (data === Live.data) {
+      Live.sending = false;
+      if (Live.again && Live.on) liveChanged();
+    }
+  }
+}
+async function liveStop() {
+  const data = Live.data;
+  clearTimeout(Live.timer);
+  Live.on = false;
+  if (data) {
+    try { await data.previewStop(); } catch (e) { /* the connection ends anyway */ }
+  }
+  liveEnd('');
+}
+$('#liveBtn').addEventListener('click', () => { if (Live.on) liveStop(); else liveStart(); });
+liveButton();
+
+/* ================================================================================================
  * Keyboard
  * ============================================================================================== */
 const ARROWS = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
@@ -1742,6 +1920,8 @@ renderRail(); sizeCanvas(); refreshView(); updateUndoButtons(); fitZoom();
 window.StatTrakDesigner = {
   get project() { return P; }, get current() { return cur; }, get selected() { return sel; },
   get history() { return { undo: hist.undo.length, redo: hist.redo.length, open: !!hist.open }; },
+  get live() { return { on: Live.on, frames: Live.frames, sending: Live.sending }; },
+  pixels: () => Array.from(pixelsOf(S())),
   undo, redo, openText
 };
 })();

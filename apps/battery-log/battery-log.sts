@@ -1,0 +1,104 @@
+# BATTERY LOG: keeps the battery voltage over time, for a full-to-empty test of a battery.
+#   Button 1: start / pause.  Hold button 2: delete the log (only while paused).
+#   The device stays on while this app is open (permission awake). Read the log on the sync page
+#   of the web site (Apps, App data, Download CSV).
+
+app "BATTERY LOG"
+version 1
+description "Logs the battery voltage each 1, 2 or 5 minutes until the battery is empty. Get the log as a CSV on the sync page."
+picture icon lightning "BATTERY" "LOG"
+permission awake
+
+data "MIN" "MV"
+setting every "EVERY" "1 MIN" "2 MIN" "5 MIN"
+
+var running = 0        # 1 while it logs
+var full = 0           # 1 when the store is full
+var next_ms = 0        # time() of the next row
+var minute = 0         # the minutes of the next row
+
+func period_min() {
+  var i = setting(every)
+  if i == 0 { return 1 }
+  if i == 1 { return 2 }
+  return 5
+}
+
+# The minutes go on from the last row (also after the app was closed or the device was off)
+func next_minute() {
+  var rows = log_count()
+  if rows == 0 { return 0 }
+  return log_get(rows - 1, 0) + period_min()
+}
+
+func add_row() {
+  if log(minute, battery_mv()) {
+    minute += period_min()
+    next_ms = time() + period_min() * 60000
+  } else {
+    full = 1
+    running = 0
+  }
+}
+
+on open {
+  running = 0
+  full = 0
+  minute = next_minute()
+}
+
+on press1 {
+  if full { return }
+  if running {
+    running = 0
+  } else {
+    running = 1
+    minute = next_minute()
+    add_row()
+  }
+}
+
+on long2 {
+  if !running {
+    log_clear()
+    full = 0
+    minute = 0
+  }
+}
+
+on tick {
+  if running && time() >= next_ms { add_row() }
+}
+
+on draw {
+  text(2, 1, "BATTERY LOG", small, on, left)
+  if full {
+    text(126, 1, "FULL", small, on, right)
+  } else if running {
+    if (time() / 500) % 2 == 0 { text(126, 1, "REC", small, on, right) }
+  } else {
+    text(126, 1, "PAUSED", small, on, right)
+  }
+
+  var rows = log_count()
+  var mv = 0
+  if rows > 0 { mv = log_get(rows - 1, 1) }
+  if rows == 0 {
+    text(2, 12, "PRESS 1", caps, on, left)
+    text(2, 20, "TO START", caps, on, left)
+  } else if mv < 0 {
+    text(2, 16, "NO BATTERY", caps, on, left)
+  } else {
+    # The last voltage as V.VV, in big dotted digits
+    bignum(2, 12, mv / 1000, 1, 2, on)
+    fill(15, 24, 2, 2, on)
+    bignum(19, 12, (mv % 1000) / 10, 2, 2, on)
+    text(45, 20, "V", caps, on, left)
+  }
+
+  # Rows and the time of the log
+  num(126, 10, rows, 0, small, on, right)
+  text(126, 17, "ROWS", small, on, right)
+  num(126, 25, minute, 0, small, on, right)
+  text(96, 25, "MIN", small, on, right)
+}

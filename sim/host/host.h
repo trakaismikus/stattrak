@@ -35,7 +35,7 @@ extern "C" {
 #define HOST_STEP_MS        (5)
 
 #define HOST_NVS_MAX_ENTRIES  (64)
-#define HOST_NVS_MAX_BLOBS    (64)
+#define HOST_NVS_MAX_BLOBS    (128)
 #define HOST_NVS_MAX_BLOB     (4096)          /* Bytes in one blob (the app packages are 4096 at most) */
 #define HOST_NVS_BLOB_SPACE   (40 * 1024)     /* All blobs together: the NVS partition is 48 KB */
 
@@ -67,6 +67,7 @@ typedef struct {
   bool        usbPower;       /* true: power does not depend on the buttons or the latch */
   bool        pendingVerify;  /* true: start as a new firmware that is not accepted yet */
   uint16_t    voltageMv;      /* Battery voltage at start */
+  uint8_t     resetReason;    /* Why the chip started (main/device_log.h reasons); 0 = power on */
 } host_config_t;
 
 typedef struct {
@@ -112,6 +113,7 @@ void        HostButton_tick(void);
 bool        HostBoard_isLatched(void);
 void        HostBoard_setVoltage(uint16_t millivolts);
 uint16_t    HostBoard_getVoltage(void);
+void        HostBoard_setResetReason(uint8_t reason);
 
 /* --- Display */
 const uint8_t* HostOled_getFrame(void);       /* Last frame the firmware sent to the display */

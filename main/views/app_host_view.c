@@ -23,6 +23,7 @@
 #include "app.h"
 #include "app_view.h"
 #include "apps.h"
+#include "app_data.h"
 #include "eeprom.h"
 #include "battery.h"
 #include "gfx.h"
@@ -148,6 +149,7 @@ stapp_result_t AppHost_getError(void) {
 
 void AppHost_update(uint32_t now) {
   _flushPending();
+  AppData_update(now);
 
   if(!s_open || !s_loaded || s_error != STAPP_OK)
     return;
@@ -173,8 +175,14 @@ void AppHost_update(uint32_t now) {
   }
 }
 
+bool AppHost_keepsAwake(void) {
+  return s_open && s_loaded && s_error == STAPP_OK && (s_info.permissions & STAPP_PERM_AWAKE) &&
+         AppView_get() == VIEW_ID__APP_HOST && AppView_getNext() == VIEW_ID__APP_HOST;
+}
+
 void AppHost_onShutdown(void) {
   _flushPending();
+  AppData_flush();
   if(s_open && s_loaded && s_error == STAPP_OK && _valuesChanged()) {
     Apps_saveValues(s_id, s_vm.globals, s_info.savedCount);
     memcpy(s_savedCopy, s_vm.globals, s_info.savedCount * sizeof(int32_t));
@@ -249,6 +257,7 @@ static void _open(uint32_t id) {
 
   Stapp_load(&s_vm, s_package, &s_info);
   Apps_loadValues(id, s_vm.globals, s_info.savedCount);
+  AppData_open(id, (s_info.permissions & STAPP_PERM_DATA) ? s_info.columnCount : 0);
   memcpy(s_savedCopy, s_vm.globals, sizeof(s_savedCopy));
   s_loaded = true;
 
@@ -264,6 +273,8 @@ static void _close(void) {
     if(s_error == STAPP_OK && _valuesChanged())
       _queueSave();
   }
+  // The rows of the app: written by AppData_update() in the next loop (never here: this can be a draw)
+  AppData_closeLater();
 
   s_open = false;
   s_loaded = false;
@@ -419,6 +430,29 @@ static int32_t _sys(void* ctx, uint8_t sysId, const int32_t* a, bool drawing) {
     case STAPP_SYS__SAVE:
       s_saveRequested = true;   // Written in AppHost_update(), at most once in 30 s
       return 0;
+
+    // The data store of the app (docs/DATA.md section 2). Rows go to flash later, in AppData_update().
+    case STAPP_SYS__LOG:
+      if(!(s_info.permissions & STAPP_PERM_DATA) || drawing)
+        return 0;
+      return AppData_log(a) ? 1 : 0;
+
+    case STAPP_SYS__LOG_COUNT:
+      return (s_info.permissions & STAPP_PERM_DATA) ? (int32_t)AppData_rows() : 0;
+
+    case STAPP_SYS__LOG_GET:
+      return (s_info.permissions & STAPP_PERM_DATA) ? AppData_get(a[0], a[1]) : 0;
+
+    case STAPP_SYS__LOG_CLEAR:
+      if(!(s_info.permissions & STAPP_PERM_DATA) || drawing)
+        return 0;
+      AppData_clear();
+      return 1;
+
+    case STAPP_SYS__BATTERY_MV:
+      if(Eeprom_read(ENTRY_ID__BATTERY_TYPE) <= BATTERY_TYPE__USB)
+        return -1;
+      return (int32_t)Battery_readVoltage();
 
     case STAPP_SYS__REDRAW:
     default:
