@@ -540,7 +540,7 @@ test("step 1 plays the way to the update mode of firmware 1.0.1 on the device pi
   const dev = `document.querySelector("#step1Before st-device")`;
   await page.waitFor(`${dev}.dataset.frame !== undefined && ${dev}.querySelector("img").naturalWidth > 0`);
   assert.equal(await page.evaluate(`${dev}.querySelector("img").naturalWidth`), 1896);
-  assert.match(await page.evaluate(`${dev}.getAttribute("aria-label")`), /hold button 2/);
+  assert.match(await page.evaluate(`${dev}.getAttribute("aria-label")`), /hold the right button/);
   // The display has lit pixels
   const lit = await page.evaluate(`(() => { const c = ${dev}.querySelector("canvas");
     const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data; let n = 0;

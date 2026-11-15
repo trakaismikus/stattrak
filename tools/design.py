@@ -36,10 +36,12 @@ FORMAT_VERSION = 1
 WIDTH = 128
 HEIGHT = 32
 
-ELEMENT_TYPES = ("text", "rect", "line", "image", "pixels")
+ELEMENT_TYPES = ("text", "rect", "line", "circle", "image", "pixels")
 ALIGN_LETTERS = {"left": "L", "center": "C", "right": "R"}
 ALIGN_C_NAMES = {"left": "GFX_ALIGN__LEFT", "center": "GFX_ALIGN__CENTER", "right": "GFX_ALIGN__RIGHT"}
 MAX_SCALE = 8
+MAX_BORDER = 4          # a cut-out border of 0 to 4 pixels around an element
+MAX_CIRCLE_RADIUS = 127
 COORD_LIMIT = 1000
 
 
@@ -170,7 +172,8 @@ def normalize(design, assets):
                 continue
             kind = element["type"]
             where = "%s (%s)" % (where, kind)
-            item = {"type": kind, "color": _color(element, where, problems), "note": _text(element.get("note"), "")}
+            item = {"type": kind, "color": _color(element, where, problems), "note": _text(element.get("note"), ""),
+                    "border": _number(element, "border", where, problems, 0, 0, MAX_BORDER)}
 
             if kind == "text":
                 font_name = element.get("font", "5x7")
@@ -212,7 +215,7 @@ def normalize(design, assets):
                 item.update(x=_number(element, "x", where, problems, 0), y=_number(element, "y", where, problems, 0),
                             w=_number(element, "w", where, problems, None, 1), h=_number(element, "h", where, problems, None, 1),
                             fill=element.get("fill") is True,
-                            radius=_number(element, "radius", where, problems, 0, 0, 16))
+                            radius=_number(element, "radius", where, problems, 0, 0, COORD_LIMIT))
                 if item["w"] and item["h"]:
                     largest = (min(item["w"], item["h"]) - 1) // 2
                     if item["radius"] > largest:
@@ -222,6 +225,11 @@ def normalize(design, assets):
             elif kind == "line":
                 for key in ("x1", "y1", "x2", "y2"):
                     item[key] = _number(element, key, where, problems)
+
+            elif kind == "circle":
+                item.update(x=_number(element, "x", where, problems, 0), y=_number(element, "y", where, problems, 0),
+                            r=_number(element, "r", where, problems, None, 0, MAX_CIRCLE_RADIUS),
+                            fill=element.get("fill") is True)
 
             elif kind == "image":
                 image_name = element.get("name")
@@ -283,34 +291,96 @@ def pixels_to_bitmap(rows):
     return bytes(data)
 
 
-def screen_commands(screen):
+def element_commands(element, color=None):
+    """The draw commands of one element (without its cut-out border). color: an other color."""
+    commands = []
+    kind = element["type"]
+    if color is None:
+        color = element["color"]
+    if kind == "text":
+        if element["scale"] == 1:
+            commands.append(("text", element["font"], element["x"], element["y"], element["align"], color,
+                             1 if element["invert"] else 0, element["text"]))
+        else:
+            commands.append(("scaled", element["font"], element["x"], element["y"], element["align"], color,
+                             element["scale"], 1 if element["gap"] else 0, element["text"]))
+    elif kind == "rect":
+        x, y, w, h, radius = element["x"], element["y"], element["w"], element["h"], element["radius"]
+        if element["fill"] or w == 1 or h == 1:
+            if radius == 0:
+                commands.append(("fill", x, y, w, h, color))
+            else:
+                commands.append(("frrect", x, y, w, h, radius, color))
+        else:
+            commands.append(("rrect", x, y, w, h, radius, color))
+    elif kind == "line":
+        commands.append(("line", element["x1"], element["y1"], element["x2"], element["y2"], color))
+    elif kind == "image":
+        commands.append(("image", element["name"], element["x"], element["y"], color))
+    elif kind == "pixels":
+        commands.append(("bitmap", element["x"], element["y"], len(element["rows"][0]), len(element["rows"]),
+                         color, pixels_to_bitmap(element["rows"])))
+    elif kind == "circle":
+        commands.append(("fcircle" if element["fill"] else "circle", element["x"], element["y"], element["r"], color))
+    return commands
+
+
+# The places of the x and y values in each command (for a shifted copy: the cut-out border)
+_X_AT = {"text": (2,), "scaled": (2,), "fill": (1,), "rrect": (1,), "frrect": (1,), "line": (1, 3),
+         "image": (2,), "bitmap": (1,), "circle": (1,), "fcircle": (1,)}
+_Y_AT = {"text": (3,), "scaled": (3,), "fill": (2,), "rrect": (2,), "frrect": (2,), "line": (2, 4),
+         "image": (3,), "bitmap": (2,), "circle": (2,), "fcircle": (2,)}
+
+
+def shift_command(command, dx, dy):
+    parts = list(command)
+    for i in _X_AT[command[0]]:
+        parts[i] += dx
+    for i in _Y_AT[command[0]]:
+        parts[i] += dy
+    return tuple(parts)
+
+
+def border_parts(element, assets):
+    """The cut-out border of an element: ("box", fill command) for an inverted text (the white box
+    grows), else ("spread", N, commands in black): each command is drawn black at every place from
+    -N to +N pixels around it. That switches off all pixels up to N pixels from the element."""
+    n = element["border"]
+    if element["type"] == "text" and element["invert"]:
+        font = assets["font_by_name"][element["font"]]
+        width = text_width(font, element["text"])
+        x = element["x"]
+        if element["align"] == "center":
+            x -= width // 2
+        elif element["align"] == "right":
+            x -= width
+        return ("box", ("fill", x - 1 - n, element["y"] - 1 - n, width + 2 + 2 * n, font["height"] + 2 + 2 * n, 0))
+    return ("spread", n, element_commands(element, 0))
+
+
+_ASSETS = []
+
+
+def _assets():
+    if not _ASSETS:
+        _ASSETS.append(load_assets())
+    return _ASSETS[0]
+
+
+def screen_commands(screen, assets=None):
+    """All draw commands of a screen. A cut-out border becomes shifted black copies of its element."""
     commands = []
     for element in screen["elements"]:
-        kind = element["type"]
-        color = element["color"]
-        if kind == "text":
-            if element["scale"] == 1:
-                commands.append(("text", element["font"], element["x"], element["y"], element["align"], color,
-                                 1 if element["invert"] else 0, element["text"]))
+        if element.get("border"):
+            part = border_parts(element, assets or _assets())
+            if part[0] == "box":
+                commands.append(part[1])
             else:
-                commands.append(("scaled", element["font"], element["x"], element["y"], element["align"], color,
-                                 element["scale"], 1 if element["gap"] else 0, element["text"]))
-        elif kind == "rect":
-            x, y, w, h, radius = element["x"], element["y"], element["w"], element["h"], element["radius"]
-            if element["fill"] or w == 1 or h == 1:
-                if radius == 0:
-                    commands.append(("fill", x, y, w, h, color))
-                else:
-                    commands.append(("frrect", x, y, w, h, radius, color))
-            else:
-                commands.append(("rrect", x, y, w, h, radius, color))
-        elif kind == "line":
-            commands.append(("line", element["x1"], element["y1"], element["x2"], element["y2"], color))
-        elif kind == "image":
-            commands.append(("image", element["name"], element["x"], element["y"], color))
-        elif kind == "pixels":
-            commands.append(("bitmap", element["x"], element["y"], len(element["rows"][0]), len(element["rows"]),
-                             color, pixels_to_bitmap(element["rows"])))
+                n = part[1]
+                for dy in range(-n, n + 1):
+                    for dx in range(-n, n + 1):
+                        commands.extend(shift_command(c, dx, dy) for c in part[2])
+        commands.extend(element_commands(element))
     return commands
 
 
@@ -424,6 +494,23 @@ class Frame:
                 self.vline(cx + sign * px, cy - py, 2 * py + 1 + delta, color)
                 self.vline(cx + sign * py, cy - px, 2 * px + 1 + delta, color)
 
+    def circle(self, x0, y0, r, color):
+        # The same steps as Gfx_drawCircle()
+        for px, py in ((x0, y0 + r), (x0, y0 - r), (x0 + r, y0), (x0 - r, y0)):
+            self.pixel(px, py, color)
+        for x, y in self._corner_steps(r):
+            for sx, sy in ((x, y), (-x, y), (x, -y), (-x, -y), (y, x), (-y, x), (y, -x), (-y, -x)):
+                self.pixel(x0 + sx, y0 + sy, color)
+
+    def fill_circle(self, x0, y0, r, color):
+        # The same steps as Gfx_fillCircle()
+        self.vline(x0, y0 - r, 2 * r + 1, color)
+        for x, y in self._corner_steps(r):
+            self.vline(x0 + x, y0 - y, 2 * y + 1, color)
+            self.vline(x0 + y, y0 - x, 2 * x + 1, color)
+            self.vline(x0 - x, y0 - y, 2 * y + 1, color)
+            self.vline(x0 - y, y0 - x, 2 * x + 1, color)
+
     def rows(self, x, y, rows, color, scale=1, gap=0):
         size = scale - 1 if gap else scale
         for iy, row in enumerate(rows):
@@ -466,6 +553,10 @@ class Frame:
                 self.fill_round_rect(*command[1:])
             elif name == "line":
                 self.line(*command[1:])
+            elif name == "circle":
+                self.circle(*command[1:])
+            elif name == "fcircle":
+                self.fill_circle(*command[1:])
             elif name == "image":
                 _, image_name, x, y, color = command
                 self.rows(x, y, self.assets["image_by_name"][image_name]["rows"], color)
@@ -483,7 +574,7 @@ class Frame:
 
 def draw_frame(screen, assets):
     """Return the screen as 32 strings of 128 characters. '#' is a pixel that is on."""
-    return Frame(assets).draw(screen_commands(screen)).lines()
+    return Frame(assets).draw(screen_commands(screen, assets)).lines()
 
 
 def firmware_frame(screen, tool):
@@ -502,6 +593,12 @@ def _element_text(element, assets):
     kind = element["type"]
     color = "" if element["color"] else ", black (pixels off)"
     note = ("  [%s]" % element["note"]) if element["note"] else ""
+    if element["border"]:
+        color += ", cut-out border %d px (pixels up to %d px around it are off)" % (element["border"], element["border"])
+    if kind == "circle":
+        shape = "filled circle" if element["fill"] else "circle outline"
+        return "%s center x=%d y=%d radius %d (%d x %d pixels)%s%s" % (
+            shape, element["x"], element["y"], element["r"], 2 * element["r"] + 1, 2 * element["r"] + 1, color, note)
     if kind == "text":
         font = assets["font_by_name"][element["font"]]
         scale = element["scale"]
@@ -571,6 +668,43 @@ def _c_name(screen_id):
     return screen_id[0].upper() + screen_id[1:]
 
 
+def _c_call(command, assets, name, tables, dx, dy):
+    """One C call of a draw command. dx, dy: text to add to the x and y values (" + dx")."""
+    kind = command[0]
+    xs = {i: "%d%s" % (command[i], dx) for i in _X_AT[kind]}
+    xs.update({i: "%d%s" % (command[i], dy) for i in _Y_AT[kind]})
+    v = [xs.get(i, command[i]) for i in range(len(command))]
+    if kind == "text":
+        _, font, x, y, align, color, invert, text = v
+        return ("  Gfx_drawStringAligned(%s, %s, %s, &%s, %d, %d, %s, GFX_ROTATION__0);"
+                % (x, y, _c_string(text), assets["font_by_name"][font]["symbol"], color, invert, ALIGN_C_NAMES[align]))
+    if kind == "scaled":
+        _, font, x, y, align, color, scale, gap, text = v
+        return ("  Gfx_drawStringScaledAligned(%s, %s, %s, &%s, %d, %d, %d, %s);"
+                % (x, y, _c_string(text), assets["font_by_name"][font]["symbol"], color, scale, gap, ALIGN_C_NAMES[align]))
+    if kind in ("fill", "rrect", "frrect", "line", "circle", "fcircle"):
+        function = {"fill": "Gfx_fillRect", "rrect": "Gfx_drawRoundRect", "frrect": "Gfx_fillRoundRect",
+                    "line": "Gfx_drawLine", "circle": "Gfx_drawCircle", "fcircle": "Gfx_fillCircle"}[kind]
+        return "  %s(%s);" % (function, ", ".join(str(part) for part in v[1:]))
+    if kind == "image":
+        _, image_name, x, y, color = v
+        return ("  Gfx_drawBitmap(%s, %s, &%s, %d, GFX_ROTATION__0);"
+                % (x, y, assets["image_by_name"][image_name]["symbol"], color))
+    # bitmap: one table for each different picture of the screen
+    _, x, y, w, h, color, data = v
+    rows = ["  " + ", ".join("0x%02X" % byte for byte in data[start:start + 16]) + ","
+            for start in range(0, len(data), 16)]
+    body = "\n".join(rows)
+    table = None
+    for known, known_body, _size in tables:
+        if known_body == body:
+            table = known
+    if table is None:
+        table = "k%sPixels%d" % (name, len(tables) + 1)
+        tables.append((table, body, "%d x %d" % (w, h)))
+    return "  Gfx_drawBitmapRaw(%s, %s, %s, %d, %d, %d, GFX_ROTATION__0);" % (x, y, table, w, h, color)
+
+
 def c_code(design, assets, source=""):
     out = []
     out.append("// Draw code for the screen design \"%s\"%s." % (_one_line(design["name"]),
@@ -583,45 +717,28 @@ def c_code(design, assets, source=""):
         name = _c_name(screen["id"])
         body = []
         tables = []
-        bitmap_count = 0
-        for element, command in zip(screen["elements"], screen_commands(screen)):
-            kind = command[0]
+        for element in screen["elements"]:
             comment = ("  // %s" % _one_line(element["note"])) if element["note"].strip() else ""
-            if kind == "text":
-                _, font, x, y, align, color, invert, text = command
-                body.append("  Gfx_drawStringAligned(%d, %d, %s, &%s, %d, %d, %s, GFX_ROTATION__0);%s"
-                            % (x, y, _c_string(text), assets["font_by_name"][font]["symbol"], color, invert,
-                               ALIGN_C_NAMES[align], comment))
-            elif kind == "scaled":
-                _, font, x, y, align, color, scale, gap, text = command
-                body.append("  Gfx_drawStringScaledAligned(%d, %d, %s, &%s, %d, %d, %d, %s);%s"
-                            % (x, y, _c_string(text), assets["font_by_name"][font]["symbol"], color, scale, gap,
-                               ALIGN_C_NAMES[align], comment))
-            elif kind == "fill":
-                body.append("  Gfx_fillRect(%d, %d, %d, %d, %d);%s" % (command[1:] + (comment,)))
-            elif kind == "rrect":
-                body.append("  Gfx_drawRoundRect(%d, %d, %d, %d, %d, %d);%s" % (command[1:] + (comment,)))
-            elif kind == "frrect":
-                body.append("  Gfx_fillRoundRect(%d, %d, %d, %d, %d, %d);%s" % (command[1:] + (comment,)))
-            elif kind == "line":
-                body.append("  Gfx_drawLine(%d, %d, %d, %d, %d);%s" % (command[1:] + (comment,)))
-            elif kind == "image":
-                _, image_name, x, y, color = command
-                body.append("  Gfx_drawBitmap(%d, %d, &%s, %d, GFX_ROTATION__0);%s"
-                            % (x, y, assets["image_by_name"][image_name]["symbol"], color, comment))
-            elif kind == "bitmap":
-                _, x, y, w, h, color, data = command
-                bitmap_count += 1
-                table = "k%sPixels%d" % (name, bitmap_count)
-                rows = ["  " + ", ".join("0x%02X" % byte for byte in data[start:start + 16]) + ","
-                        for start in range(0, len(data), 16)]
-                tables.append("// Free pixels of the screen \"%s\", %d x %d\nstatic const uint8_t %s[] = {\n%s\n};"
-                              % (_one_line(screen["name"]), w, h, table, "\n".join(rows)))
-                body.append("  Gfx_drawBitmapRaw(%d, %d, %s, %d, %d, %d, GFX_ROTATION__0);%s"
-                            % (x, y, table, w, h, color, comment))
+            if element["border"]:
+                part = border_parts(element, assets)
+                if part[0] == "box":
+                    body.append(_c_call(part[1], assets, name, tables, "", "") +
+                                "  // cut-out border of %d pixels" % element["border"])
+                else:
+                    n = part[1]
+                    body.append("  for(int16_t dy = -%d; dy <= %d; dy++) {  // cut-out border of %d pixels"
+                                % (n, n, n))
+                    body.append("    for(int16_t dx = -%d; dx <= %d; dx++) {" % (n, n))
+                    for command in part[2]:
+                        body.append("    " + _c_call(command, assets, name, tables, " + dx", " + dy"))
+                    body.append("    }")
+                    body.append("  }")
+            for command in element_commands(element):
+                body.append(_c_call(command, assets, name, tables, "", "") + comment)
 
         out.append("")
-        out.extend(tables)
+        out.extend("// Free pixels of the screen \"%s\", %s\nstatic const uint8_t %s[] = {\n%s\n};"
+                   % (_one_line(screen["name"]), size, table, body) for table, body, size in tables)
         if tables:
             out.append("")
         out.append("// Screen \"%s\"%s" % (_one_line(screen["name"]),

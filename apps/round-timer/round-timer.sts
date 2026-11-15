@@ -4,7 +4,7 @@
 
 app "ROUND TIMER"
 version 1
-description "Times each round: button 1 starts and pauses, button 2 goes to the next round. It beeps at the end."
+description "Times each round: the left button starts and pauses, the right button goes to the next round. It beeps at the end."
 picture icon stopwatch "ROUND" "TIMER"
 permission sound
 

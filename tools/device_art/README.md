@@ -8,9 +8,10 @@ display.
 | `render_device.py` | Blender script: the front view of the 3D model, transparent background, display off |
 | `finish_render.py` | Adds the fine grain of the metal (the render's noise filter removes it) and writes the WebP |
 | `fw101/` | The way to the update mode on firmware 1.0.1, from the 1.0.1 simulator (see below) |
+| `make_sync_path.py` | The way to "Apps: SYNC" on the firmware of this repository, from the headless simulator (see below) |
 
 The results are in the updater: `updater/assets/device.webp` and
-`updater/assets/update-path-1.0.1.js`. `updater/js/device.js` shows them.
+`updater/assets/update-path-1.0.1.js` and `updater/assets/sync-path.js`. `updater/js/device.js` shows them.
 
 ## The picture
 
@@ -39,7 +40,7 @@ device box:
 | Display, 128 x 32 pixels, pitch 0.325 mm | 5.55..47.15 x 5.84..16.24 | 11.946, 22.969, 65.823, 30.469 |
 | Glass (the pocket, radius 0.8) | 3.475..49.225 x 3.495..18.595 | 8.663, 16.099, 72.389, 44.239 |
 | Inner window of the body (behind the glass, radius 0.75) | 4.97..47.73 x 4.99..17.09 | |
-| Round button 1 (under the body; its numbers are under it) | 10.85..18.35 x 25.5..29.5 | 20.332, 80.567, 11.867, 11.719 |
+| Round button 1 (left, under the body) | 10.85..18.35 x 25.5..29.5 | 20.332, 80.567, 11.867, 11.719 |
 | Round button 2 | 40.85..48.35 x 25.5..29.5 | 67.801, 80.567, 11.867, 11.719 |
 | Cap of button 1: the only part that a finger presses (it lights up) | 12.0..17.2 x 29.5..30.15 | 22.152, 92.286, 8.228, 1.904 |
 | Cap of button 2 | 42.0..47.2 x 29.5..30.15 | 69.620, 92.286, 8.228, 1.904 |
@@ -51,14 +52,20 @@ the same.
 
 ## The animations
 
-- **Apps tab** (`sync-idle`, `sync-question`, `sync-installed`): the screens of Settings >
+- **Apps tab, before Connect** (`sync-path`): the way to "Apps: SYNC" on the firmware of this
+  repository: the kill counter, both buttons to the app menu, the left button to `SETTINGS`, both
+  buttons to open it, the right button down to `APPS: SYNC`, hold the right button, `APP SYNC` /
+  `Waiting...`. Make it again after a change of these screens:
+  `python tools/check.py --build-only`, then `python tools/device_art/make_sync_path.py`.
+  `tests/test_sync_path.py` (firmware checks) fails while the file is not the firmware now.
+- **Apps tab, install** (`sync-question`, `sync-installed`; `sync-idle` is not used now): the screens of Settings >
   "Apps: SYNC", drawn by `updater/js/apps-pictures.js`. They follow the firmware:
   `tests/make_sync_screens.py` takes the screens from the headless simulator into
   `updater/tests/sync-screens.json`; `tests/test_updater_screens.py` (firmware checks) fails when
   the firmware draws them in an other way, and `updater/tests/apps.test.js` fails when the page
   draws them in an other way than the file.
 - **Firmware tab, step 1** (`update-1.0.1`): the way to the update mode on **firmware 1.0.1**: the
-  counter, both buttons to Settings, button 2 down to `FIRMWARE: UPDATE`, hold button 2,
+  counter, both buttons to Settings, the right button down to `FIRMWARE: UPDATE`, hold it,
   `FIRMWARE UPDATE` / `Waiting...`. 1.0.1 on purpose: most devices that come to the updater have
   it, and their owners do not know the update path yet. When most devices have the new firmware,
   make this animation from the simulator of this repository (`tests/stattrak_sim.py`) instead.

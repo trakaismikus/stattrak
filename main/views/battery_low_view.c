@@ -97,7 +97,7 @@ static void _draw(void) {
   Gfx_drawStringAligned(112, 11, str, &font5x5, 1, 0, GFX_ALIGN__CENTER, GFX_ROTATION__0);
   _drawBattery(6, 4, state);
 
-  HoldButton_draw(HOLD_BUTTON_CENTER_X(34), 34, "DISMISS", HoldButtons_fillAny(&s_hold));
+  HoldButton_draw(HOLD_BUTTON_CENTER_X(35), 35, "DISMISS", HoldButtons_fillAny(&s_hold));
 }
 
 

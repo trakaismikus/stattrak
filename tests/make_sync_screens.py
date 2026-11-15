@@ -18,8 +18,8 @@ sys.path.insert(0, os.path.join(ROOT, "tests"))
 from stattrak_sim import Device, APP_CMD_BEGIN, APP_CMD_ASK, APP_CMD_DATA, APP_CMD_END  # noqa: E402
 
 OUT = os.path.join(ROOT, "updater", "tests", "sync-screens.json")
-BUTTON_W = 22                      # NO, YES, BACK, OPEN (hold_button.h HOLD_BUTTON_W)
-SYNC_MORE_W = 40
+BUTTON_W = 23                      # NO, YES, BACK, OPEN (hold_button.h HOLD_BUTTON_W)
+SYNC_MORE_W = 41
 
 
 def hex_rows(frame):
@@ -101,7 +101,7 @@ class Maker:
         # The question, then the hold of YES and of NO (released before the long press)
         self.begin_ask(package)
         self.add("question", "REACTION")
-        fill = self.hold_until(2, 102, BUTTON_W, 9)
+        fill = self.hold_until(2, 101, BUTTON_W, 9)
         self.add("question", "REACTION", {"no": 0, "yes": fill})
         dev.release(2)
         dev.run(300)

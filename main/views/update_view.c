@@ -129,7 +129,7 @@ static void _drawScreen(void) {
     Gfx_invertRect(14, 22, progress, 7);
     Gfx_drawRoundRect(13, 21, Gfx_getWidth() - 26, 9, 3, 1);
   } else {
-    HoldButton_draw(HOLD_BUTTON_MARGIN, 30, "CANCEL", HoldButtons_fill(&s_hold, 0));
+    HoldButton_draw(HOLD_BUTTON_MARGIN, 31, "CANCEL", HoldButtons_fill(&s_hold, 0));
   }
 
 }
