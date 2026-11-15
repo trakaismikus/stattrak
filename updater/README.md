@@ -59,7 +59,7 @@ its display for each confirmation command, also when no new firmware waits.
 
 ## The Apps tab
 
-`index.html#apps`. The person opens Settings > "Apps: SYNC" on the device, holds button 2, and
+`index.html#apps`. The person opens Settings > "Apps: SYNC" on the device, holds the right button, and
 clicks **Connect**. Then the page shows the apps of the device in menu order (SETTINGS is always
 last) and the storage of the 24 KB for apps. The person can show or hide an app, move it (drag,
 arrows, or the arrow keys on the handle), change its settings, and delete it (the page asks in the
@@ -70,13 +70,13 @@ row, not in a browser dialog). Under "Add apps" are the apps of `apps/catalog.js
 An install goes in this order (`docs/APPS.md` section 6):
 
 1. The page sends BEGIN and ASK. The device asks "INSTALL <NAME>?" and the page shows that
-   screen: hold button 2 = yes, hold button 1 = no (no answer in 30 seconds = no). No data goes
+   screen: hold the right button = yes, hold the left button = no (no answer in 30 seconds = no). No data goes
    before the "yes".
 2. After the "yes" the page sends the package and shows the progress. The device checks it and
-   writes it to flash. A hold of button 1 on the device, or 10 seconds without data, stops the
+   writes it to flash. A hold of the left button on the device, or 10 seconds without data, stops the
    transfer ("The transfer stopped on StatTrak").
-3. "Installed": the device shows APP INSTALLED with SYNC MORE (hold button 1: wait for the next
-   app) and OPEN (hold button 2: the app opens). All buttons on the display answer a hold
+3. "Installed": the device shows APP INSTALLED with SYNC MORE (hold the left button: wait for the
+   next app) and OPEN (hold the right button: the app opens). All buttons on the display answer a hold
    (0.7 s; the button fills while it is held), never a short press. OPEN turns Bluetooth off, so the page loses the
    connection: it then shows a calm message ("<NAME> is installed. The connection ended."), not
    "Connection lost". The page watches for this 60 seconds after the install (each STATUS keeps
@@ -122,6 +122,7 @@ that filter gets the name start filter "StatTrak" only. The firmware tab looks f
 | `js/apps.js`, `css/apps.css` | The tabs and the Apps tab |
 | `js/device.js` | The device picture with a live display (`<st-device anim=...>`): step 1 of the firmware update (the way to the update mode on firmware 1.0.1) and the Apps tab (the screens of "Apps: SYNC" from `js/apps-pictures.js`). Its numbers (where the display and the round buttons are) are in `../tools/device_art/README.md` |
 | `assets/device.webp` | The device: a render of the 3D model, made by `../tools/device_art/` (also the picture of the web simulator) |
+| `assets/sync-path.js` | The display of the firmware of this repository on the way to "Apps: SYNC", from the headless simulator (`../tools/device_art/make_sync_path.py`). The Apps tab plays it before Connect |
 | `assets/update-path-1.0.1.js` | The display of firmware 1.0.1 on the way to the update mode, from the 1.0.1 simulator (`../tools/device_art/fw101/make_update_path.py`). Most devices that come to the page have 1.0.1 |
 | `apps/` | The app catalog: made by `python tools/app.py catalog`, not by hand |
 | `tests/fake-device.js` | A stand-in for the device and for Web Bluetooth. Its packet code is a port of the firmware code in `../components/ble_ota/`; its app commands are a port of `../main/ble_commands.c`, `../main/apps.c` and `../main/views/app_sync_view.c` (with the buttons of "Apps: SYNC"); its device chooser uses the filters (name, service UUID) |

@@ -11,7 +11,7 @@ const { ROOT } = require("./helpers.js");
 function load() {
   const context = vm.createContext({ console: { log() {}, warn() {} }, performance });
   context.window = context;
-  for (const file of ["js/apps-pictures.js", "assets/update-path-1.0.1.js", "js/device.js"]) {
+  for (const file of ["js/apps-pictures.js", "assets/update-path-1.0.1.js", "assets/sync-path.js", "js/device.js"]) {
     vm.runInContext(fs.readFileSync(path.join(ROOT, file), "utf8"), context, { filename: file });
   }
   return { StDevice: vm.runInContext("StDevice", context), AppPictures: vm.runInContext("AppPictures", context), context };
@@ -47,6 +47,29 @@ test("the 1.0.1 update path: well formed frames, from the counter to the update 
   const last = frames[frames.length - 1].b;
   assert.ok(lit(last) > 200);
   assert.equal(frames[frames.length - 1].lit, "");
+});
+
+test("the sync path: from the counter to APP SYNC on the firmware of this repository", async () => {
+  const { StDevice, AppPictures, context } = load();
+  const data = context.STATTRAK_SYNC_PATH;
+  for (const f of data.frames) {
+    assert.equal(f.rows.length, 32);
+    for (const row of f.rows) assert.match(row, /^[0-9a-f]{32}$/);
+    assert.ok(Number.isInteger(f.ms) && f.ms > 0);
+    assert.ok(["-", "1", "2", "H2", "B"].includes(f.press), f.press);
+  }
+  const total = data.frames.reduce((sum, f) => sum + f.ms, 0);
+  assert.ok(total > 8000 && total < 25000, "length " + total);
+  // Both buttons (app menu), left button (to SETTINGS), both buttons (open it), right button (down), hold the right button
+  const presses = data.frames.map((f) => f.press).filter((p, i, all) => p !== "-" && p !== all[i - 1]);
+  const steps = presses.filter((p, i) => p !== presses[i - 1]);
+  assert.deepEqual([...steps], ["B", "1", "B", "2", "H2"]);
+  const frames = await StDevice.framesOf("sync-path").frames;
+  assert.equal(frames.reduce((sum, f) => sum + f.ms, 0), total);
+  assert.ok(frames.some((f) => f.lit === "H2") && frames.some((f) => f.lit === "1"), "the pressed buttons light up");
+  // The last frame is the App Sync screen that AppPictures draws (and that is tested against the firmware)
+  const last = text(frames[frames.length - 1].b);
+  assert.ok([0, 1, 2, 3].some((dots) => last === text(AppPictures.syncScreen("idle", dots))), "the last frame is APP SYNC, Waiting");
 });
 
 test("the Apps screens of the device picture are the screens of AppPictures (tested against the firmware)", async () => {

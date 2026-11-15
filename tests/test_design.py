@@ -51,12 +51,17 @@ def random_elements(rng, assets):
         elif kind == "line":
             elements.append({"type": "line", "x1": x, "y1": y, "x2": rng.randint(-8, 130),
                              "y2": rng.randint(-6, 34), "color": color})
+        elif kind == "circle":
+            elements.append({"type": "circle", "x": x, "y": y, "r": rng.randint(0, 20), "color": color,
+                             "fill": rng.random() < 0.5})
         elif kind == "image":
             elements.append({"type": "image", "name": rng.choice(images), "x": x, "y": y, "color": color})
         else:
             w, h = rng.randint(1, 20), rng.randint(1, 12)
             elements.append({"type": "pixels", "x": x, "y": y, "color": color,
                              "rows": ["".join(rng.choice("#.") for _ in range(w)) for _ in range(h)]})
+        if rng.random() < 0.3:
+            elements[-1]["border"] = rng.randint(1, design.MAX_BORDER)
     return elements
 
 
@@ -163,6 +168,38 @@ class FirmwareParityTest(DesignTestCase):
                 self.assert_same([{"type": "pixels", "x": rng.randint(-5, 120), "y": rng.randint(-5, 28),
                                    "rows": rows}])
 
+    def test_circles(self):
+        for r in range(0, 21):
+            for fill in (False, True):
+                for x, y in ((64, 15), (3, 30), (125, -2)):
+                    with self.subTest(r=r, fill=fill, x=x, y=y):
+                        self.assert_same([{"type": "circle", "x": x, "y": y, "r": r, "fill": fill}])
+
+    def test_round_corners_larger_than_16(self):
+        for w, h, r in ((60, 40, 19), (128, 35, 17), (100, 33, 16)):
+            for fill in (False, True):
+                with self.subTest(w=w, h=h, r=r, fill=fill):
+                    self.assert_same([{"type": "rect", "x": 2, "y": -3, "w": w, "h": h, "fill": fill, "radius": r}])
+
+    def test_cut_out_borders(self):
+        background = {"type": "rect", "x": 0, "y": 0, "w": 128, "h": 32, "fill": True}
+        parts = [
+            {"type": "text", "x": 64, "y": 4, "text": "AK-47", "font": "5x7", "align": "center"},
+            {"type": "text", "x": 64, "y": 12, "text": "OK", "font": "3x5", "align": "right", "invert": True},
+            {"type": "text", "x": 10, "y": 6, "text": "12", "font": "5x5", "scale": 2, "gap": True},
+            {"type": "rect", "x": 30, "y": 8, "w": 20, "h": 11, "radius": 5},
+            {"type": "line", "x1": 0, "y1": 31, "x2": 127, "y2": 0},
+            {"type": "circle", "x": 100, "y": 16, "r": 7, "fill": True},
+            {"type": "image", "name": "warning", "x": 90, "y": 0},
+            {"type": "pixels", "x": 40, "y": 20, "rows": ["#..#", ".##.", "#..#"]},
+        ]
+        for part in parts:
+            for border in range(1, design.MAX_BORDER + 1):
+                for color in ("white", "black"):
+                    element = dict(part, border=border, color=color)
+                    with self.subTest(element=element):
+                        self.assert_same([background, element])
+
     def test_elements_outside_of_the_display(self):
         self.assert_same([{"type": "text", "x": 120, "y": 28, "text": "OUTSIDE", "font": "5x7"},
                           {"type": "rect", "x": -5, "y": -5, "w": 20, "h": 20, "radius": 3},
@@ -191,7 +228,7 @@ class FormatTest(DesignTestCase):
 
     def test_wrong_files_are_refused_with_a_plain_message(self):
         cases = [
-            ([{"type": "circle"}], "\"type\" must be one of"),
+            ([{"type": "triangle"}], "\"type\" must be one of"),
             ([{"type": "text", "text": "A", "font": "comic"}], "does not exist"),
             ([{"type": "text", "text": ""}], "must not be empty"),
             ([{"type": "text", "text": "Zaļš"}], "do not have these characters"),

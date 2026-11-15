@@ -103,7 +103,7 @@ class DesignerCodeTest(unittest.TestCase):
 
     def test_wrong_files_are_refused(self):
         cases = [
-            [{"type": "circle"}],
+            [{"type": "triangle"}],
             [{"type": "text", "text": "A", "font": "comic"}],
             [{"type": "text", "text": "A", "font": "toString"}],
             [{"type": "text", "text": ""}],

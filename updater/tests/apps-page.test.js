@@ -99,7 +99,7 @@ const asking = (page, timeoutMs) => page.waitFor(`/Answer on StatTrak/.test((doc
 
 test("connect: the apps of the device in menu order, SETTINGS last, the storage and the catalog", { skip: SKIP }, async (t) => {
   const page = await open(t, { install: ["ROUND TIMER"], hiddenApps: [2] });
-  assert.match(await mainText(page), /Apps: SYNC.*hold button 2/);
+  assert.match(await mainText(page), /Apps: SYNC.*Hold right button/);
   await connect(page);
   assert.deepEqual(await texts(page, "#appsList .row__name"), ["KILLS", "KILLS + DEAD", "STATS", "ROUND TIMER", "SETTINGS"]);
   assert.deepEqual(await texts(page, "#appsList .row .lbl"), ["Shown", "Hidden", "Shown", "Shown"]);
@@ -179,10 +179,10 @@ test("install from the catalog: the question on the device first, then the trans
   assert.deepEqual(await texts(page, ".cat .row__name"), ["REACTION"]);
   assert.equal(await page.evaluate(`document.getElementById("appsList").classList.contains("list--busy")`), true);
   assert.equal(await page.evaluate(`document.getElementById("tabFirmware").getAttribute("aria-disabled")`), "true");
-  assert.match(await page.evaluate(`document.getElementById("instpanel").textContent`), /Answer on StatTrak.*Hold button 2 = yes, hold button 1 = no\./);
+  assert.match(await page.evaluate(`document.getElementById("instpanel").textContent`), /Answer on StatTrak.*Hold the right button = yes, hold the left button = no\./);
   // The device picture plays the question and a hold of button 2 (js/device.js)
   assert.deepEqual(await page.evaluate(`(() => { const d = document.querySelector("#instpanel st-device"); return [d.getAttribute("anim"), d.getAttribute("arg"), d.getAttribute("aria-label")]; })()`),
-    ["sync-question", "REACTION", "StatTrak screen: INSTALL REACTION? Hold button 2 = yes"]);
+    ["sync-question", "REACTION", "StatTrak screen: INSTALL REACTION? Hold the right button = yes"]);
   await page.waitFor(`document.querySelector("#instpanel st-device").dataset.frame !== undefined`);
   assert.equal(await device(page, "display"), "INSTALL REACTION?");
   assert.equal(await device(page, "appCommands.includes(0x0114)"), false, "no data before the answer");
@@ -198,7 +198,7 @@ test("install from the catalog: the question on the device first, then the trans
   assert.equal(await page.evaluate(`${row("REACTION")}.classList.contains("row--new")`), true);
   // What the device shows now, and what the buttons do
   assert.match(await page.evaluate(`document.getElementById("donepanel").textContent`),
-    /Installed.*On StatTrak: hold button 1 = SYNC MORE, hold button 2 = OPEN\. OPEN closes this connection\./);
+    /Installed.*On StatTrak: hold the left button = SYNC MORE, hold the right button = OPEN\. OPEN closes this connection\./);
   assert.deepEqual(await page.evaluate(`(() => { const d = document.querySelector("#donepanel st-device"); return [d.getAttribute("anim"), d.getAttribute("arg"), d.getAttribute("aria-label")]; })()`),
     ["sync-installed", "REACTION", "StatTrak screen: APP INSTALLED, SYNC MORE, OPEN"]);
   assert.equal(await device(page, "display"), "APP INSTALLED");
@@ -330,7 +330,7 @@ test("a device that does not show Apps: SYNC: the page says what to do on the de
   await act(page, '[data-act="connect"]');
   await page.waitFor(`document.querySelector("#appsMain .banner--warn")`);
   assert.match(await mainText(page), /StatTrak is not in Apps: SYNC.*Open Apps: SYNC on StatTrak, then connect\./);
-  assert.match(await mainText(page), /Settings›Apps: SYNC›hold button 2/);
+  assert.match(await mainText(page), /Settings→Apps: SYNC→Hold right button/);
   assert.equal(await device(page, "gatt.connected"), false);
 });
 

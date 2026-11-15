@@ -123,7 +123,15 @@ Ask your AI tool to open it for you.
 </p>
 
 - **Real pixels, real fonts.** You draw on the 128 × 32 pixels of the device, with its fonts.
-  The small view shows how large the screen really is.
+  The device picture at the top shows the screen as it looks on the StatTrak.
+- **Starts with the real screens.** The designer opens with the 4 built-in screens (Big counter,
+  Split counter, Stats, Settings), pixel for pixel as the firmware draws them. Change one, or
+  click **New screen** and ask your AI tool for any other screen: the designer gives you the
+  request to copy, and you paste the answer back.
+- **Tools for pixel work.** Text, Box (round corners up to round ends), Circle, Line, Draw and
+  Erase. **Select** moves more parts, or some pixels of a drawing, as a group. A **cut-out
+  border** keeps a part clear on top of other parts. A black part shows red while it is selected.
+  **Trace** puts a picture (a sketch, an emoji) under the screen to draw over; only you see it.
 - **As many screens as you want.** Write for each screen what it does: when it shows, and what
   the two buttons do. A drawing cannot show that, and the AI tool needs it.
 - **Your work is safe.** Undo with Ctrl+Z. The page keeps your work in the browser, and
@@ -205,12 +213,12 @@ Bluetooth or the power.
 
 ### Install an app
 
-1. **On the StatTrak:** Settings, then `Apps: SYNC`, hold button 2. The display shows
+1. **On the StatTrak:** Settings, then `Apps: SYNC`, hold the right button. The display shows
    `APP SYNC` and `WAITING`.
 2. **On the computer:** open <https://stattrak.tridos.design/#apps> (the **Apps** tab), click
    **Connect** and pick your StatTrak.
 3. Click **Install** next to an app.
-4. **Answer on the StatTrak.** It asks `INSTALL <NAME>?`. Hold button 2 for yes, or button 1 for
+4. **Answer on the StatTrak.** It asks `INSTALL <NAME>?`. Hold the right button for yes, or the left button for
    no. The page sends the app only after your yes.
 
 <table>
@@ -220,7 +228,7 @@ Bluetooth or the power.
   </tr>
   <tr>
     <td><b>The question.</b> The page shows what your StatTrak shows. The button to hold is orange.</td>
-    <td><b>Installed.</b> On the StatTrak: hold button 1 for <b>SYNC MORE</b> (install one more app), or hold button 2 for <b>OPEN</b> (play now).</td>
+    <td><b>Installed.</b> On the StatTrak: hold the left button for <b>SYNC MORE</b> (install one more app), or hold the right button for <b>OPEN</b> (play now).</td>
   </tr>
 </table>
 
@@ -231,7 +239,7 @@ The Apps tab shows all apps on your StatTrak, in the order of the app menu. You 
 - move an app up or down (drag it, or use the arrows),
 - hide an app from the menu, or show it again,
 - change the settings of an app where you see a gear. On the StatTrak: in the app menu, hold
-  button 2 on the app,
+  the right button on the app,
 - delete an app (the bin). The built-in apps stay.
 - give your StatTrak its own Bluetooth name, so you find it fast when there are more StatTraks
   (for example `StatTrak | RED 7`). It changes the next time you open `Apps: SYNC`.
@@ -275,15 +283,15 @@ The details for AI tools and developers: [docs/APPS.md](docs/APPS.md).
 | --- | --- |
 | Hold both buttons | Power on / power off |
 | Short press on both buttons | App menu: KILLS, KILLS + DEAD, STATS, your installed apps, SETTINGS |
-| App menu: button 1 / button 2 | Previous / next app |
+| App menu: left button / right button | Previous / next app |
 | App menu: both buttons, or wait 3 seconds | Open the selected app |
-| App menu: hold button 2 | The settings of the selected installed app (if it has settings) |
-| Settings: `Apps: SYNC`, hold button 2 | App Sync: install and sort apps from your browser (see [Apps and App Sync](#-apps-and-app-sync)) |
+| App menu: hold the right button | The settings of the selected installed app (if it has settings) |
+| Settings: `Apps: SYNC`, hold the right button | App Sync: install and sort apps from your browser (see [Apps and App Sync](#-apps-and-app-sync)) |
 | App: a fast game (RUNNER) | It reacts when the button goes down. Other apps get a press after the release |
 | Total view: short press | +1 kill. Long press: -1 kill |
-| Kill/death view: button 1 / button 2 | +1 kill / +1 death. Long press: -1 |
-| Settings: short press button 1 / 2 | Up / down |
-| Settings: long press button 1 / 2 | Previous / next value, or start the action |
+| Kill/death view: left button / right button | +1 kill / +1 death. Long press: -1 |
+| Settings: short press left / right button | Up / down |
+| Settings: long press left / right button | Previous / next value, or start the action |
 | A button on the display (YES, NO, BACK, OK, CANCEL, DISMISS, SYNC MORE, OPEN) | Hold the round button under it for 0.7 s; the button fills while you hold it. A short press does nothing. A button in the middle: either round button |
 | Hold both buttons for 10 seconds at power-on | Firmware update mode |
 

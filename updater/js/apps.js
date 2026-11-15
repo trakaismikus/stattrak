@@ -135,8 +135,11 @@ const AppsTab = (() => {
   function vConnect() {
     const supported = typeof detectBleSupport !== "function" || detectBleSupport().supported;
     return (A.banner ? banner(A.banner.kind, A.banner.title, A.banner.body) : "") +
-      '<div class="connect">' + device("sync-idle", undefined, "StatTrak screen: APP SYNC, Waiting") +
-      '<div class="crumbs">On StatTrak: <span class="crumb">Settings</span><span class="crumb-sep">›</span><span class="crumb">Apps: SYNC</span><span class="crumb-sep">›</span><span class="crumb">hold button 2</span></div>' +
+      '<div class="connect"><p class="step1-instructions">Turn on StatTrak and navigate to&nbsp; <span class="path-crumb">Settings</span>' +
+      '<span class="path-sep" aria-hidden="true">→</span><span class="path-crumb">Apps: SYNC</span>' +
+      '<span class="path-sep" aria-hidden="true">→</span><span class="path-crumb">Hold right button</span></p>' +
+      device("sync-path", undefined, "StatTrak: both buttons to the app menu, left button to SETTINGS, both buttons to open it, " +
+        "right button down to APPS: SYNC, hold the right button. The screen shows APP SYNC, Waiting.") +
       `<button class="btn btn--primary btn--lg" data-act="connect" type="button"${A.conn === "connecting" || !supported ? " disabled" : ""}>` +
       icon("bt", 16) + (A.conn === "connecting" ? "Connecting…" : "Connect") + "</button></div>";
   }
@@ -173,7 +176,7 @@ const AppsTab = (() => {
       h += '<div class="row__panel" id="donepanel"><div class="inst">' +
         device("sync-installed", app.name, "StatTrak screen: APP INSTALLED, SYNC MORE, OPEN") +
         `<div class="inst__text"><div class="inst__big inst__big--ok">${icon("check", 20)} Installed</div>` +
-        '<div class="inst__hint">On StatTrak: hold button 1 = SYNC MORE, hold button 2 = OPEN. OPEN closes this connection.</div></div></div></div>';
+        '<div class="inst__hint">On StatTrak: hold the left button = SYNC MORE, hold the right button = OPEN. OPEN closes this connection.</div></div></div></div>';
     }
     if (edit && settings) {
       const values = A.values[app.id];
@@ -213,9 +216,9 @@ const AppsTab = (() => {
     }
     if (inst && A.inst.phase === "ask") {
       h += '<div class="row__panel" id="instpanel"><div class="inst">' +
-        device("sync-question", item.name, `StatTrak screen: INSTALL ${item.name}? Hold button 2 = yes`) +
+        device("sync-question", item.name, `StatTrak screen: INSTALL ${item.name}? Hold the right button = yes`) +
         '<div class="inst__text"><div class="inst__big"><span class="dot dot--wait"></span> Answer on StatTrak</div>' +
-        '<div class="inst__hint">Hold button 2 = yes, hold button 1 = no.</div></div></div></div>';
+        '<div class="inst__hint">Hold the right button = yes, hold the left button = no.</div></div></div></div>';
     }
     if (inst && A.inst.phase === "transfer") {
       const pct = Math.round(A.inst.pct);

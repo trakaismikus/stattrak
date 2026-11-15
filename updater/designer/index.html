@@ -115,6 +115,7 @@ code { font-family: var(--font-mono); font-size: 0.85em; }
 
 /* ---------- workbench ---------- */
 .work { display: grid; grid-template-columns: 78px minmax(0, 1fr) 300px; min-height: 0; }
+.side { display: flex; flex-direction: column; min-height: 0; border-left: 1px solid var(--stroke-1); background: var(--bg); }
 
 /* tool rail */
 .rail {
@@ -160,8 +161,10 @@ code { font-family: var(--font-mono); font-size: 0.85em; }
   border: 1px solid var(--stroke-1); border-radius: var(--r-md);
   box-shadow: var(--shadow-3), var(--shadow-well);
 }
-.screen { position: relative; background: var(--bg-screen); }
+.screen { position: relative; background: var(--bg-screen); overflow: hidden; }
 .screen canvas { position: absolute; left: 0; top: 0; display: block; }
+/* the trace picture: under the pixels, only in the designer (not in the file, not on the device) */
+.trace { position: absolute; left: 0; top: 0; max-width: none; pointer-events: none; user-select: none; }
 #cvPx { filter: drop-shadow(0 0 2px rgba(255,255,255,0.45)) drop-shadow(0 0 8px rgba(255,255,255,0.12)); pointer-events: none; }
 #cvOv { touch-action: none; }
 .ruler { position: absolute; font-family: var(--font-mono); font-size: 10px; color: var(--fg-muted); pointer-events: none; }
@@ -185,20 +188,24 @@ code { font-family: var(--font-mono); font-size: 0.85em; }
 .coords { font-family: var(--font-mono); font-size: 12px; color: var(--fg3); min-width: 110px; }
 .coords b { color: var(--fg1); font-weight: 500; }
 
-/* small view card: 1 display pixel = 1 screen pixel */
-.small {
-  position: absolute; right: 14px; bottom: 60px;
-  background: rgba(20,20,22,0.92); border: 1px solid var(--stroke-1); border-radius: var(--r-md);
-  padding: 10px 12px; display: flex; gap: 12px; align-items: center; box-shadow: var(--shadow-2);
+/* device preview at the top of the right column: the display in the StatTrak picture */
+.preview { padding: 14px 16px 12px; border-bottom: 1px solid var(--stroke-1); background: #050506; flex-shrink: 0; }
+st-device { display: block; position: relative; width: 100%; aspect-ratio: 1896 / 1024; user-select: none; }
+.st-dev__pic { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+.st-dev__screen {
+  position: absolute; left: 11.946%; top: 22.969%; width: 65.823%; height: 30.469%;
+  mix-blend-mode: screen;
+  filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.7)) drop-shadow(0 0 4px rgba(255, 255, 255, 0.16));
 }
-.small__screen { background: #000; padding: 6px; border-radius: 3px; border: 1px solid var(--stroke-1); line-height: 0; }
-.small canvas { width: 128px; height: 32px; display: block; image-rendering: pixelated; }
-.small__txt { max-width: 120px; }
-.small__txt .eyebrow { color: var(--accent); display: block; margin-bottom: 2px; }
-.small__txt p { margin: 0; font-size: 14px; line-height: 1.25; color: var(--fg2); }
+.st-dev__glass {
+  position: absolute; left: 8.663%; top: 16.099%; width: 72.389%; height: 44.239%;
+  border-radius: 1.75% / 5.3%; pointer-events: none;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.015) 38%, rgba(255, 255, 255, 0) 38.5%);
+}
+.st-dev__btn, .st-dev__lbl { display: none; }
 
 /* inspector */
-.insp { border-left: 1px solid var(--stroke-1); background: var(--bg); overflow-y: auto; min-height: 0; }
+.insp { flex: 1; overflow-y: auto; min-height: 0; }
 .sec { padding: 16px 18px; border-bottom: 1px solid var(--stroke-1); }
 .sec__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
 .sec__title { margin: 0; font-family: var(--font-display); font-weight: 900; font-style: italic; text-transform: uppercase; font-size: 22px; line-height: 1.1; }
@@ -291,6 +298,21 @@ code { font-family: var(--font-mono); font-size: 0.85em; }
 }
 .tile--add:hover { border-color: var(--accent); color: var(--accent); }
 
+/* new screen popover */
+.pop--new { width: 360px; }
+.pop__sec { padding: 8px 0 10px; border-top: 1px solid var(--stroke-1); }
+.pop__sec:first-of-type { border-top: 0; padding-top: 0; }
+.pop__sec p { margin: 0 0 8px; font-size: 14px; color: var(--fg2); line-height: 1.35; }
+.pop__sec ol { margin: 0 0 8px; padding-left: 18px; font-size: 14px; color: var(--fg2); line-height: 1.35; }
+.pop__sec textarea { width: 100%; height: 80px; resize: vertical; background: #000; border: 1px solid var(--stroke-1); border-radius: var(--r-sm);
+  color: var(--fg2); font-family: var(--font-mono); font-size: 11px; padding: 6px 8px; margin-bottom: 6px; }
+.pop__sec textarea:focus { outline: none; border-color: var(--accent); }
+.pop__ask { font-family: var(--font-mono); font-size: 12px; color: var(--fg1); background: var(--st-ink-900); border: 1px solid var(--stroke-1); border-radius: var(--r-sm); padding: 8px 10px; margin-bottom: 6px; line-height: 1.4; }
+.ai-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.tile--add small { font-family: var(--font-body); font-style: normal; font-weight: 600; text-transform: none; font-size: 12px; letter-spacing: 0; color: var(--fg3); text-align: center; line-height: 1.2; }
+.tile--add:hover small { color: var(--accent); }
+.range { width: 100%; accent-color: var(--accent); }
+
 /* picture popover */
 .pop {
   position: fixed; z-index: 50; width: 300px;
@@ -377,7 +399,6 @@ code { font-family: var(--font-mono); font-size: 0.85em; }
 @media (max-width: 1180px) {
   .work { grid-template-columns: 72px minmax(0, 1fr) 270px; }
   .save-state { display: none; }
-  .small__txt { display: none; }
   .hint { font-size: 14px; }
   .sec { padding: 14px 14px; }
 }
@@ -447,6 +468,7 @@ code { font-family: var(--font-mono); font-size: 0.85em; }
         <div class="ruler ruler--top" id="rulerTop"></div>
         <div class="ruler ruler--left" id="rulerLeft"></div>
         <div class="screen" id="screen">
+          <img class="trace" id="traceImg" alt="" hidden>
           <canvas id="cvPx"></canvas>
           <canvas id="cvOv"></canvas>
         </div>
@@ -463,16 +485,14 @@ code { font-family: var(--font-mono); font-size: 0.85em; }
       <span class="coords" id="coords">X <b>–</b> &nbsp;Y <b>–</b></span>
     </div>
 
-    <div class="small" title="One pixel of the display is one pixel of your computer screen here">
-      <div class="small__screen"><canvas id="cvSmall" width="128" height="32"></canvas></div>
-      <div class="small__txt">
-        <span class="eyebrow">Small view</span>
-        <p>The real display is about this small.</p>
-      </div>
-    </div>
   </section>
 
-  <aside class="insp" id="insp" aria-label="Details"></aside>
+  <div class="side">
+    <div class="preview" title="How the screen looks on the StatTrak">
+      <st-device id="preview" base="../" label="The screen on the StatTrak"></st-device>
+    </div>
+    <aside class="insp" id="insp" aria-label="Details"></aside>
+  </div>
 </main>
 
 <!-- ================= FILMSTRIP ================= -->
@@ -484,10 +504,27 @@ code { font-family: var(--font-mono); font-size: 0.85em; }
   <div class="film__list" id="film"></div>
 </footer>
 
-<!-- picture popover -->
-<div class="pop" id="picPop" hidden>
-  <p class="eyebrow pop__title">Add a picture</p>
-  <div id="picList"></div>
+<!-- new screen popover -->
+<div class="pop pop--new" id="newPop" hidden>
+  <div class="pop__sec">
+    <p class="eyebrow pop__title">New screen</p>
+    <div class="btns"><button type="button" class="btn btn--ghost btn--sm" data-new="empty">Empty screen</button></div>
+  </div>
+  <div class="pop__sec">
+    <p class="eyebrow pop__title">Copy a StatTrak screen</p>
+    <div class="btns" id="newBuiltin"></div>
+  </div>
+  <div class="pop__sec">
+    <p class="eyebrow pop__title"><span class="ai-badge">AI</span> Get a screen from your AI tool</p>
+    <p>Your AI coding tool can draw any screen of an app as a design for this page. Change it here, then send it back with <b>Send to AI</b>.</p>
+    <ol><li>Say which screen you want. Copy the request and paste it into your AI tool (the one in the StatTrak firmware folder).</li>
+      <li>Paste its answer below and click <b>Add</b>.</li></ol>
+    <label class="fld" style="margin-bottom:8px"><span>Which screen?</span><input type="text" id="aiWhat" maxlength="120" spellcheck="true" placeholder="the main screen of the KILLS app"></label>
+    <div class="pop__ask" id="aiAsk"></div>
+    <div class="btns" style="margin-bottom:10px"><button type="button" class="btn btn--ghost btn--sm" id="aiAskCopy">Copy request</button></div>
+    <textarea id="aiPaste" spellcheck="false" placeholder="Paste the answer of the AI tool here (the design data)"></textarea>
+    <div class="btns"><button type="button" class="btn btn--primary btn--sm" id="aiPasteAdd">Add</button></div>
+  </div>
 </div>
 
 <!-- send to AI dialog -->
@@ -550,9 +587,12 @@ code { font-family: var(--font-mono); font-size: 0.85em; }
 
 <div class="toast" id="toast" hidden><div id="toastMsg"></div><button class="btn btn--ghost btn--sm" id="toastAct" type="button" hidden></button></div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
+<input type="file" id="traceIn" accept="image/*" hidden>
 
 <script src="assets.js"></script>
 <script src="design.js"></script>
+<script src="default-design.js"></script>
+<script src="../js/device.js"></script>
 <script>
 (function () {
 'use strict';
@@ -584,6 +624,9 @@ const I = {
   text: '<polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/>',
   rect: '<rect x="3" y="6" width="18" height="12" rx="1"/>',
   line: '<line x1="5" y1="19" x2="19" y2="5"/>',
+  circle: '<circle cx="12" cy="12" r="8.5"/>',
+  marquee: '<path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M10 3h4M10 21h4M3 10v4M21 10v4"/>',
+  trace: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>',
   image: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>',
   pencil: '<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>',
   eraser: '<path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/>',
@@ -604,14 +647,17 @@ const I = {
 const ic = (n, s = 16, w = 1.75) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${I[n]}</svg>`;
 
 const TOOLS = [
-  { id: 'select', label: 'Move', key: 'V', hint: 'Click a part to pick it. Drag to move it. Arrow keys move it 1 pixel. Delete removes it.' },
+  { id: 'select', label: 'Move', key: 'V', hint: 'Click a part to pick it. Shift+click picks more parts. Drag to move. Arrow keys move 1 pixel. Delete removes.' },
+  { id: 'marquee', label: 'Select', key: 'S', hint: 'Drag a box around parts or drawn pixels. Then drag the selection or use the arrow keys to move it as a group.' },
   { id: 'text', label: 'Text', key: 'T', hint: 'Click on the screen where the text should start.' },
   { id: 'rect', label: 'Box', key: 'B', hint: 'Drag on the screen to draw a box.' },
+  { id: 'circle', label: 'Circle', key: 'C', hint: 'Drag from the center out to draw a circle.' },
   { id: 'line', label: 'Line', key: 'L', hint: 'Drag on the screen to draw a line.' },
-  { id: 'image', label: 'Picture', key: 'P', hint: 'Pick a picture from the list to add it.' },
   { sep: true },
   { id: 'pencil', label: 'Draw', key: 'D', hint: 'Click or drag to switch pixels on.' },
-  { id: 'eraser', label: 'Erase', key: 'E', hint: 'Drag over drawn pixels to remove them. To remove text or a box, pick it and press Delete.' }
+  { id: 'eraser', label: 'Erase', key: 'E', hint: 'Drag over drawn pixels to remove them. To remove text or a box, pick it and press Delete.' },
+  { sep: true },
+  { id: 'trace', label: 'Trace', key: 'R', hint: 'A picture under the screen to draw over. Drag to move it. Only you see it.' }
 ];
 
 /* ================================================================================================
@@ -621,6 +667,10 @@ function T(text, x, y, font, o = {}) { return Object.assign({ type: 'text', x, y
 function R(x, y, w, h, fill = false, o = {}) { return Object.assign({ type: 'rect', x, y, w, h, fill }, o); }
 function L(x1, y1, x2, y2, o = {}) { return Object.assign({ type: 'line', x1, y1, x2, y2 }, o); }
 function example() {
+  if (window.STATTRAK_DEFAULT_DESIGN) {
+    const r = D.normalize(clone(window.STATTRAK_DEFAULT_DESIGN), A);
+    if (r.design && !r.problems.length) return r.design;
+  }
   const raw = {
     format: D.FORMAT_NAME, version: D.FORMAT_VERSION, name: 'My StatTrak screens',
     screens: [
@@ -661,6 +711,12 @@ function example() {
   };
   return D.normalize(raw, A).design;
 }
+/* The screens of the StatTrak apps (default-design.js), for "New screen" */
+function builtinScreens() {
+  if (!window.STATTRAK_DEFAULT_DESIGN) return [];
+  const r = D.normalize(clone(window.STATTRAK_DEFAULT_DESIGN), A);
+  return r.design ? r.design.screens : [];
+}
 
 /* ================================================================================================
  * State
@@ -669,6 +725,10 @@ let P;                       // the project, clean form
 let aiRequest = '';          // "What do you want the AI to do" (autosave only, not in the file)
 let cur = 0, sel = -1, tool = 'select', zoom = 8, autoFit = true, showGrid = true, hover = -1, drag = null;
 let cursorPix = null;
+/* A selection of more than one part (tool Select, or Shift+click): els = the parts, parts = drawings
+   that are only partly in the box (their pixels in the box move when the selection moves), rect =
+   the box. null when one part or nothing is selected (then sel is used). */
+let group = null;
 
 function S() { return P.screens[cur]; }
 function EL() { return sel >= 0 ? S().elements[sel] || null : null; }
@@ -716,7 +776,7 @@ function restore(s) {
   P = JSON.parse(s.data);
   cur = clamp(s.cur, 0, P.screens.length - 1);
   sel = (s.sel >= 0 && s.sel < S().elements.length) ? s.sel : -1;
-  drag = null; hover = -1;
+  drag = null; hover = -1; group = null;
   refreshAll();
 }
 function undo() {
@@ -756,8 +816,10 @@ function fixElement(el) {
   else { el.x = c(el.x); el.y = c(el.y); }
   if (el.type === 'rect') {
     el.w = clampInt(el.w, 1, LIMIT); el.h = clampInt(el.h, 1, LIMIT);
-    el.radius = clampInt(el.radius, 0, Math.min(16, largestRadius(el)));
+    el.radius = clampInt(el.radius, 0, largestRadius(el));
   }
+  if (el.type === 'circle') el.r = clampInt(el.r, 0, D.MAX_CIRCLE_RADIUS);
+  el.border = clampInt(el.border || 0, 0, D.MAX_BORDER);
   if (el.type === 'text') {
     el.scale = clampInt(el.scale, 1, D.MAX_SCALE);
     if (el.scale !== 1) el.invert = false;
@@ -892,6 +954,7 @@ function drawPx(buf) {
 /* The handles of the selected element: the end points of a line, the lower right corner of a box */
 function handles(el) {
   if (!el) return [];
+  if (el.type === 'circle') return [{ k: 'radius', x: el.x + el.r, y: el.y }];
   if (el.type === 'line') return [{ k: 'end1', x: el.x1, y: el.y1 }, { k: 'end2', x: el.x2, y: el.y2 }];
   if (el.type === 'rect') return [{ k: 'size', x: el.x + el.w - 1, y: el.y + el.h - 1 }];
   return [];
@@ -913,6 +976,28 @@ function drawOverlay() {
     ctx.restore();
   };
   if (hover >= 0 && hover !== sel && els[hover] && tool === 'select') box(els[hover], 'rgba(255,122,31,0.5)', 1, [4, 3]);
+  // a black part (or a cut-out border) of the selection is red, so you see where it is
+  const picked = group ? group.els : (EL() ? [EL()] : []);
+  picked.forEach(p => {
+    if (p.border) {
+      const ring = cutMask(p);
+      ctx.fillStyle = 'rgba(226,52,52,0.32)';
+      fillMask(ctx, ring);
+    }
+    if (!p.color) {
+      ctx.fillStyle = 'rgba(255,64,64,0.92)';
+      fillMask(ctx, ownMask(p));
+    }
+  });
+  if (group) {
+    group.els.forEach(g => box(g, 'rgba(255,122,31,0.75)', 1));
+    const r = group.rect;
+    box({ type: 'rect', x: r.x0, y: r.y0, w: r.x1 - r.x0 + 1, h: r.y1 - r.y0 + 1 }, '#FF7A1F', 2, [5, 4]);
+  }
+  if (drag && drag.mode === 'marquee') {
+    const r = marqueeRect(drag.start, drag.cur);
+    box({ type: 'rect', x: r.x0, y: r.y0, w: r.x1 - r.x0 + 1, h: r.y1 - r.y0 + 1 }, '#FF7A1F', 1.5, [5, 4]);
+  }
   const el = EL();
   if (el) {
     box(el, '#FF7A1F', 2);
@@ -927,11 +1012,29 @@ function drawOverlay() {
     ctx.strokeRect(ux(cursorPix.x) + 1, ux(cursorPix.y) + 1, ux(cursorPix.x + 1) - ux(cursorPix.x) - 2, ux(cursorPix.y + 1) - ux(cursorPix.y) - 2);
   }
 }
+/* The pixels of one part alone (white, without its border) */
+function ownMask(el) {
+  return pixelsOf({ elements: [Object.assign(clone(el), { color: 1, border: 0 })] });
+}
+/* The pixels that the cut-out border of a part switches off (around the part, not the part itself) */
+function cutMask(el) {
+  const full = { type: 'rect', color: 1, note: '', border: 0, x: 0, y: 0, w: W, h: H, fill: true, radius: 0 };
+  const cut = pixelsOf({ elements: [full, Object.assign(clone(el), { color: 0 })] });
+  const own = ownMask(el);
+  const ring = new Uint8Array(W * H);
+  for (let i = 0; i < W * H; i++) ring[i] = (!cut[i] && !own[i]) ? 1 : 0;
+  return ring;
+}
+function fillMask(ctx, mask) {
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (mask[y * W + x]) ctx.fillRect(ux(x), ux(y), ux(x + 1) - ux(x), ux(y + 1) - ux(y));
+}
 function render() {
   const buf = pixelsOf(S());
   drawPx(buf);
   drawOverlay();
-  bufToCanvas($('#cvSmall'), buf, [255, 255, 255], [0, 0, 0]);
+  const dev = $('#preview');
+  if (dev && typeof dev.showBuffer === 'function') dev.showBuffer({ w: W, h: H, d: buf });
+  placeTrace();
   const tc = document.querySelector(`.tile[data-i="${cur}"] canvas`);
   if (tc) bufToCanvas(tc, buf);
   if (!$('#sendModal').hidden) updateAiText();
@@ -953,54 +1056,23 @@ function renderRail() {
       <span class="tool__key">${t.key}</span>${ic(t.id, 20)}<span class="tool__label">${t.label}</span></button>`).join('');
   const t = TOOLS.find(x => x.id === tool);
   $('#hint').innerHTML = ic('info', 16) + '<span>' + esc(t.hint) + '</span>';
-  cvOv.style.cursor = { select: 'default', text: 'text', rect: 'crosshair', line: 'crosshair', pencil: 'crosshair', eraser: 'crosshair', image: 'default' }[tool];
+  cvOv.style.cursor = { select: 'default', marquee: 'crosshair', text: 'text', rect: 'crosshair', circle: 'crosshair', line: 'crosshair', pencil: 'crosshair', eraser: 'crosshair', trace: 'move' }[tool];
 }
 function setTool(id) {
-  if (id === 'image') { tool = 'image'; renderRail(); openPicPop(); return; }
-  closePicPop();
+  const was = tool;
   tool = id; renderRail(); drawOverlay();
+  if (id === 'trace' || was === 'trace') renderInspector();
+  if (id === 'trace' && !traceOf()) $('#traceIn').click();
 }
 $('#rail').addEventListener('click', e => { const b = e.target.closest('[data-tool]'); if (b) setTool(b.dataset.tool); });
-
-function openPicPop() {
-  const pop = $('#picPop');
-  $('#picList').innerHTML = A.images.map(im => {
-    const s = im.w > 64 ? 1 : 1.5;
-    return `<button type="button" class="pic" data-pic="${esc(im.name)}"><canvas width="${im.w}" height="${im.h}" style="width:${im.w * s}px;height:${im.h * s}px"></canvas><span><b>${esc(im.label)}</b><small>${im.w} x ${im.h} pixels</small></span></button>`;
-  }).join('');
-  A.images.forEach((im, k) => {
-    // drawn with design.js like a screen, then the picture area is copied
-    const buf = pixelsOf({ elements: [{ type: 'image', color: 1, note: '', name: im.name, x: 0, y: 0 }] });
-    const c = $('#picList').querySelectorAll('canvas')[k], ctx = c.getContext('2d');
-    const id = ctx.createImageData(im.w, im.h);
-    for (let y = 0; y < im.h; y++) for (let x = 0; x < im.w; x++) {
-      const v = (x < W && y < H && buf[y * W + x]) ? 255 : 10, p = (y * im.w + x) * 4;
-      id.data[p] = id.data[p + 1] = id.data[p + 2] = v; id.data[p + 3] = 255;
-    }
-    ctx.putImageData(id, 0, 0);
-  });
-  const b = document.querySelector('[data-tool="image"]').getBoundingClientRect();
-  pop.style.left = (b.right + 10) + 'px'; pop.style.top = Math.max(70, b.top - 20) + 'px';
-  pop.hidden = false;
-}
-function closePicPop() { $('#picPop').hidden = true; }
-$('#picList').addEventListener('click', e => {
-  const b = e.target.closest('[data-pic]'); if (!b) return;
-  const im = IMAGES[b.dataset.pic];
-  step(() => addElement({ type: 'image', color: 1, note: '', name: im.name, x: Math.floor((W - im.w) / 2), y: Math.floor((H - im.h) / 2) }));
-  setTool('select');
-  changed(true);
-});
-document.addEventListener('pointerdown', e => {
-  if (!$('#picPop').hidden && !e.target.closest('#picPop') && !e.target.closest('[data-tool="image"]')) { closePicPop(); if (tool === 'image') setTool('select'); }
-});
 
 /* ================================================================================================
  * Element operations (callers wrap them in a step)
  * ============================================================================================== */
-function newText(x, y) { return { type: 'text', color: 1, note: '', x, y, text: 'TEXT', font: '5x7', align: 'left', scale: 1, gap: false, invert: false }; }
-function newRect(x, y) { return { type: 'rect', color: 1, note: '', x, y, w: 1, h: 1, fill: false, radius: 0 }; }
-function newLine(x, y) { return { type: 'line', color: 1, note: '', x1: x, y1: y, x2: x, y2: y }; }
+function newText(x, y) { return { type: 'text', color: 1, note: '', border: 0, x, y, text: 'TEXT', font: '5x7', align: 'left', scale: 1, gap: false, invert: false }; }
+function newRect(x, y) { return { type: 'rect', color: 1, note: '', border: 0, x, y, w: 1, h: 1, fill: false, radius: 0 }; }
+function newLine(x, y) { return { type: 'line', color: 1, note: '', border: 0, x1: x, y1: y, x2: x, y2: y }; }
+function newCircle(x, y) { return { type: 'circle', color: 1, note: '', border: 0, x, y, r: 0, fill: false }; }
 function addElement(el) {
   S().elements.push(fixElement(el));
   sel = S().elements.length - 1;
@@ -1015,6 +1087,7 @@ function partName(el) {
     case 'text': return `Text "${el.text}"`;
     case 'rect': return el.fill ? 'Filled box' : 'Box';
     case 'line': return 'Line';
+    case 'circle': return el.fill ? 'Filled circle' : 'Circle';
     case 'image': return 'Picture: ' + ((IMAGES[el.name] || {}).label || el.name);
     case 'pixels': return 'Drawing';
   }
@@ -1040,7 +1113,100 @@ function reorder(act) {
   step(() => { s.elements.splice(sel, 1); s.elements.splice(to, 0, el); sel = to; });
   changed(true);
 }
-const kindIcon = { text: 'text', rect: 'rect', line: 'line', image: 'image', pixels: 'pixels' };
+const kindIcon = { text: 'text', rect: 'rect', line: 'line', circle: 'circle', image: 'image', pixels: 'pixels' };
+
+/* ---------------- selection of more parts ---------------- */
+function marqueeRect(a, b) {
+  return { x0: clamp(Math.min(a.x, b.x), 0, W - 1), y0: clamp(Math.min(a.y, b.y), 0, H - 1),
+           x1: clamp(Math.max(a.x, b.x), 0, W - 1), y1: clamp(Math.max(a.y, b.y), 0, H - 1) };
+}
+function inRect(p, r) { return p.x >= r.x0 && p.x <= r.x1 && p.y >= r.y0 && p.y <= r.y1; }
+/* Selects what is in the box: parts that are in it completely, and the pixels of drawings that are partly in it */
+function selectBox(r) {
+  const els = [], parts = [];
+  S().elements.forEach(el => {
+    const b = area(el);
+    if (b.x >= r.x0 && b.y >= r.y0 && b.x + b.w - 1 <= r.x1 && b.y + b.h - 1 <= r.y1) { els.push(el); return; }
+    if (el.type !== 'pixels') return;
+    for (let y = r.y0; y <= r.y1; y++) for (let x = r.x0; x <= r.x1; x++) {
+      const j = y - el.y, i = x - el.x;
+      if (j >= 0 && j < el.rows.length && i >= 0 && i < el.rows[0].length && el.rows[j][i] === '#') { parts.push(el); return; }
+    }
+  });
+  sel = -1; group = null;
+  if (els.length === 1 && !parts.length) sel = S().elements.indexOf(els[0]);
+  else if (els.length || parts.length) group = { els, parts, rect: r };
+}
+function groupBounds(els) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  els.forEach(el => { const b = area(el); x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.w - 1); y1 = Math.max(y1, b.y + b.h - 1); });
+  return { x0, y0, x1, y1 };
+}
+/* Shift+click: adds a part to the selection, or takes it out */
+function toggleInGroup(i) {
+  const el = S().elements[i];
+  let els = group ? group.els.slice() : (EL() ? [EL()] : []);
+  if (group && group.parts.length) step(liftGroup);
+  if (group) els = group.els.slice();
+  const k = els.indexOf(el);
+  if (k >= 0) els.splice(k, 1); else els.push(el);
+  sel = -1; group = null;
+  if (els.length === 1) sel = S().elements.indexOf(els[0]);
+  else if (els.length > 1) group = { els, parts: [], rect: groupBounds(els) };
+}
+/* The pixels of the drawings that are only partly in the box become drawings of their own, so they
+   can move. The caller has opened a step. */
+function liftGroup() {
+  if (!group || !group.parts.length) return;
+  const els = S().elements, r = group.rect;
+  group.parts.forEach(src => {
+    const rows = [];
+    for (let y = r.y0; y <= r.y1; y++) {
+      let row = '';
+      for (let x = r.x0; x <= r.x1; x++) {
+        const j = y - src.y, i = x - src.x;
+        const on = j >= 0 && j < src.rows.length && i >= 0 && i < src.rows[0].length && src.rows[j][i] === '#';
+        row += on ? '#' : '.';
+        if (on) pixSet(src, x, y, false);
+      }
+      rows.push(row);
+    }
+    const piece = { type: 'pixels', color: src.color, note: '', border: src.border || 0, x: r.x0, y: r.y0, rows };
+    if (!pixTrim(piece)) return;
+    const at = els.indexOf(src);
+    if (pixTrim(src)) els.splice(at + 1, 0, piece);
+    else els.splice(at, 1, piece);
+    group.els.push(piece);
+  });
+  group.parts = [];
+}
+function moveGroup(dx, dy) {
+  group.els.forEach(el => moveEl(el, dx, dy));
+  group.rect = { x0: group.rect.x0 + dx, y0: group.rect.y0 + dy, x1: group.rect.x1 + dx, y1: group.rect.y1 + dy };
+}
+function removeGroup() {
+  if (!group) return;
+  const n = group.els.length + group.parts.length;
+  const entry = step(() => {
+    liftGroup();
+    const els = S().elements;
+    group.els.forEach(el => { const i = els.indexOf(el); if (i >= 0) els.splice(i, 1); });
+    group = null; sel = -1;
+  });
+  changed(true);
+  toastUndo(`${n} part${n === 1 ? '' : 's'} removed.`, entry);
+}
+function duplicateGroup() {
+  if (!group) return;
+  step(() => {
+    liftGroup();
+    const copies = group.els.map(el => { const c = clone(el); moveEl(c, 2, 2); S().elements.push(c); return c; });
+    const r = group.rect;
+    group = { els: copies, parts: [], rect: { x0: r.x0 + 2, y0: r.y0 + 2, x1: r.x1 + 2, y1: r.y1 + 2 } };
+  });
+  changed(true);
+}
+function clearGroup() { if (group) { group = null; renderInspector(); drawOverlay(); } }
 
 /* ================================================================================================
  * Pointer on the canvas
@@ -1052,6 +1218,11 @@ function hit(p) {
   return -1;
 }
 function hitHandle(p) { return handles(EL()).find(hd => hd.x === p.x && hd.y === p.y) || null; }
+function startGroupMove(p) {
+  beginStep();
+  liftGroup();
+  drag = { mode: 'gmove', start: p, last: p };
+}
 
 cvOv.addEventListener('pointerdown', e => {
   if (e.button !== 0) return;
@@ -1059,8 +1230,26 @@ cvOv.addEventListener('pointerdown', e => {
   if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
   const p = toPix(e);
   cvOv.setPointerCapture(e.pointerId);
-  if (tool === 'select' || tool === 'image') {
-    if (tool === 'image') setTool('select');
+  if (tool === 'trace') {
+    const t = traceOf();
+    if (!t) { $('#traceIn').click(); return; }
+    drag = { mode: 'trace', start: toPixF(e), orig: { x: t.x, y: t.y } };
+    return;
+  }
+  if (group && inRect(p, group.rect) && (tool === 'marquee' || (tool === 'select' && !e.shiftKey))) { startGroupMove(p); return; }
+  if (tool === 'marquee') {
+    sel = -1; group = null;
+    drag = { mode: 'marquee', start: p, cur: p };
+    renderInspector(); drawOverlay();
+    return;
+  }
+  if (tool === 'select' && e.shiftKey) {
+    const i = hit(p);
+    if (i >= 0) { toggleInGroup(i); renderInspector(); drawOverlay(); }
+    return;
+  }
+  if (tool === 'select') {
+    if (group) { group = null; renderInspector(); }
     const hd = hitHandle(p);
     if (hd) {
       beginStep();
@@ -1081,6 +1270,8 @@ cvOv.addEventListener('pointerdown', e => {
     beginStep(); addElement(newRect(p.x, p.y)); drag = { mode: 'rect', start: p }; renderInspector(); render();
   } else if (tool === 'line') {
     beginStep(); addElement(newLine(p.x, p.y)); drag = { mode: 'line', start: p }; renderInspector(); render();
+  } else if (tool === 'circle') {
+    beginStep(); addElement(newCircle(p.x, p.y)); drag = { mode: 'circle', start: p }; renderInspector(); render();
   } else if (tool === 'pencil' || tool === 'eraser') {
     beginStep();
     const cs = EL();
@@ -1095,7 +1286,7 @@ function paintAt(p) {
   const els = S().elements;
   if (tool === 'pencil') {
     if (!drag.target || !pixSet(drag.target, p.x, p.y, true)) {
-      drag.target = { type: 'pixels', color: 1, note: '', x: p.x, y: p.y, rows: ['#'] };
+      drag.target = { type: 'pixels', color: 1, note: '', border: 0, x: p.x, y: p.y, rows: ['#'] };
       els.push(drag.target); sel = els.length - 1;
     }
     drag.touched.add(drag.target);
@@ -1116,12 +1307,33 @@ cvOv.addEventListener('pointermove', e => {
     const h = tool === 'select' ? hit(p) : -1;
     if (tool === 'select') {
       const hd = hitHandle(p);
-      cvOv.style.cursor = hd ? (hd.k === 'size' ? 'nwse-resize' : 'crosshair') : (h >= 0 ? 'move' : 'default');
+      cvOv.style.cursor = hd ? (hd.k === 'size' ? 'nwse-resize' : hd.k === 'radius' ? 'ew-resize' : 'crosshair') : ((h >= 0 || (group && inRect(p, group.rect))) ? 'move' : 'default');
+    } else if (tool === 'marquee') {
+      cvOv.style.cursor = (group && inRect(p, group.rect)) ? 'move' : 'crosshair';
     }
     if (h !== hover || tool === 'pencil' || tool === 'eraser') { hover = h; drawOverlay(); }
     return;
   }
   const el = EL();
+  if (drag.mode === 'trace') {
+    const t = traceOf(), q = toPixF(e);
+    if (t) { t.x = Math.round((drag.orig.x + q.x - drag.start.x) * 4) / 4; t.y = Math.round((drag.orig.y + q.y - drag.start.y) * 4) / 4; placeTrace(); syncTracePanel(); }
+    return;
+  }
+  if (drag.mode === 'marquee') { drag.cur = p; drawOverlay(); return; }
+  if (drag.mode === 'gmove') {
+    const dx = p.x - drag.last.x, dy = p.y - drag.last.y;
+    if (dx || dy) { moveGroup(dx, dy); drag.last = p; render(); }
+    return;
+  }
+  if (drag.mode === 'circle' && el) {
+    el.r = Math.max(Math.abs(p.x - drag.start.x), Math.abs(p.y - drag.start.y));
+    fixElement(el); render(); syncInspector(); return;
+  }
+  if (drag.mode === 'radius' && el) {
+    el.r = Math.max(Math.abs(p.x - el.x), Math.abs(p.y - el.y));
+    fixElement(el); render(); syncInspector(); return;
+  }
   if (drag.mode === 'move' && el) {
     const dx = p.x - drag.start.x, dy = p.y - drag.start.y, o = drag.orig;
     if (el.type === 'line') { el.x1 = o.x1 + dx; el.x2 = o.x2 + dx; el.y1 = o.y1 + dy; el.y2 = o.y2 + dy; }
@@ -1147,6 +1359,19 @@ cvOv.addEventListener('pointerleave', () => { $('#coords').innerHTML = 'X <b>–
 function endDrag() {
   if (!drag) return;
   const el = EL();
+  if (drag.mode === 'trace') { drag = null; saveTraces(); return; }
+  if (drag.mode === 'marquee') {
+    const r = marqueeRect(drag.start, drag.cur);
+    drag = null;
+    if (r.x0 === r.x1 && r.y0 === r.y1) { sel = hit({ x: r.x0, y: r.y0 }); group = null; }
+    else selectBox(r);
+    renderInspector(); drawOverlay();
+    return;
+  }
+  if (drag.mode === 'circle' && el) {
+    if (el.r < 1) { el.r = 6; fixElement(el); }
+    setTool('select');
+  }
   if (drag.mode === 'rect' && el) {
     if (el.w <= 2 && el.h <= 2) { el.w = 24; el.h = 12; fixElement(el); }
     setTool('select');
@@ -1187,16 +1412,36 @@ function renderScreenPanel() {
       <div class="sec__head"><h2 class="sec__title">This screen</h2><span class="kind">${cur + 1} of ${P.screens.length}</span></div>
       <label class="fld"><span>Name</span><input type="text" data-sk="name" value="${esc(s.name)}" maxlength="40"></label>
       <label class="fld"><span>What it does and when it shows</span>
-        <textarea data-sk="note" placeholder="Example: Shows the total kills. Button 1 adds a kill. Hold button 2 to open Settings.">${esc(s.note)}</textarea></label>
-      <p class="note">The AI reads this note. Say what the 2 buttons do here, and when this screen shows.</p>
+        <textarea data-sk="note" placeholder="Example: Shows the total kills. The left button adds a kill. Hold the right button to open Settings.">${esc(s.note)}</textarea></label>
+      <p class="note">The AI reads this note. Say what the left and right buttons do here, and when this screen shows.</p>
     </div>
     <div class="sec">
       <div class="sec__head"><span class="eyebrow">Parts on this screen</span><span class="kind">${s.elements.length}</span></div>
       ${s.elements.length ? `<ul class="parts">${s.elements.map((e, i) => `<li><button type="button" data-act="pick" data-i="${i}"${e.note ? ` title="${esc(e.note)}"` : ''}><span class="parts__n">${i + 1}</span>${ic(kindIcon[e.type], 15)}<span class="parts__t">${esc(partName(e))}${e.color ? '' : ' (black)'}</span></button></li>`).join('')}</ul>`
-      : `<p class="empty">Nothing here yet. Pick Text, Box, Line, Picture or Draw on the left.</p>`}
+      : `<p class="empty">Nothing here yet. Pick Text, Box, Circle, Line or Draw on the left.</p>`}
+    </div>`;
+}
+const borderSeg = v => `<div class="fld"><span>Cut-out border</span>${seg('border', [0, 1, 2, 3, 4].map(n => ({ v: n, html: n === 0 ? 'None' : n + ' px' })), v, 'seg--num')}</div>
+      <p class="note">Switches off the pixels around this part, so it stays clear on top of other parts. It follows the shape.</p>`;
+function renderGroupPanel() {
+  const n = group.els.length, m = group.parts.length;
+  const colors = new Set(group.els.map(e => e.color)), borders = new Set(group.els.map(e => e.border || 0));
+  insp.innerHTML = `
+    <div class="sec">
+      <div class="sec__head"><h2 class="sec__title">Selection</h2>
+        <button type="button" class="btn btn--ghost btn--sm" data-act="deselect" title="Back to the screen details (Esc)">Done</button></div>
+      <p class="note" style="margin-top:0">${n ? `${n} part${n === 1 ? '' : 's'}` : ''}${n && m ? ' and ' : ''}${m ? `pixels of ${m} drawing${m === 1 ? '' : 's'}` : ''}. Drag the box or use the arrow keys to move ${n + m === 1 ? 'it' : 'them'} together. Shift moves 8 pixels.</p>
+      <div class="fld"><span>Color</span>${seg('gcolor', [{ v: 1, html: 'White' }, { v: 0, html: 'Black (cuts out)' }], colors.size === 1 ? [...colors][0] : '')}</div>
+      ${borderSeg(borders.size === 1 ? [...borders][0] : '').replace("data-act=\"border\"", "data-act=\"gborder\"")}
+      <div class="btns">
+        <button type="button" class="btn btn--ghost btn--sm" data-act="gdup" title="Duplicate (${MOD}+D)">${ic('dup', 14)}Duplicate</button>
+        <button type="button" class="btn btn--danger-ghost btn--sm" data-act="gdel">${ic('trash', 14)}Delete</button>
+      </div>
     </div>`;
 }
 function renderInspector() {
+  if (tool === 'trace') { renderTracePanel(); return; }
+  if (group) { renderGroupPanel(); return; }
   const el = EL();
   if (!el) { renderScreenPanel(); return; }
   let body = '';
@@ -1217,13 +1462,18 @@ function renderInspector() {
       ${el.scale === 1 ? `<label class="chk" style="margin-bottom:12px"><input type="checkbox" data-k="invert"${el.invert ? ' checked' : ''}> White bar (black text on a white bar)</label>` : ''}`;
   } else if (el.type === 'rect') {
     const big = largestRadius(el);
-    const radii = [0, 1, 2, 3, 4];
-    if (el.radius > 4) radii.push(el.radius);
     body = `
       <div class="row2">${numF('x', 'X (left)', el.x)}${numF('y', 'Y (top)', el.y)}</div>
       <div class="row2">${numF('w', 'Width', el.w, 1)}${numF('h', 'Height', el.h, 1)}</div>
       <div class="fld"><span>Style</span>${seg('fill', [{ v: 0, html: 'Outline' }, { v: 1, html: 'Filled' }], el.fill ? 1 : 0)}</div>
-      <div class="fld"><span>Round corners</span>${seg('radius', radii.map(n => ({ v: n, html: n === 0 ? 'None' : n, off: n > big, title: n > big ? 'Too round for a box of this size' : '' })), el.radius)}</div>`;
+      <div class="row2">${numF('radius', 'Round corners (px)', el.radius, 0, big)}
+        <div class="fld"><span>&nbsp;</span><button type="button" class="btn btn--ghost btn--sm" data-act="pill" title="The largest round corners: ${big} pixels"${big ? '' : ' disabled'}>Round ends</button></div></div>
+      <p class="note">0 to ${big} pixels. ${big} makes round ends (a pill).</p>`;
+  } else if (el.type === 'circle') {
+    body = `
+      <div class="row2">${numF('x', 'Center X', el.x)}${numF('y', 'Center Y', el.y)}</div>
+      <div class="row2">${numF('r', 'Radius', el.r, 0, D.MAX_CIRCLE_RADIUS)}<div class="fld"><span>Size</span><div class="readout" style="margin:0">${2 * el.r + 1} px</div></div></div>
+      <div class="fld"><span>Style</span>${seg('fill', [{ v: 0, html: 'Outline' }, { v: 1, html: 'Filled' }], el.fill ? 1 : 0)}</div>`;
   } else if (el.type === 'line') {
     body = `
       <div class="row2">${numF('x1', 'Start X', el.x1)}${numF('y1', 'Start Y', el.y1)}</div>
@@ -1239,10 +1489,12 @@ function renderInspector() {
   }
   insp.innerHTML = `
     <div class="sec">
-      <div class="sec__head"><h2 class="sec__title">${esc({ text: 'Text', rect: 'Box', line: 'Line', image: 'Picture', pixels: 'Drawing' }[el.type])}</h2>
+      <div class="sec__head"><h2 class="sec__title">${esc({ text: 'Text', rect: 'Box', line: 'Line', circle: 'Circle', image: 'Picture', pixels: 'Drawing' }[el.type])}</h2>
         <button type="button" class="btn btn--ghost btn--sm" data-act="deselect" title="Back to the screen details (Esc)">Done</button></div>
       ${body}
       <div class="fld"><span>Color</span>${seg('color', [{ v: 1, html: 'White' }, { v: 0, html: 'Black (cuts out)', title: 'Switches pixels off, on top of the parts below' }], el.color)}</div>
+      ${el.color ? '' : '<p class="note">Shown red while it is selected. It cuts out when you pick something else.</p>'}
+      ${borderSeg(el.border || 0)}
       <label class="fld"><span>Note for the AI</span><input type="text" data-k="note" value="${esc(el.note)}" maxlength="200" placeholder="Example: the live kill count"></label>
       <div class="readout" id="readout"></div>
       <div class="btns">
@@ -1298,7 +1550,9 @@ insp.addEventListener('input', e => {
     beginStep(`screen:${cur}:${k}`, 800);
     S()[k] = t.value;
     if (k === 'name') {
+      const oldId = S().id;
       S().id = makeId(t.value, cur);
+      moveTrace(oldId, S().id);
       $('#scrTitle').textContent = t.value || 'Untitled';
       const n = document.querySelector(`.tile[data-i="${cur}"] .tile__name`); if (n) n.textContent = t.value;
     }
@@ -1365,8 +1619,18 @@ insp.addEventListener('focusout', e => {
 insp.addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b || b.disabled) return;
   const act = b.dataset.act, el = EL();
-  if (act === 'pick') { sel = +b.dataset.i; renderInspector(); drawOverlay(); return; }
-  if (act === 'deselect') { sel = -1; renderInspector(); drawOverlay(); return; }
+  if (act === 'pick') { sel = +b.dataset.i; group = null; renderInspector(); drawOverlay(); return; }
+  if (act === 'deselect') { sel = -1; group = null; renderInspector(); drawOverlay(); return; }
+  if (act.startsWith('tr-')) { traceAction(act); return; }
+  if (group) {
+    if (act === 'gdel') { removeGroup(); return; }
+    if (act === 'gdup') { duplicateGroup(); return; }
+    if (act === 'gcolor' || act === 'gborder') {
+      step(() => { liftGroup(); group.els.forEach(g => { if (act === 'gcolor') g.color = +b.dataset.v; else g.border = +b.dataset.v; fixElement(g); }); });
+      changed(true);
+    }
+    return;
+  }
   if (!el) return;
   if (act === 'del') { removeSelected(); return; }
   if (act === 'dup') { duplicateSelected(); return; }
@@ -1380,7 +1644,8 @@ insp.addEventListener('click', e => {
     }
     else if (act === 'scale') el.scale = +b.dataset.v;
     else if (act === 'fill') el.fill = b.dataset.v === '1';
-    else if (act === 'radius') el.radius = +b.dataset.v;
+    else if (act === 'pill') el.radius = largestRadius(el);
+    else if (act === 'border') el.border = +b.dataset.v;
     else if (act === 'color') el.color = +b.dataset.v;
     else if (act === 'centerx') {
       if (el.type === 'text') { el.align = 'center'; el.x = W / 2; }
@@ -1407,19 +1672,12 @@ function renderFilm() {
         ${n > 1 ? `<button type="button" class="danger" data-fa="del" title="Delete this screen">${ic('trash', 13)}</button>` : ''}
       </div>
     </div>`).join('') +
-    `<button type="button" class="tile tile--add" id="addScreen">${ic('plus', 22, 2)}New screen</button>`;
+    `<button type="button" class="tile tile--add" id="addScreen" title="An empty screen, a copy of a StatTrak screen, or a screen from your AI tool">${ic('plus', 22, 2)}New screen<small>or get one from AI</small></button>`;
   P.screens.forEach((s, i) => bufToCanvas(film.querySelector(`.tile[data-i="${i}"] canvas`), pixelsOf(s)));
 }
-function switchScreen(i) { cur = clamp(i, 0, P.screens.length - 1); sel = -1; hover = -1; refreshView(); }
+function switchScreen(i) { cur = clamp(i, 0, P.screens.length - 1); sel = -1; hover = -1; group = null; refreshView(); }
 film.addEventListener('click', e => {
-  if (e.target.closest('#addScreen')) {
-    step(() => {
-      const name = 'Screen ' + (P.screens.length + 1);
-      P.screens.push({ id: makeId(name, -1), name, note: '', elements: [] });
-      cur = P.screens.length - 1; sel = -1;
-    });
-    switchScreen(cur); changed(false); return;
-  }
+  if (e.target.closest('#addScreen')) { openNewPop(); return; }
   const tile = e.target.closest('.tile[data-i]'); if (!tile) return;
   const i = +tile.dataset.i;
   const fa = e.target.closest('[data-fa]');
@@ -1457,7 +1715,9 @@ film.addEventListener('dblclick', e => {
     if (done) return; done = true;
     const v = inp.value.trim();
     if (ok && v && v !== P.screens[i].name) {
+      const oldId = P.screens[i].id;
       step(() => { P.screens[i].name = v; P.screens[i].id = makeId(v, i); });
+      moveTrace(oldId, P.screens[i].id);
       changed(false);
     }
     refreshView();
@@ -1554,7 +1814,7 @@ function openText(text, fname) {
     return;
   }
   closeSend();
-  step(() => { P = r.design; cur = 0; sel = -1; });
+  step(() => { P = r.design; cur = 0; sel = -1; group = null; });
   aiRequest = '';
   tool = 'select'; renderRail();
   refreshAll();
@@ -1630,7 +1890,6 @@ function resetCopy() {
   $('#copyBtn').classList.remove('is-copied');
 }
 function openSend() {
-  closePicPop();
   endStep();
   $('#aiRequest').value = aiRequest;
   updateAiText();
@@ -1702,15 +1961,26 @@ document.addEventListener('keydown', e => {
   }
   if (e.key === 'Escape') {
     if (modalOpen) { closeSend(); return; }
-    if (!$('#picPop').hidden) { closePicPop(); setTool('select'); return; }
+    if (!$('#newPop').hidden) { closeNewPop(); return; }
     if (formField) { t.blur(); return; }
+    if (group) { clearGroup(); return; }
     if (sel >= 0) { sel = -1; renderInspector(); drawOverlay(); return; }
     if (tool !== 'select') setTool('select');
     return;
   }
   if (formField || modalOpen) return;
-  if (mod && !e.altKey && key === 'd') { e.preventDefault(); duplicateSelected(); return; }
+  if (mod && !e.altKey && key === 'd') { e.preventDefault(); if (group) duplicateGroup(); else duplicateSelected(); return; }
   if (mod || e.altKey) return;
+  if (group && (e.key === 'Delete' || e.key === 'Backspace')) { e.preventDefault(); removeGroup(); return; }
+  if (group && ARROWS[e.key]) {
+    e.preventDefault();
+    const st = e.shiftKey ? 8 : 1;
+    beginStep('group-arrows:' + cur, 600);
+    liftGroup();
+    moveGroup(ARROWS[e.key][0] * st, ARROWS[e.key][1] * st);
+    render(); changed(false);
+    return;
+  }
   const el = EL();
   if ((e.key === 'Delete' || e.key === 'Backspace') && el) { e.preventDefault(); removeSelected(); return; }
   if (ARROWS[e.key] && el) {
@@ -1733,6 +2003,176 @@ $('#gridChk').addEventListener('change', e => { showGrid = e.target.checked; dra
 new ResizeObserver(() => { if (autoFit) fitZoom(); }).observe($('#scroll'));
 
 /* ================================================================================================
+ * Trace picture: a picture under the screen to draw over (a sketch, an emoji). It is kept in this
+ * browser for each screen. It is not in the design file, not in the text for the AI and not on
+ * the device. x, y, w are in display pixels (they can be parts of a pixel).
+ * ============================================================================================== */
+const TRACE_KEY = 'stattrak-designer-trace-v1';
+let traces = {};
+try { traces = JSON.parse(localStorage.getItem(TRACE_KEY) || '{}') || {}; } catch (e) { traces = {}; }
+function traceOf() { return traces[S().id] || null; }
+function saveTraces() {
+  const ids = new Set(P.screens.map(s => s.id));
+  Object.keys(traces).forEach(k => { if (!ids.has(k)) delete traces[k]; });
+  try { localStorage.setItem(TRACE_KEY, JSON.stringify(traces)); } catch (e) { toast('The trace picture is too large to keep in this browser. It goes away when the page closes.'); }
+}
+/* A screen got a new id (new name): its trace picture goes with it */
+function moveTrace(oldId, newId) {
+  if (oldId === newId || !traces[oldId]) return;
+  traces[newId] = traces[oldId]; delete traces[oldId]; saveTraces();
+}
+function toPixF(e) { const r = cvOv.getBoundingClientRect(); return { x: (e.clientX - r.left) / zoom, y: (e.clientY - r.top) / zoom }; }
+function placeTrace() {
+  const img = $('#traceImg'), t = traceOf();
+  if (!t) { img.hidden = true; img.removeAttribute('src'); return; }
+  if (img.getAttribute('src') !== t.src) img.src = t.src;
+  img.hidden = false;
+  img.style.opacity = t.opacity;
+  img.style.width = (t.w * zoom) + 'px';
+  img.style.transform = `translate(${t.x * zoom}px, ${t.y * zoom}px)`;
+}
+function renderTracePanel() {
+  const t = traceOf();
+  insp.innerHTML = `
+    <div class="sec">
+      <div class="sec__head"><h2 class="sec__title">Trace picture</h2>
+        <button type="button" class="btn btn--ghost btn--sm" data-act="tr-done" title="Back to the Move tool (Esc)">Done</button></div>
+      <p class="note" style="margin-top:0">Put a picture under this screen and draw over it: a sketch on paper, an emoji, an icon. Only you see it. It is not in the design file and not on the device.</p>
+      <div class="btns" style="margin-bottom:14px"><button type="button" class="btn btn--primary btn--sm" data-act="tr-pick">${ic('trace', 14)}${t ? 'Other picture' : 'Choose a picture'}</button></div>
+      ${t ? `
+      <label class="fld"><span>See-through</span><input class="range" type="range" min="10" max="100" step="5" data-tr="opacity" value="${Math.round(t.opacity * 100)}"></label>
+      <label class="fld"><span>Size (width in display pixels)</span><input class="range" type="range" min="8" max="512" step="1" data-tr="w" value="${t.w}"></label>
+      <div class="row2"><label class="fld"><span>X</span><input type="number" step="0.25" data-tr="x" value="${t.x}"></label><label class="fld"><span>Y</span><input type="number" step="0.25" data-tr="y" value="${t.y}"></label></div>
+      <div class="btns">
+        <button type="button" class="btn btn--ghost btn--sm" data-act="tr-fitw">Fit width</button>
+        <button type="button" class="btn btn--ghost btn--sm" data-act="tr-fith">Fit height</button>
+        <button type="button" class="btn btn--danger-ghost btn--sm" data-act="tr-del">${ic('trash', 14)}Remove</button>
+      </div>
+      <p class="note" style="margin:12px 0 0">Drag on the screen to move the picture. Use Draw (D) to draw over it.</p>` : ''}
+    </div>`;
+}
+function syncTracePanel() {
+  const t = traceOf(); if (!t || tool !== 'trace') return;
+  insp.querySelectorAll('[data-tr]').forEach(inp => { if (inp !== document.activeElement) inp.value = inp.dataset.tr === 'opacity' ? Math.round(t.opacity * 100) : t[inp.dataset.tr]; });
+}
+function traceAction(act) {
+  const t = traceOf();
+  if (act === 'tr-done') { setTool('select'); return; }
+  if (act === 'tr-pick') { $('#traceIn').click(); return; }
+  if (!t) return;
+  if (act === 'tr-del') { delete traces[S().id]; saveTraces(); placeTrace(); renderTracePanel(); return; }
+  if (act === 'tr-fitw') { t.w = W; t.x = 0; t.y = (H - W * t.ratio) / 2; }
+  if (act === 'tr-fith') { t.w = H / t.ratio; t.y = 0; t.x = (W - t.w) / 2; }
+  saveTraces(); placeTrace(); syncTracePanel();
+}
+insp.addEventListener('input', e => {
+  const k = e.target.dataset.tr, t = traceOf(); if (!k || !t) return;
+  const v = parseFloat(e.target.value); if (isNaN(v)) return;
+  if (k === 'opacity') t.opacity = clamp(v / 100, 0.1, 1);
+  else if (k === 'w') t.w = clamp(v, 1, 2048);
+  else t[k] = clamp(v, -LIMIT, LIMIT);
+  placeTrace(); saveTraces();
+});
+/* A large picture is made smaller (it is kept in the browser storage) */
+$('#traceIn').addEventListener('change', e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) { if (!traceOf()) setTool('select'); return; }
+  const url = URL.createObjectURL(f);
+  const img = new Image();
+  img.onload = () => {
+    const max = 1024, k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(img.naturalWidth * k)); c.height = Math.max(1, Math.round(img.naturalHeight * k));
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    URL.revokeObjectURL(url);
+    const ratio = c.height / c.width;
+    const w = ratio > H / W ? H / ratio : W;          // the whole picture fits on the screen
+    traces[S().id] = { src: c.toDataURL('image/jpeg', 0.85), ratio, w, x: (W - w) / 2, y: (H - w * ratio) / 2, opacity: 0.5 };
+    saveTraces();
+    if (tool !== 'trace') setTool('trace'); else renderInspector();
+    placeTrace();
+  };
+  img.onerror = () => { URL.revokeObjectURL(url); toast(`"${f.name}" is not a picture that this browser can open.`, null, null, true); };
+  img.src = url;
+});
+
+/* ================================================================================================
+ * New screen: empty, a copy of a StatTrak screen, or a screen from an AI tool
+ * ============================================================================================== */
+function aiAsk() {
+  const what = $('#aiWhat').value.trim() || 'the main screen of the KILLS app';
+  return `Make a StatTrak screen design file (format "stattrak-design", see docs/DESIGNS.md) of ${what}, ` +
+    'exactly as the device draws it now. I want to change it in the StatTrak Screen Designer. ' +
+    'Check it with python tools/design.py check, then give me the whole JSON of the file.';
+}
+$('#aiAsk').textContent = aiAsk();
+$('#aiWhat').addEventListener('input', () => { $('#aiAsk').textContent = aiAsk(); });
+function openNewPop() {
+  $('#newBuiltin').innerHTML = builtinScreens().map((s, i) => `<button type="button" class="btn btn--ghost btn--sm" data-builtin="${i}">${esc(s.name)}</button>`).join('') ||
+    '<span class="note">Not available.</span>';
+  const b = $('#addScreen').getBoundingClientRect(), pop = $('#newPop');
+  pop.hidden = false;
+  const h = pop.offsetHeight;
+  pop.style.left = clamp(b.left, 10, window.innerWidth - 370) + 'px';
+  pop.style.top = Math.max(10, b.top - h - 10) + 'px';
+}
+function closeNewPop() { $('#newPop').hidden = true; }
+document.addEventListener('pointerdown', e => {
+  if (!$('#newPop').hidden && !e.target.closest('#newPop') && !e.target.closest('#addScreen')) closeNewPop();
+});
+function addScreens(list) {
+  step(() => {
+    list.forEach(src => {
+      const s = clone(src);
+      // keep the id of the screen (the AI tool knows it), unless this project has it already
+      const free = /^[A-Za-z][A-Za-z0-9_]{0,30}$/.test(s.id || '') && !P.screens.some(o => o.id === s.id);
+      if (!free) s.id = makeId(s.name || s.id, -1);
+      P.screens.push(s);
+    });
+    cur = P.screens.length - 1; sel = -1;
+  });
+  switchScreen(cur); changed(false);
+}
+$('#newPop').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.new === 'empty') {
+    closeNewPop();
+    const name = 'Screen ' + (P.screens.length + 1);
+    addScreens([{ id: name, name, note: '', elements: [] }]);
+  } else if (b.dataset.builtin !== undefined) {
+    closeNewPop();
+    addScreens([builtinScreens()[+b.dataset.builtin]]);
+  }
+});
+$('#aiAskCopy').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(aiAsk()); $('#aiAskCopy').textContent = 'Copied'; }
+  catch (e) { const r = document.createRange(); r.selectNodeContents($('#aiAsk')); const s2 = getSelection(); s2.removeAllRanges(); s2.addRange(r); $('#aiAskCopy').textContent = `Selected. Press ${MOD}+C`; }
+  setTimeout(() => { $('#aiAskCopy').textContent = 'Copy request'; }, 3000);
+});
+/* The answer of an AI tool: the JSON of a design file, maybe in a ```json block with other text */
+function designFromText(text) {
+  const fence = /```(?:json)?\s*([\s\S]*?)```/i.exec(text);
+  let body = fence ? fence[1] : text;
+  const a = body.indexOf('{'), z = body.lastIndexOf('}');
+  if (a < 0 || z < a) return { error: 'There is no design data in the text.' };
+  let data;
+  try { data = JSON.parse(body.slice(a, z + 1)); } catch (e) { return { error: 'The design data is not complete. Copy all of the answer.' }; }
+  if (data && !data.screens && Array.isArray(data.elements)) data = { format: D.FORMAT_NAME, version: D.FORMAT_VERSION, name: 'From AI', screens: [data] };
+  let r;
+  try { r = D.normalize(data, A); } catch (e) { r = { design: null, problems: ['The design data is damaged.'] }; }
+  if (r.problems.length || !r.design) return { error: 'The design data has problems.', lines: r.problems.slice(0, 3) };
+  return { screens: r.design.screens };
+}
+$('#aiPasteAdd').addEventListener('click', () => {
+  const res = designFromText($('#aiPaste').value);
+  if (res.error) { toast(res.error + ' Nothing was added.', null, null, true, res.lines); return; }
+  closeNewPop();
+  $('#aiPaste').value = '';
+  addScreens(res.screens);
+  toast(`Added ${res.screens.length} screen${res.screens.length === 1 ? '' : 's'} from your AI tool.`);
+});
+
+/* ================================================================================================
  * Start
  * ============================================================================================== */
 P = loadStored() || example();
@@ -1742,7 +2182,8 @@ renderRail(); sizeCanvas(); refreshView(); updateUndoButtons(); fitZoom();
 window.StatTrakDesigner = {
   get project() { return P; }, get current() { return cur; }, get selected() { return sel; },
   get history() { return { undo: hist.undo.length, redo: hist.redo.length, open: !!hist.open }; },
-  undo, redo, openText
+  undo, redo, openText, designFromText,
+  get group() { return group ? { els: group.els.map(e => S().elements.indexOf(e)), parts: group.parts.length, rect: group.rect } : null; }
 };
 })();
 </script>

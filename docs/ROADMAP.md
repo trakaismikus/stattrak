@@ -60,6 +60,16 @@ This repository (`trakaismikus/stattrak`) is private until these are done:
 
 ## Shipped
 
+- **2026-11: App Sync how-to and Screen Designer tools.** The Apps tab shows the whole way to
+  App Sync on the current firmware (counter, app menu, Settings, "Apps: SYNC", hold the right
+  button) with the lit buttons, at the size of the firmware how-to; the same path boxes as the
+  firmware step, easier to see. No button numbers on the web site: left and right button. The
+  buttons on the display (BACK, YES, NO, OK, OPEN, CANCEL, DISMISS, SYNC MORE) have the same gap
+  on both sides of the text. Screen Designer: the device picture with the live screen at the
+  top, the 4 built-in screens as the start project, Select tool (more parts, or part of a
+  drawing), Circle, round corners as a number up to round ends, a cut-out border for each part,
+  black parts red while selected, a Trace picture to draw over, and "New screen" with a screen
+  from an AI tool. Design format: `circle` and `border` (docs/DESIGNS.md).
 - **2026-11: new device picture for the web updater and the web simulator.** A render of the 3D model
   (matte black anodised aluminium, etched text, a glass that fills the rounded pocket) that looks
   right on black and on white pages, with a live display on top (`updater/js/device.js`, plain pixels with no drawn gaps). Step 1

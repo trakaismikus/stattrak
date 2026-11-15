@@ -5,6 +5,13 @@ People and AI tools use it to agree on how a screen looks **before** code is wri
 
 - A person can make and change one with the Screen Designer: open `updater/designer/index.html`
   in a browser (double click). It has undo, more than one screen, "Save", "Open" and "Send to AI".
+  It opens with the 4 built-in screens of the firmware (`designs/stattrak-apps.json`: Big counter,
+  Split counter, Stats, Settings; `tests/test_default_design.py` checks them against the
+  simulator, pixel for pixel). Tools: Move, Select (a box around parts, or around some pixels of
+  a drawing, to move them as a group), Text, Box, Circle, Line, Draw, Erase and Trace (a picture
+  under the screen to draw over; it stays in the browser and is not in the file). A black part
+  is red while it is selected. "New screen" also takes a screen that an AI tool made: the
+  designer gives the request to copy, and the answer is pasted back.
 - An AI tool can write one by hand: it is a small JSON text file.
 - `tools/design.py` turns it into pictures, into a text that an AI tool can read, and into the
   C draw code for the firmware.
@@ -75,6 +82,13 @@ files for an AI tool that can look at images.
 Each element can have `"note"` (for example `"the live kill count"`) and `"color"`:
 `"white"` (pixels on, the default) or `"black"` (pixels off, to cut something out of a white area).
 
+Each element can also have `"border"`: a **cut-out border** of 0 to 4 pixels. Before the element
+is drawn, all pixels up to that many pixels around it are switched off, so the element stays
+clear on top of other parts (for example a text on a picture). It follows the shape of the
+element: the firmware draws the element black at each place from `-border` to `+border`
+pixels around it (`python tools/design.py code` writes the loop). For an inverted text the white
+box grows instead.
+
 ### Text
 
 ```json
@@ -119,6 +133,16 @@ Five digits in `numbers` are about 72 pixels wide. Text in `5x7` at scale 2 is 1
 ```
 
 A line of 1 pixel from the first point to the second point, the two points included.
+
+### Circle
+
+```json
+{ "type": "circle", "x": 64, "y": 16, "r": 10, "fill": false }
+```
+
+`x`, `y` is the center, `r` the radius (0 to 127). The circle is `2 * r + 1` pixels wide and high.
+`fill`: `true` for a filled circle, `false` for an outline of 1 pixel. The firmware draws it with
+`Gfx_drawCircle` / `Gfx_fillCircle`.
 
 ### Picture from the firmware
 

@@ -360,9 +360,9 @@ class InstallTest(AppTestCase):
         self.dev.release(2)
         self.dev.run(400)
         self.assertEqual(self.cmd(APP_CMD_STATUS)[1], bytes([WAITING_STATE]))
-        # The hold fills the YES button (x 102 .. 123, y 21 .. 29) from the left
+        # The hold fills the YES button (x 101 .. 123, y 21 .. 29) from the left
         def yes_pixels():
-            return sum(row[103:123].count("#") for row in self.dev.frame()[22:29])
+            return sum(row[102:123].count("#") for row in self.dev.frame()[22:29])
         empty = yes_pixels()
         self.dev.press(2)
         self.dev.run(350)

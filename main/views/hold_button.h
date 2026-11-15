@@ -29,7 +29,8 @@
 #define HOLD_BUTTON_Y       21    // The buttons are on the bottom line of the display
 #define HOLD_BUTTON_H       9
 #define HOLD_BUTTON_MARGIN  4     // Left button at x 4, right button ends at x 123
-#define HOLD_BUTTON_W       22    // A button with 1 to 4 letters (NO, YES, OK, OPEN, BACK)
+#define HOLD_BUTTON_W       23    // A button with 1 to 4 letters (NO, YES, OK, OPEN, BACK). Odd: the texts
+                                  // of font3x5 have an odd width, so the gap is the same on both sides
 
 /* > Type Definitions *****************************************************************************/
 typedef struct hold_buttons_s {

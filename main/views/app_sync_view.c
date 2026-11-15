@@ -331,7 +331,7 @@ static void _drawScreen(void) {
     GUI_DRAW_TITLE((SCREEN_W - 13 * font5x5.x_advance) / 2, 1, 13, "APP INSTALLED");
     Gfx_drawStringAligned(SCREEN_W / 2, 11, s_name, &font5x5, 1, 0, GFX_ALIGN__CENTER, GFX_ROTATION__0);
     // Each button over its round button: button 1 is the left one, button 2 the right one
-    HoldButton_draw(HOLD_BUTTON_MARGIN, 40, "SYNC MORE", HoldButtons_fill(&s_hold, 0));
+    HoldButton_draw(HOLD_BUTTON_MARGIN, 41, "SYNC MORE", HoldButtons_fill(&s_hold, 0));
     HoldButton_draw(HOLD_BUTTON_RIGHT_X(HOLD_BUTTON_W), HOLD_BUTTON_W, "OPEN", HoldButtons_fill(&s_hold, 1));
     return;
   }

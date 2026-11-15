@@ -20,8 +20,10 @@
   var FORMAT_VERSION = 1;
   var WIDTH = 128;
   var HEIGHT = 32;
-  var ELEMENT_TYPES = ["text", "rect", "line", "image", "pixels"];
+  var ELEMENT_TYPES = ["text", "rect", "line", "circle", "image", "pixels"];
   var MAX_SCALE = 8;
+  var MAX_BORDER = 4;           // a cut-out border of 0 to 4 pixels around an element
+  var MAX_CIRCLE_RADIUS = 127;
   var COORD_LIMIT = 1000;
   var ALIGNS = ["left", "center", "right"];
 
@@ -128,7 +130,8 @@
           problems.push(where + ': "color" must be "white" (pixel on) or "black" (pixel off).');
           colorName = "white";
         }
-        var item = { type: kind, color: (colorName === "white") ? 1 : 0, note: str(element.note, "") };
+        var item = { type: kind, color: (colorName === "white") ? 1 : 0, note: str(element.note, ""),
+                     border: number(element, "border", where, 0, 0, MAX_BORDER) };
 
         if (kind === "text") {
           var fontName = (element.font === undefined) ? "5x7" : element.font;
@@ -179,7 +182,7 @@
           item.w = number(element, "w", where, null, 1);
           item.h = number(element, "h", where, null, 1);
           item.fill = element.fill === true;
-          item.radius = number(element, "radius", where, 0, 0, 16);
+          item.radius = number(element, "radius", where, 0, 0, COORD_LIMIT);
           if (item.w && item.h) {
             var largest = Math.floor((Math.min(item.w, item.h) - 1) / 2);
             if (item.radius > largest) {
@@ -189,6 +192,11 @@
           }
         } else if (kind === "line") {
           ["x1", "y1", "x2", "y2"].forEach(function (key) { item[key] = number(element, key, where, null); });
+        } else if (kind === "circle") {
+          item.x = number(element, "x", where, 0);
+          item.y = number(element, "y", where, 0);
+          item.r = number(element, "r", where, null, 0, MAX_CIRCLE_RADIUS);
+          item.fill = element.fill === true;
         } else if (kind === "image") {
           var image = (typeof element.name === "string" && Object.prototype.hasOwnProperty.call(assets.imageByName, element.name))
             ? assets.imageByName[element.name] : null;
@@ -253,12 +261,15 @@
               if (element.radius) out.radius = element.radius;
             } else if (element.type === "line") {
               out.x1 = element.x1; out.y1 = element.y1; out.x2 = element.x2; out.y2 = element.y2;
+            } else if (element.type === "circle") {
+              out.x = element.x; out.y = element.y; out.r = element.r; out.fill = element.fill;
             } else if (element.type === "image") {
               out.name = element.name; out.x = element.x; out.y = element.y;
             } else {
               out.x = element.x; out.y = element.y; out.rows = element.rows.slice();
             }
             if (!element.color) out.color = "black";
+            if (element.border) out.border = element.border;
             if (element.note) out.note = element.note;
             return out;
           })
@@ -350,6 +361,31 @@
     }
   };
 
+  Frame.prototype.circle = function (x0, y0, r, color) {
+    this.pixel(x0, y0 + r, color); this.pixel(x0, y0 - r, color);
+    this.pixel(x0 + r, y0, color); this.pixel(x0 - r, y0, color);
+    var steps = cornerSteps(r);
+    for (var s = 0; s < steps.length; s++) {
+      var x = steps[s][0], y = steps[s][1];
+      this.pixel(x0 + x, y0 + y, color); this.pixel(x0 - x, y0 + y, color);
+      this.pixel(x0 + x, y0 - y, color); this.pixel(x0 - x, y0 - y, color);
+      this.pixel(x0 + y, y0 + x, color); this.pixel(x0 - y, y0 + x, color);
+      this.pixel(x0 + y, y0 - x, color); this.pixel(x0 - y, y0 - x, color);
+    }
+  };
+
+  Frame.prototype.fillCircle = function (x0, y0, r, color) {
+    this.vline(x0, y0 - r, 2 * r + 1, color);
+    var steps = cornerSteps(r);
+    for (var s = 0; s < steps.length; s++) {
+      var x = steps[s][0], y = steps[s][1];
+      this.vline(x0 + x, y0 - y, 2 * y + 1, color);
+      this.vline(x0 + y, y0 - x, 2 * x + 1, color);
+      this.vline(x0 - x, y0 - y, 2 * y + 1, color);
+      this.vline(x0 - y, y0 - x, 2 * x + 1, color);
+    }
+  };
+
   Frame.prototype.rows = function (x, y, rows, color, scale, gap) {
     scale = scale || 1;
     var size = gap ? scale - 1 : scale;
@@ -381,6 +417,37 @@
     }
   };
 
+  /* An element, moved by dx, dy, in an other color (for the cut-out border) */
+  function shifted(element, dx, dy, color) {
+    var copy = {};
+    for (var key in element) copy[key] = element[key];
+    if (element.type === "line") { copy.x1 += dx; copy.x2 += dx; copy.y1 += dy; copy.y2 += dy; }
+    else { copy.x += dx; copy.y += dy; }
+    copy.color = color;
+    copy.border = 0;
+    return copy;
+  }
+
+  /* The cut-out border: all pixels up to `border` pixels around the element are switched off
+     (the element is drawn black at each place from -border to +border). An inverted text: its
+     white box grows. tools/design.py draws it the same way. */
+  Frame.prototype.border = function (element) {
+    var n = element.border;
+    if (!n) return;
+    if (element.type === "text" && element.invert) {
+      var font = this.assets.fontByName[element.font];
+      var width = textWidth(font, element.text);
+      var x = element.x;
+      if (element.align === "center") x -= Math.floor(width / 2);
+      else if (element.align === "right") x -= width;
+      this.fill(x - 1 - n, element.y - 1 - n, width + 2 + 2 * n, font.height + 2 + 2 * n, 0);
+      return;
+    }
+    for (var dy = -n; dy <= n; dy++) {
+      for (var dx = -n; dx <= n; dx++) this.element(shifted(element, dx, dy, 0));
+    }
+  };
+
   Frame.prototype.element = function (element) {
     var color = element.color;
     if (element.type === "text") {
@@ -394,6 +461,9 @@
       }
     } else if (element.type === "line") {
       this.line(element.x1, element.y1, element.x2, element.y2, color);
+    } else if (element.type === "circle") {
+      if (element.fill) this.fillCircle(element.x, element.y, element.r, color);
+      else this.circle(element.x, element.y, element.r, color);
     } else if (element.type === "image") {
       this.rows(element.x, element.y, this.assets.imageByName[element.name].rows, color);
     } else if (element.type === "pixels") {
@@ -414,7 +484,7 @@
   /* Draws a screen of a clean design. Returns a Frame (frame.pixels: 128 x 32 values, 1 = on). */
   function drawScreen(screen, assets) {
     var frame = new Frame(assets);
-    screen.elements.forEach(function (element) { frame.element(element); });
+    screen.elements.forEach(function (element) { frame.border(element); frame.element(element); });
     return frame;
   }
 
@@ -430,6 +500,9 @@
       return { x: x, y: element.y, w: Math.max(width, 1), h: font.height * element.scale };
     }
     if (element.type === "rect") return { x: element.x, y: element.y, w: element.w, h: element.h };
+    if (element.type === "circle") {
+      return { x: element.x - element.r, y: element.y - element.r, w: 2 * element.r + 1, h: 2 * element.r + 1 };
+    }
     if (element.type === "line") {
       return { x: Math.min(element.x1, element.x2), y: Math.min(element.y1, element.y2),
                w: Math.abs(element.x2 - element.x1) + 1, h: Math.abs(element.y2 - element.y1) + 1 };
@@ -446,6 +519,14 @@
   function elementText(element, assets) {
     var color = element.color ? "" : ", black (pixels off)";
     var note = element.note ? "  [" + element.note + "]" : "";
+    if (element.border) {
+      color += ", cut-out border " + element.border + " px (pixels up to " + element.border + " px around it are off)";
+    }
+    if (element.type === "circle") {
+      var size = 2 * element.r + 1;
+      return (element.fill ? "filled circle" : "circle outline") + " center x=" + element.x + " y=" + element.y +
+             " radius " + element.r + " (" + size + " x " + size + " pixels)" + color + note;
+    }
     if (element.type === "text") {
       var font = assets.fontByName[element.font];
       var width = textWidth(font, element.text) * element.scale;
@@ -567,6 +648,8 @@
     HEIGHT: HEIGHT,
     ELEMENT_TYPES: ELEMENT_TYPES,
     MAX_SCALE: MAX_SCALE,
+    MAX_BORDER: MAX_BORDER,
+    MAX_CIRCLE_RADIUS: MAX_CIRCLE_RADIUS,
     prepareAssets: prepareAssets,
     textWidth: textWidth,
     normalize: normalize,
