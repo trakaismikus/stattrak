@@ -120,15 +120,15 @@ int32_t AppData_get(int32_t row, int32_t column) {
 void AppData_clear(void) {
   if(!s_appOpen)
     return;
-  // The entries of the old store in flash are free after the deferred erase (meta + chunks, about)
-  uint32_t reclaim = 0;
-  if(s_flashCount > 0 || s_clearPending) {
+  // The entries of the old store in flash are free after the deferred erase (meta + chunks, about).
+  // A second clear before the erase frees nothing more: the flash still has the same old store.
+  if(!s_clearPending && s_flashCount > 0) {
     const uint32_t bytes = (uint32_t)s_flashCount * sizeof(int32_t);
-    reclaim = s_reclaim + 3u + (bytes / (APP_DATA_CHUNK_VALUES * 4u)) * 10u;
+    uint32_t reclaim = 3u + (bytes / (APP_DATA_CHUNK_VALUES * 4u)) * 10u;
     if(bytes % (APP_DATA_CHUNK_VALUES * 4u))
       reclaim += 2u + ((bytes % (APP_DATA_CHUNK_VALUES * 4u)) + 31u) / 32u;
+    s_reclaim = (uint16_t)reclaim;
   }
-  s_reclaim = (uint16_t)reclaim;
   s_count = 0;
   s_columns = 0;
   s_dirty = 0;

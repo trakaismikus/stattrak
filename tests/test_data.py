@@ -139,6 +139,32 @@ class DataTestCase(AppTestCase):
             self.assertEqual(result[0], OK, result)
         return self.cmd(APP_CMD_END)
 
+    def free_entries(self):
+        return struct.unpack_from("<H", self.cmd(CONFIG_INFO)[1], 10)[0] // 32
+
+    def fill_flash_to(self, target):
+        """Fill the NVS with blobs of an other namespace until `target` entries are free (the device is
+        on in Apps: SYNC before and after). A few rounds: the device itself also writes."""
+        consume = 0
+        for _ in range(4):
+            free = self.free_entries()
+            if free == target:
+                return
+            consume = max(0, consume + free - target)
+            self.dev.power_cut()
+            old = [key for key in self.dev.read_blobs("zz")]
+            blobs = {}
+            left = consume
+            while left > 0:
+                take = min(left, 126)
+                blobs["fill%d" % len(blobs)] = bytes(max(0, (take - 2) * 32))
+                left -= take
+            self.dev.write_blobs(blobs, namespace="zz", remove=[key for key in old if key not in blobs])
+            self.dev.boot()
+            self.dev.run(5000)        # the device log entry of this start
+            self.open_sync()
+        self.assertEqual(self.free_entries(), target)
+
     def read_rows(self, app_id):
         status, info = self.cmd(DATA_INFO, struct.pack("<I", app_id))
         self.assertEqual(status, OK)
@@ -713,6 +739,24 @@ class AppDataTest(DataTestCase):
         self.dev.click(1)
         self.open_sync()
         self.assertEqual(self.read_rows(app_id), [[123]])
+
+    def test_repeated_clears_credit_nothing(self):
+        # Two log_clear() with no rows in flash free nothing: the reserve stays
+        # All in one handler (between two handlers the pending clear goes to flash)
+        source = ('app "TWICE"\ndata "A"\nvar i\non press1 { log_clear()\n log_clear()\n i = 0\n'
+                  ' while i < 64 { log(5)\n i += 1 } }\n')   # a full chunk
+        package = app.compile_source(source)["package"]
+        app_id = struct.unpack_from("<I", package, 8)[0]
+        self.assert_installed(package)
+        self.fill_flash_to(171)          # 171 free: a new chunk (174) does not fit
+        self.leave_sync()
+        self.open_app(app_id)
+        self.dev.click(1)
+        self.dev.click(2)
+        self.open_sync()
+        free = struct.unpack_from("<H", self.cmd(CONFIG_INFO)[1], 10)[0] // 32
+        self.assertGreaterEqual(free, 160)
+        self.assertLess(free, 174)
 
     def test_flash_reserve_keeps_settings_working(self):
         # 8 apps with 24 KB of packages, then app rows until the store says full: the settings, the
