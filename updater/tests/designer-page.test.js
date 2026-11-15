@@ -131,6 +131,82 @@ test("a selection of more parts: border and color for all; a new part ends the s
   assert.equal(await page.evaluate("document.querySelector('.sec__title').textContent"), "Text");
 });
 
+/* The lit pixels of a drawing */
+const lit = (el) => el.rows.join("").split("#").length - 1;
+
+test("Combine, Intersect and Subtract make one drawing of the selected parts", { skip: SKIP }, async (t) => {
+  const { page, drag, click, elements, newScreen } = await openDesigner(t);
+  await newScreen();
+  // two filled boxes of 20 x 20 that share 10 x 15 pixels; the front one is black
+  await click("[data-tool=rect]");
+  await drag({ x: 10, y: 5 }, { x: 29, y: 24 });
+  await click("[data-act=fill][data-v='1']");
+  await click("[data-tool=rect]");
+  await drag({ x: 20, y: 10 }, { x: 39, y: 29 });
+  await click("[data-act=fill][data-v='1']");
+  await click("[data-act=color][data-v='0']");
+  const select = async () => {
+    await click("[data-tool=marquee]");
+    await drag({ x: 2, y: 1 }, { x: 60, y: 31 });
+    assert.deepEqual((await page.evaluate("StatTrakDesigner.group")).els, [0, 1]);
+  };
+  const expect = { combine: 650, intersect: 150, subtract: 250 };
+  for (const op of Object.keys(expect)) {
+    await select();
+    await click(`[data-act=gshape][data-v=${op}]`);
+    const els = await elements();
+    assert.equal(els.length, 1, op);
+    assert.equal(els[0].type, "pixels", op);
+    assert.equal(lit(els[0]), expect[op], op);
+    assert.equal(els[0].color, 1, `${op} keeps the color of the part at the back`);
+    assert.equal(await page.evaluate("StatTrakDesigner.selected"), 0, `${op} selects the drawing`);
+    await page.evaluate("StatTrakDesigner.undo()");
+    assert.deepEqual((await elements()).map((e) => e.type), ["rect", "rect"], `undo of ${op}`);
+  }
+  assert.deepEqual(await page.evaluate("window.__errors"), []);
+});
+
+test("Subtract with some pixels of a drawing: the rest of the drawing stays", { skip: SKIP }, async (t) => {
+  const { page, drag, click, elements, newScreen } = await openDesigner(t);
+  await newScreen();
+  await click("[data-tool=pencil]");
+  await drag({ x: 10, y: 10 }, { x: 40, y: 10 });
+  await click("[data-tool=rect]");
+  await drag({ x: 30, y: 5 }, { x: 50, y: 15 });
+  await click("[data-act=fill][data-v='1']");
+  await click("[data-tool=marquee]");
+  await drag({ x: 25, y: 3 }, { x: 55, y: 20 });
+  const g = await page.evaluate("StatTrakDesigner.group");
+  assert.deepEqual([g.els, g.parts], [[1], 1]);
+  await click("[data-act=gshape][data-v=subtract]");
+  const els = await elements();
+  assert.equal(els.length, 2);
+  assert.deepEqual([els[0].x, lit(els[0])], [10, 15], "x 10..24 of the line stay as they were");
+  assert.deepEqual([els[1].x, els[1].y, lit(els[1])], [25, 10, 5], "x 25..29: the line in the box without the filled box");
+});
+
+test("Combine makes pixels of text, and Intersect without common pixels changes nothing", { skip: SKIP }, async (t) => {
+  const { page, drag, click, elements, newScreen } = await openDesigner(t);
+  await newScreen();
+  await click("[data-tool=text]");
+  await drag({ x: 60, y: 5 }, { x: 60, y: 5 });
+  await click("[data-tool=line]");
+  await drag({ x: 5, y: 20 }, { x: 40, y: 20 });
+  const before = await page.evaluate(`(() => { const s = StatTrakDesigner.project.screens[StatTrakDesigner.current];
+    return StatTrakDesign.drawScreen(s, StatTrakDesign.prepareAssets(STATTRAK_ASSETS)).pixels.reduce((a, b) => a + b, 0); })()`);
+  await click("[data-tool=marquee]");
+  await drag({ x: 1, y: 1 }, { x: 100, y: 30 });
+  const steps = await page.evaluate("StatTrakDesigner.history.undo");
+  await click("[data-act=gshape][data-v=intersect]");
+  assert.equal((await elements()).length, 2, "no common pixels: nothing changed");
+  assert.equal(await page.evaluate("StatTrakDesigner.history.undo"), steps, "and no undo step");
+  assert.match(await page.evaluate("document.querySelector('#toastMsg').textContent"), /no pixels in common/);
+  await click("[data-act=gshape][data-v=combine]");
+  const els = await elements();
+  assert.equal(els.length, 1);
+  assert.equal(lit(els[0]), before, "the drawing has the same pixels as the text and the line");
+});
+
 test("New screen is a short menu; the AI help is a window of its own that fits a small screen", { skip: SKIP }, async (t) => {
   const { page, click } = await openDesigner(t);
   await page.send("Emulation.setDeviceMetricsOverride", { width: 1100, height: 640, deviceScaleFactor: 1, mobile: false });

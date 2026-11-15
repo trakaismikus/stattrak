@@ -8,7 +8,8 @@ People and AI tools use it to agree on how a screen looks **before** code is wri
   It opens with the 4 built-in screens of the firmware (`designs/stattrak-apps.json`: Big counter,
   Split counter, Stats, Settings; `tests/test_default_design.py` checks them against the
   simulator, pixel for pixel). Tools: Move, Select (a box around parts, or around some pixels of
-  a drawing, to move them as a group), Text, Box, Circle, Line, Draw, Erase and Trace (a picture
+  a drawing, to move them as a group, or to make one drawing of them with Combine, Intersect or
+  Subtract; the parts become pixels, text too), Text, Box, Circle, Line, Draw, Erase and Trace (a picture
   under the screen to draw over; it stays in the browser and is not in the file). A black part
   is red while it is selected. "New screen" also takes a screen that an AI tool made: the
   designer gives the request to copy, and the answer is pasted back.

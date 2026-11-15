@@ -129,7 +129,9 @@ Ask your AI tool to open it for you.
   click **New screen** and ask your AI tool for any other screen: the designer gives you the
   request to copy, and you paste the answer back.
 - **Tools for pixel work.** Text, Box (round corners up to round ends), Circle, Line, Draw and
-  Erase. **Select** moves more parts, or some pixels of a drawing, as a group. A **cut-out
+  Erase. **Select** moves more parts, or some pixels of a drawing, as a group, or makes one
+  drawing of them: **Combine**, **Intersect** or **Subtract** (cut the front parts out of the
+  back part). A **cut-out
   border** keeps a part clear on top of other parts. A black part shows red while it is selected.
   **Trace** puts a picture (a sketch, an emoji) under the screen to draw over; only you see it.
 - **As many screens as you want.** Write for each screen what it does: when it shows, and what

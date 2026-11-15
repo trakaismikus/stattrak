@@ -68,7 +68,7 @@ This repository (`trakaismikus/stattrak`) is private until these are done:
   buttons on the display (BACK, YES, NO, OK, OPEN, CANCEL, DISMISS, SYNC MORE) have the same gap
   on both sides of the text. Screen Designer: the device picture with the live screen at the
   top, the 4 built-in screens as the start project, Select tool (more parts, or part of a
-  drawing), Circle, round corners as a number up to round ends, a cut-out border for each part,
+  drawing; Combine, Intersect and Subtract make one drawing of them), Circle, round corners as a number up to round ends, a cut-out border for each part,
   black parts red while selected, a Trace picture to draw over (100 % = as high as the screen, corner handles), and
   "New screen" (a short menu; the AI help is a window of its own). Design format: `circle` and `border` (docs/DESIGNS.md).
 - **2026-11: new device picture for the web updater and the web simulator.** A render of the 3D model

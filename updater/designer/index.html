@@ -1239,6 +1239,58 @@ function duplicateGroup() {
 }
 function clearGroup() { if (group) { group = null; renderInspector(); drawOverlay(); } }
 
+/* ---------------- Combine, Intersect, Subtract ---------------- */
+/* Makes one drawing of the selected parts. Each part becomes pixels first (text, boxes, circles too).
+   Combine: the pixels of all parts. Intersect: only the pixels that all parts have. Subtract: the
+   part at the back without the pixels of the parts in front of it. The drawing keeps the color and the
+   cut-out border of the part at the back, and its place in the list. Pixels outside the screen go. */
+const SHAPE_OPS = { combine: 'Combine', intersect: 'Intersect', subtract: 'Subtract' };
+function shapeCount() { return group ? group.els.length + group.parts.length : 0; }
+/* The pixels of each selected part (the pixels in the box for a part of a drawing), from back to front */
+function shapeInputs() {
+  const els = S().elements, r = group.rect;
+  const items = group.els.map(el => ({ at: els.indexOf(el), mask: ownMask(el), color: el.color, border: el.border || 0 }));
+  group.parts.forEach(src => {
+    const mask = ownMask(src);
+    for (let i = 0; i < W * H; i++) if (!inRect({ x: i % W, y: Math.floor(i / W) }, r)) mask[i] = 0;
+    // liftGroup puts the piece just in front of its drawing
+    items.push({ at: els.indexOf(src) + 0.5, mask, color: src.color, border: src.border || 0 });
+  });
+  return items.sort((a, b) => a.at - b.at);
+}
+function shapeMask(op, masks) {
+  const out = new Uint8Array(W * H);
+  for (let i = 0; i < W * H; i++) {
+    if (op === 'combine') out[i] = masks.some(m => m[i]) ? 1 : 0;
+    else if (op === 'intersect') out[i] = masks.every(m => m[i]) ? 1 : 0;
+    else out[i] = masks[0][i] && !masks.slice(1).some(m => m[i]) ? 1 : 0;
+  }
+  return out;
+}
+function shapeGroup(op) {
+  if (!SHAPE_OPS[op] || shapeCount() < 2) return;
+  const items = shapeInputs();
+  const mask = shapeMask(op, items.map(it => it.mask));
+  const rows = [];
+  for (let y = 0; y < H; y++) { let row = ''; for (let x = 0; x < W; x++) row += mask[y * W + x] ? '#' : '.'; rows.push(row); }
+  const piece = { type: 'pixels', color: items[0].color, note: '', border: items[0].border, x: 0, y: 0, rows };
+  if (!pixTrim(piece)) {
+    toast(op === 'intersect' ? 'The parts have no pixels in common. Nothing changed.' : 'No pixels are left. Nothing changed.', null, null, true);
+    return;
+  }
+  const n = items.length;
+  const entry = step(() => {
+    liftGroup();
+    const els = S().elements;
+    const at = Math.min(...group.els.map(el => els.indexOf(el)));
+    group.els.forEach(el => { const i = els.indexOf(el); if (i >= 0) els.splice(i, 1); });
+    els.splice(at, 0, piece);
+    group = null; sel = at;
+  });
+  changed(true);
+  toastUndo(`${SHAPE_OPS[op]}: ${n} parts are one drawing now.`, entry);
+}
+
 /* ================================================================================================
  * Pointer on the canvas
  * ============================================================================================== */
@@ -1485,6 +1537,11 @@ function renderGroupPanel() {
       <p class="note" style="margin-top:0">${n ? `${n} part${n === 1 ? '' : 's'}` : ''}${n && m ? ' and ' : ''}${m ? `pixels of ${m} drawing${m === 1 ? '' : 's'}` : ''}. Drag the box or use the arrow keys to move ${n + m === 1 ? 'it' : 'them'} together. Shift moves 8 pixels.</p>
       <div class="fld"><span>Color</span>${seg('gcolor', [{ v: 1, html: 'White' }, { v: 0, html: 'Black (cuts out)' }], colors.size === 1 ? [...colors][0] : '')}</div>
       ${borderSeg(borders.size === 1 ? [...borders][0] : '', 'gborder')}
+      <div class="fld"><span>Make one drawing</span>${seg('gshape', [
+        { v: 'combine', html: 'Combine', title: 'One drawing with the pixels of all parts', off: n + m < 2 },
+        { v: 'intersect', html: 'Intersect', title: 'Only the pixels that all parts have', off: n + m < 2 },
+        { v: 'subtract', html: 'Subtract', title: 'The part at the back without the parts in front of it', off: n + m < 2 }], '')}</div>
+      <p class="note">${n + m < 2 ? 'Select 2 parts or more for this.' : 'The parts become pixels (text too), so you cannot change the text after this. Subtract cuts the parts in front out of the part at the back.'}</p>
       <div class="btns">
         <button type="button" class="btn btn--ghost btn--sm" data-act="gdup" title="Duplicate (${MOD}+D)">${ic('dup', 14)}Duplicate</button>
         <button type="button" class="btn btn--danger-ghost btn--sm" data-act="gdel">${ic('trash', 14)}Delete</button>
@@ -1677,6 +1734,7 @@ insp.addEventListener('click', e => {
   if (group) {
     if (act === 'gdel') { removeGroup(); return; }
     if (act === 'gdup') { duplicateGroup(); return; }
+    if (act === 'gshape') { shapeGroup(b.dataset.v); return; }
     if (act === 'gcolor' || act === 'gborder') {
       step(() => { liftGroup(); group.els.forEach(g => { if (act === 'gcolor') g.color = +b.dataset.v; else g.border = +b.dataset.v; fixElement(g); }); });
       changed(true);
