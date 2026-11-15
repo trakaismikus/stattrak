@@ -53,6 +53,8 @@
   cursor: pointer; transition: background var(--dur-fast) var(--ease-standard), border-color var(--dur-fast) var(--ease-standard), color var(--dur-fast) var(--ease-standard);
 }
 .btn svg { flex-shrink: 0; }
+/* An icon with no size of its own: as big as the text of the button */
+.btn svg:not([width]) { width: 1.2em; height: 1.2em; }
 .btn:disabled, .btn[aria-disabled="true"] { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
 .btn--sm { min-height: 34px; padding: 0 12px; font-size: 13px; gap: 6px; }
 .btn--lg { min-height: 48px; padding: 0 26px; font-size: 16px; }
