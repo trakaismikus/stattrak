@@ -9,6 +9,7 @@
  */
 
 const SyncParts = (() => {
+  const FOLDS_KEY = "stattrak.syncFolds";   // before S: loadFolds() reads it there
   const S = {
     host: null,             // js/apps.js: { apps(), list(), fw(), busy(), render(), fail(error), toast(text), log(text, kind), light }
     data: null,             // StatTrakData
@@ -28,7 +29,6 @@ const SyncParts = (() => {
     open: loadFolds(),      // key -> true: the parts that are open
   };
   const DARK_DEFAULT = 50;
-  const FOLDS_KEY = "stattrak.syncFolds";
 
   function loadFolds() {
     try { return JSON.parse(localStorage.getItem(FOLDS_KEY) || "{}") || {}; } catch (_) { return {}; }

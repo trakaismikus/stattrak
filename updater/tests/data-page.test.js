@@ -144,6 +144,13 @@ test("My device: boot image, backup, app data and device log are above the apps 
   assert.equal(await page.evaluate(`document.querySelector('[data-fold="log"] .fold__body').hidden`), false);
   assert.equal(await page.evaluate(`!!document.querySelector('[data-fold="log"] .fold__sum')`), false);
   assert.deepEqual(await page.evaluate(`JSON.parse(localStorage.getItem("stattrak.syncFolds"))`), { log: true });
+  // A new visit: the open part is open again
+  await page.goto(site.url + "/index.html");
+  await page.evaluate(`BleOta.RECONNECT_GIVE_UP_MS = ${300000 / SPEED}; StatTrakApps.QUESTION_WAIT_MS = ${40000 / SPEED}; location.hash = "#device"`);
+  await page.waitFor(`!document.getElementById("appsView").hidden`);
+  await act(page, '[data-act="connect"]');
+  await page.waitFor(`document.querySelectorAll(".fold").length === 4`);
+  assert.deepEqual(await page.evaluate(`[...document.querySelectorAll(".fold")].map((f) => f.classList.contains("fold--open"))`), [false, false, false, true]);
   await act(page, '[data-fold="log"] .fold__head');
   assert.equal(await page.evaluate(`document.querySelector('[data-fold="log"] .fold__body').hidden`), true);
 });
