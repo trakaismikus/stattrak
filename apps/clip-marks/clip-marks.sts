@@ -2,14 +2,16 @@
 #   Button 2: START, at the moment the camera starts. A new clip each time.
 #   Button 1: a kill. It counts like KILLS and adds a mark: the time since START.
 #   Hold button 1: -1 kill (no mark).  Hold button 2: delete all marks.
+#   In the background (Settings > Background: CLIP MARKS): press START here, then go to your
+#   counter screen. Each kill there gets a mark too.
 #   Read the marks on the sync page (Apps, App data, Download CSV): the TIME column is also there
 #   as mm:ss.mmm, so you can jump to each kill in the video.
 
 app "CLIP MARKS"
 version 1
-description "Press 2 when the camera starts, 1 for each kill. Each kill gets a time mark for your video editor (CSV)."
+description "A time mark for each kill, for your video editor (CSV). Runs in the background: kills on your counter get marks too."
 picture icon crosshair "CLIP" "MARKS"
-permission counters, sound
+permission counters, sound, background
 
 data "TIME" "CLIP" "KILLS"
 
@@ -31,8 +33,7 @@ on press2 {
   save()
 }
 
-on press1 {
-  var kills = add_counter(game_kills, 1)
+func mark(kills) {
   if started {
     if log(time() - start, clip, kills) {
       flash = time() + 600
@@ -40,7 +41,16 @@ on press1 {
       full = 1
     }
   }
+}
+
+on press1 {
+  mark(add_counter(game_kills, 1))
   click(1000)
+}
+
+# A kill on an other screen (this app is the background app): the counter is already +1
+on kill {
+  mark(counter(game_kills))
 }
 
 on long1 {
@@ -78,6 +88,8 @@ on draw {
     text(64, 26, "FULL", small, on, center)
   } else if time() < flash {
     text(64, 26, "MARK", small, invert, center)
+  } else if !background() {
+    text(64, 26, "BACKGROUND OFF", small, on, center)
   }
   num(2, 26, log_count(), 0, small, on, left)
 }

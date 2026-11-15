@@ -15,7 +15,7 @@
 #include <stdbool.h>
 
 /* > Defines **************************************************************************************/
-#define STAPP_ENGINE_VERSION      2     // 2: log(), log_count(), log_get(), log_clear(), battery_mv()
+#define STAPP_ENGINE_VERSION      2     // 2: log(), log_count(), log_get(), log_clear(), battery_mv(), background()
 #define STAPP_FORMAT_VERSION      3     // The newest package format that the engine reads (1, 2 or 3)
 
 #define STAPP_HEADER_SIZE         48
@@ -27,7 +27,8 @@
 #define STAPP_NO_HANDLER          0xFFFF
 #define STAPP_HANDLERS_V1         8     // Format 1: open .. close
 #define STAPP_HANDLERS_V2         10    // Format 2: also down1, down2
-#define STAPP_HANDLER_COUNT(format)  (((format) >= 2) ? STAPP_HANDLERS_V2 : STAPP_HANDLERS_V1)
+#define STAPP_HANDLERS_V3         12    // Format 3: also kill, death (docs/APPS.md section 4.6)
+#define STAPP_HANDLER_COUNT(format)  (((format) >= 3) ? STAPP_HANDLERS_V3 :                                       ((format) >= 2) ? STAPP_HANDLERS_V2 : STAPP_HANDLERS_V1)
 #define STAPP_MAX_COLUMNS         4     // Format 3: data columns (header byte 37), docs/DATA.md section 6
 #define STAPP_COLUMN_NAME_LEN     12
 #define STAPP_RESERVED_IDS        255   // App ids 0 .. 255: 0 and the built-in apps (1, 2, 3, later more)
@@ -54,8 +55,9 @@
 #define STAPP_PERM_SOUND          0x0002
 #define STAPP_PERM_DATA           0x0004   // Format 3: the app has a data store
 #define STAPP_PERM_AWAKE          0x0008   // Format 3: auto-off waits while the app is open
+#define STAPP_PERM_BACKGROUND     0x0010   // Format 3: the app can run in the background (Settings > Background)
 #define STAPP_PERM_V2             (STAPP_PERM_COUNTERS | STAPP_PERM_SOUND)
-#define STAPP_PERM_ALL            (STAPP_PERM_V2 | STAPP_PERM_DATA | STAPP_PERM_AWAKE)
+#define STAPP_PERM_ALL            (STAPP_PERM_V2 | STAPP_PERM_DATA | STAPP_PERM_AWAKE | STAPP_PERM_BACKGROUND)
 
 /* > Enumerations *********************************************************************************/
 typedef enum stapp_event_e {
@@ -69,6 +71,8 @@ typedef enum stapp_event_e {
   STAPP_EVENT__CLOSE,
   STAPP_EVENT__DOWN_1,      // Format 2: the button goes down (no wait for the release)
   STAPP_EVENT__DOWN_2,
+  STAPP_EVENT__KILL,        // Format 3: the game kills went up (a built-in counter screen or an other app)
+  STAPP_EVENT__DEATH,       // Format 3: the game deaths went up
   STAPP_EVENT_COUNT,
 } stapp_event_t;
 
@@ -100,6 +104,7 @@ typedef enum stapp_sys_e {
   STAPP_SYS__LOG_GET = 28,
   STAPP_SYS__LOG_CLEAR = 29,
   STAPP_SYS__BATTERY_MV = 30,
+  STAPP_SYS__BACKGROUND = 31,   // 1 = this app is the background app (Settings > Background)
 } stapp_sys_t;
 
 // Result of Stapp_check() and Stapp_run(). Values are stable: the web page shows them.
@@ -140,7 +145,7 @@ typedef struct stapp_info_s {
   uint8_t  settingCount;
   uint8_t  stringCount;
   uint8_t  bitmapCount;
-  uint8_t  handlerCount;     // STAPP_HANDLERS_V1 or STAPP_HANDLERS_V2 (from the format version)
+  uint8_t  handlerCount;     // STAPP_HANDLERS_V1, _V2 or _V3 (from the format version)
   uint8_t  columnCount;      // Format 3: data columns (0 = no data store). The first strings are their names
 } stapp_info_t;
 

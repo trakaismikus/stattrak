@@ -1,6 +1,7 @@
 /***************************************************************************************************
  * @file    : app_host_view.h
- * @brief   : The view that runs one installed app with the app engine (components/stapp).
+ * @brief   : The view that runs the installed apps with the app engine (components/stapp), and
+ *            the background app of Settings > Background (docs/APPS.md section 4.6).
  **************************************************************************************************/
 
 #ifndef _APP_HOST_VIEW_H
@@ -14,6 +15,10 @@
 
 /* > Defines **************************************************************************************/
 #define APP_HOST_TICK_MS      100
+
+// AppHost_counterAdded()
+#define APP_HOST_COUNTER__KILLS   0
+#define APP_HOST_COUNTER__DEATHS  1
 
 /* > Function Declarations ************************************************************************/
 
@@ -39,5 +44,26 @@ void           AppHost_onShutdown(void);
 
 // true while an app with the permission "awake" is the open view: auto-off waits (docs/DATA.md)
 bool           AppHost_keepsAwake(void);
+
+// --- The background app (docs/APPS.md section 4.6)
+
+// The game kills or deaths went up by a built-in counter screen or an app: the background app
+// gets the kill / death event in the next AppHost_update() (not the app that added them)
+void           AppHost_counterAdded(uint8_t counter);
+
+// Settings > Background changed, or the apps changed: start / stop the background app now (never
+// in a draw function). App_init calls it too.
+void           AppHost_backgroundRefresh(void);
+
+// Apps: SYNC and the update mode: true at the open of the view (from a button event; the
+// background app stops now), false at the close (it starts again in the next AppHost_update())
+void           AppHost_backgroundPause(bool paused);
+
+// Factory reset: the flash is erased. The background app is forgotten (no close event, no writes).
+void           AppHost_backgroundForget(void);
+
+// The app that runs in the background now (APPS_ID__NONE = none), and its error (STAPP_OK = none)
+uint32_t       AppHost_getBackgroundId(void);
+stapp_result_t AppHost_getBackgroundError(void);
 
 #endif // _APP_HOST_VIEW_H

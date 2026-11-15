@@ -40,9 +40,12 @@ Each app has its own store. An app reads and writes only its own store.
 - **Stats and settings always win.** Before the firmware starts a new chunk, it asks the NVS
   for its free entries (`nvs_get_stats`). Fewer than `APP_DATA_RESERVE_ENTRIES` (160 entries
   of 32 bytes = 5 KB) + the chunk = full. This space stays for the settings, the counters, app
-  installs and the NVS itself.
+  installs and the NVS itself. The chunks that wait in RAM count too: the ones of this app and
+  the ones of the other store in RAM (the background app, below).
 - The rows of the open app are in RAM. The firmware writes the changed chunks at most once in
   30 s, when the app closes and at power-off. A power loss can lose the last 30 s of rows.
+- RAM has two stores: one for the app on the screen and one for the background app
+  ([APPS.md](APPS.md) section 4.6). Both can log at the same time. One app is never in both.
 - A store keeps the column count of the app that made it. A new app version with an other
   column count gets 0 from `log()` until the store is cleared (nothing is lost without a
   question).
@@ -170,14 +173,16 @@ device again and lists each value that is not the same as in the file.
 
 ## 6. Package format 3 (apps that use these features)
 
-Format 3 is format 2 (10 handlers) with these changes. The compiler writes format 3 only for an
+Format 3 is format 2 with these changes (the handler table has 12 entries: also `kill` and
+`death` of the background app, [APPS.md](APPS.md) section 4.6). The compiler writes format 3 only for an
 app that uses a feature of this section; such an app needs engine version 2 (firmware 1.2.0-b2).
 Older firmware refuses it (`bad version`).
 
 - Header byte 37 (reserved in formats 1 and 2) = data column count, 0 .. 4.
 - Permissions: bit 2 `data` (the app has a data store), bit 3 `awake` (auto-off waits while the
   app is the open view; dim, the battery warnings and the critical power-off still work).
-  Columns > 0 needs `data`, `data` needs columns > 0.
+  Columns > 0 needs `data`, `data` needs columns > 0. Bit 4 `background` (the app can run in the
+  background: [APPS.md](APPS.md) section 4.6).
 - The first `columns` strings of the string table are the column names: 1 to 12 characters.
 
 New system calls (engine version 2):
@@ -189,9 +194,11 @@ New system calls (engine version 2):
 | 28 | `log_get(row, column)` | data | a value, 0 outside the rows / columns |
 | 29 | `log_clear()` | data | deletes all rows of this app. Not in `draw` |
 | 30 | `battery_mv()` | none | the battery voltage in millivolts, -1 for USB / no battery |
+| 31 | `background()` | none | 1 if the app runs as the background app now, else 0 |
 
 Script lines (`tools/app.py`): `data "NAME" "NAME" ...` (1 to 4 columns, sets the `data`
-permission) and `permission awake`. `log()` takes one value for each column.
+permission), `permission awake` and `permission background`. `log()` takes one value for each
+column.
 
 The example apps `apps/battery-log/` (BATTERY LOG: minutes and millivolts, each 1, 2 or 5
 minutes; about 8 hours at 1 minute) and `apps/clip-marks/` (CLIP MARKS: the time since START,

@@ -20,7 +20,7 @@ typedef struct sys_def_s {
 } sys_def_t;
 
 /* > Local Variables ******************************************************************************/
-#define SYS_TABLE_SIZE  31
+#define SYS_TABLE_SIZE  32
 
 static const sys_def_t kSys[SYS_TABLE_SIZE] = {
   [STAPP_SYS__PIXEL]       = { 3, 0 },
@@ -50,6 +50,7 @@ static const sys_def_t kSys[SYS_TABLE_SIZE] = {
   [STAPP_SYS__LOG_GET]     = { 2, STAPP_PERM_DATA },
   [STAPP_SYS__LOG_CLEAR]   = { 0, STAPP_PERM_DATA },
   [STAPP_SYS__BATTERY_MV]  = { 0, 0 },
+  [STAPP_SYS__BACKGROUND]  = { 0, 0 },
 };
 
 /* > Function Definitions *************************************************************************/
@@ -75,7 +76,7 @@ stapp_result_t Stapp_run(stapp_vm_t* vm, stapp_event_t event, stapp_sys_fn_t sys
   if(vm->error != STAPP_OK)
     return vm->error;
   if((unsigned)event >= vm->info.handlerCount)
-    return STAPP_OK;   // A format 1 package has no down1 / down2 handler
+    return STAPP_OK;   // An older format has no handler for the newer events
 
   const uint8_t* package = vm->package;
   const uint16_t entry = Stapp_rd16(package + STAPP_HANDLERS_OFFSET + 2u * event);

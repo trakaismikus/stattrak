@@ -6,12 +6,13 @@
       "id": "4e9492e1",
       "name": "BATTERY LOG",
       "version": 1,
-      "size": 968,
+      "size": 985,
       "permissions": [
         "data",
-        "awake"
+        "awake",
+        "background"
       ],
-      "description": "Logs the battery voltage each 1, 2 or 5 minutes until the battery is empty. Get the log as a CSV on the sync page.",
+      "description": "Logs the battery voltage each 1, 2 or 5 min until the battery is empty. Can run in the background. CSV on the sync page.",
       "file": "battery-log.stapp",
       "picture": "AAAAAAAAAAAAAAAAAACA4PDw8HAwEAAAAAAAAMBAQECAAMBAQEDAAEBAwEBAAEBAwEBAAMBAQEBAAMBAQEDAAECAAIBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIDs///388HAQAAAAAAAAA5wUFBQIA5yEhIecA4CAnoKAAAAAHAAAABwUFBQQABwEDBQUABAIBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAwHAwEAAAAAAAAAAAAAAAADAgICAgADAgICAwADAgICAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
       "settings": [
@@ -30,13 +31,14 @@
       "id": "b116de7f",
       "name": "CLIP MARKS",
       "version": 1,
-      "size": 735,
+      "size": 796,
       "permissions": [
         "counters",
         "sound",
-        "data"
+        "data",
+        "background"
       ],
-      "description": "Press 2 when the camera starts, 1 for each kill. Each kill gets a time mark for your video editor (CSV).",
+      "description": "A time mark for each kill, for your video editor (CSV). Runs in the background: kills on your counter get marks too.",
       "file": "clip-marks.stapp",
       "picture": "AAAAAAAAAAAAAAAAAAAAAAAAgEBAAPgAQECAAAAAAAAAAAAAAADAQEBAQADAAAAAAABAQMBAQADAQEBAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEBAQ1hEQEAAAkwAAEBAR1hAQEAAAAAAAAOdEhETkAOekpKTkAOSkp6TkAOeBQSEhAOCgoKCgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQIEBAA/AAQEAgEAAAAAAAAAAAAAAwAAAAMAAwAAAAMAAwABAgIAAwABAgIAAgICAgMAAAAAAAAAAAAAAAAA",
       "settings": []

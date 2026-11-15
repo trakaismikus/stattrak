@@ -60,7 +60,8 @@ This repository (`trakaismikus/stattrak`) is private until these are done:
 
 ## Shipped
 
-- **2026-11: backup, app data, device log, start picture, live preview (firmware 1.2.0-b2).**
+- **2026-11: backup, app data, device log, start picture, live preview, background app
+  (firmware 1.2.0-b2).**
   On the Apps tab: a backup file of the stats, the settings, the app menu, the app settings and
   saved values, the Bluetooth name and the start picture, and a restore that asks "RESTORE
   BACKUP?" on the device first and checks each value (`main/backup.c`). A data store for each
@@ -71,7 +72,11 @@ This repository (`trakaismikus/stattrak`) is private until these are done:
   `main/device_log.c`). A start picture that the person chooses (none by default: the device
   starts with the first app of the menu), with on / off and delete on the page
   (`main/start_pic.c`, `main/views/intro_view.c`). "Live preview" and "Download PNG" in the
-  Screen Designer. A safety rule keeps the order of the setting values (a backup stores
+  Screen Designer. A background app: one app with the permission "background" runs all the time
+  (Settings > Background, only shown when such an app is installed), gets the kill and death
+  events of the counter screens and keeps logging while you use other screens; CLIP MARKS and
+  BATTERY LOG use it (two app engines, `main/views/app_host_view.c`; docs/APPS.md section 4.6).
+  A safety rule keeps the order of the setting values (a backup stores
   positions). Specification: [DATA.md](DATA.md). Not tried on a device yet: the flash use of
   full app stores next to 24 KB of apps was only tested with a model of the NVS in the
   simulator.

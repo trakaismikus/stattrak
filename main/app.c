@@ -145,6 +145,9 @@ void App_init(void) {
   App_reloadSettings();
 
   s_lowBatteryShown = false;
+
+  // The app of Settings > Background starts (docs/APPS.md section 4.6)
+  AppHost_backgroundRefresh();
 }
 
 // The flash values of ENTRY_LIST, for the backup (docs/DATA.md section 5). The keys are in main.c.
@@ -351,6 +354,12 @@ void App_updateSetting(uint8_t id, uint32_t value) {
       AppView_set(VIEW_ID__APP_SYNC);
       break;
 
+    case SETTING_ID__BACKGROUND:
+      // value = the place in the list of the row (OFF, then the apps that can run in the background)
+      Apps_setBackground(SettingsView_getBackgroundApp(value));
+      AppHost_backgroundRefresh();
+      break;
+
     default: break;
   }
 
@@ -414,6 +423,7 @@ static void _factoryReset(bool confirm) {
   // TODO: Do Factory reset
   if(confirm) {
     // The app storage is in the same flash: close it before the erase (App_init opens it again)
+    AppHost_backgroundForget();
     Apps_deinit();
     DataStore_deinit();
     AppData_forget();     // The app data and the start picture go; App_init writes the device log back

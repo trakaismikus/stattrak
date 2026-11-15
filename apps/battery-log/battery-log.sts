@@ -2,12 +2,14 @@
 #   Button 1: start / pause.  Hold button 2: delete the log (only while paused).
 #   The device stays on while this app is open (permission awake). Read the log on the sync page
 #   of the web site (Apps, App data, Download CSV).
+#   In the background (Settings > Background: BATTERY LOG) it starts at each power-on and logs
+#   while you use the other screens. The minutes count only the time that the device is on.
 
 app "BATTERY LOG"
 version 1
-description "Logs the battery voltage each 1, 2 or 5 minutes until the battery is empty. Get the log as a CSV on the sync page."
+description "Logs the battery voltage each 1, 2 or 5 min until the battery is empty. Can run in the background. CSV on the sync page."
 picture icon lightning "BATTERY" "LOG"
-permission awake
+permission awake, background
 
 data "MIN" "MV"
 setting every "EVERY" "1 MIN" "2 MIN" "5 MIN"
@@ -45,6 +47,11 @@ on open {
   running = 0
   full = 0
   minute = next_minute()
+  # The background app logs from the start
+  if background() {
+    running = 1
+    add_row()
+  }
 }
 
 on press1 {

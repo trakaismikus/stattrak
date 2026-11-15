@@ -227,7 +227,9 @@ test("restore: no, no answer, a damaged backup", async () => {
   const bytes = t.page.BackupFile.restoreData(file, device, { stats: true });
   same(await t.data.restore(bytes, null, () => setTimeout(() => t.device.holdButton1(), 20)), { result: "refused" });
   same(await t.data.restore(bytes, null, () => {}), { result: "timeout" });
-  // A section that goes past the end: status 10, nothing is written
+  // A section that goes past the end: status 10, nothing is written. The question must not time out
+  // now (400 ms is too short when the computer is busy).
+  t.device.options.appQuestionMs = 30000;
   const bad = Uint8Array.from([0x53, 0x54, 0x42, 0x4B, 1, 1, 50, 0, 3]);
   let error = null;
   try {

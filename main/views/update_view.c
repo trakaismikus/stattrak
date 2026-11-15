@@ -10,6 +10,7 @@
 #include "app.h"
 #include "battery.h"
 #include "app_view.h"
+#include "app_host_view.h"
 #include <stdio.h>
 #include "time.h"
 
@@ -55,6 +56,7 @@ static void _startBluetooth(void) {
 }
 
 static void _init(void) {
+  AppHost_backgroundPause(true);   // No app runs while a firmware can come
   BtStart_begin(VIEW_ID__UPDATE, _startBluetooth);
   HoldButtons_reset(&s_hold);
 }
@@ -62,6 +64,7 @@ static void _init(void) {
 static void _deinit(void) {
   BtStart_cancel(VIEW_ID__UPDATE);
   Ota_deinit();
+  AppHost_backgroundPause(false);
 }
 
 static bool _eventHandler(uint16_t event) {

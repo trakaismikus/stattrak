@@ -59,6 +59,7 @@ static uint32_t _usedBytes(void);
 static uint8_t _shownCount(void);
 static bool _writeList(void);
 static bool _writeBlob(char prefix, uint32_t id, const void* data, uint32_t size);
+static uint32_t _readBackground(void);
 static void _eraseKey(char prefix, uint32_t id);
 static bool _commit(void);
 
@@ -447,6 +448,8 @@ apps_result_t Apps_delete(uint32_t id) {
   _eraseKey('v', id);
   _eraseKey('s', id);
   _eraseKey('e', id);
+  if(s_open && _readBackground() == id)
+    nvs_erase_key(s_handle, "bgapp");   // Settings > Background goes back to OFF
   _commit();
   AppData_erase(id);    // The data store of the app goes with it
   return listWritten ? APPS_OK : APPS_ERR_FLASH;
@@ -740,6 +743,41 @@ apps_result_t Apps_setDeviceName(const char* name) {
     return APPS_ERR_FLASH;
   }
   return _commit() ? APPS_OK : APPS_ERR_FLASH;
+}
+
+uint32_t Apps_getBackground(void) {
+  const uint32_t id = _readBackground();
+  return Apps_canRunInBackground(id) ? id : APPS_ID__NONE;
+}
+
+bool Apps_canRunInBackground(uint32_t id) {
+  return Apps_isInstalled(id) && (Apps_getPermissions(id) & STAPP_PERM_BACKGROUND) != 0 &&
+         (Apps_getFlags(id) & APPS_FLAG__ERROR) == 0;
+}
+
+apps_result_t Apps_setBackground(uint32_t id) {
+  if(id == APPS_ID__NONE) {
+    if(s_open)
+      nvs_erase_key(s_handle, "bgapp");   // ESP_ERR_NVS_NOT_FOUND is good too
+    return _commit() ? APPS_OK : APPS_ERR_FLASH;
+  }
+  if(!Apps_canRunInBackground(id))
+    return APPS_ERR_BAD;
+  const uint8_t raw[4] = { (uint8_t)id, (uint8_t)(id >> 8), (uint8_t)(id >> 16), (uint8_t)(id >> 24) };
+  if(!s_open || nvs_set_blob(s_handle, "bgapp", raw, sizeof(raw)) != ESP_OK) {
+    ESP_LOGE(TAG, "Cannot write the background app");
+    return APPS_ERR_FLASH;
+  }
+  return _commit() ? APPS_OK : APPS_ERR_FLASH;
+}
+
+// The stored id of Settings > Background, not checked (APPS_ID__NONE = none)
+static uint32_t _readBackground(void) {
+  uint8_t raw[4];
+  size_t length = sizeof(raw);
+  if(!s_open || nvs_get_blob(s_handle, "bgapp", raw, &length) != ESP_OK || length != sizeof(raw))
+    return APPS_ID__NONE;
+  return (uint32_t)raw[0] | ((uint32_t)raw[1] << 8) | ((uint32_t)raw[2] << 16) | ((uint32_t)raw[3] << 24);
 }
 
 static void _eraseKey(char prefix, uint32_t id) {

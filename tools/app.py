@@ -37,9 +37,10 @@ import design  # noqa: E402
 
 # --- Limits and numbers (the same as components/stapp/stapp.h) ------------------------------------
 
-ENGINE_VERSION = 2     # 2: log(), log_count(), log_get(), log_clear(), battery_mv() (docs/DATA.md section 6)
-FORMAT_VERSION = 3     # The newest format. Format 3 only for an app with data columns, "awake" or an
-                       # engine 2 call; format 2 only for down1 / down2; all other packages stay format 1.
+ENGINE_VERSION = 2     # 2: log(), log_count(), log_get(), log_clear(), battery_mv(), background()
+FORMAT_VERSION = 3     # The newest format. Format 3 only for an app with data columns, "awake",
+                       # "background", kill / death or an engine 2 call; format 2 only for down1 / down2;
+                       # all other packages stay format 1.
 MAGIC = b"STAP"
 
 HEADER_SIZE = 48
@@ -75,26 +76,31 @@ PERM_COUNTERS = 0x0001
 PERM_SOUND = 0x0002
 PERM_DATA = 0x0004       # Format 3: the app has a data store (the `data` line sets it)
 PERM_AWAKE = 0x0008      # Format 3: auto-off waits while the app is open
+PERM_BACKGROUND = 0x0010 # Format 3: the app can run in the background (Settings > Background)
 PERM_V2 = PERM_COUNTERS | PERM_SOUND
-PERM_ALL = PERM_V2 | PERM_DATA | PERM_AWAKE
-PERMISSIONS = {"counters": PERM_COUNTERS, "sound": PERM_SOUND, "data": PERM_DATA, "awake": PERM_AWAKE}
-SCRIPT_PERMISSIONS = ("counters", "sound", "awake")   # `data` comes from the `data` line
+PERM_ALL = PERM_V2 | PERM_DATA | PERM_AWAKE | PERM_BACKGROUND
+PERMISSIONS = {"counters": PERM_COUNTERS, "sound": PERM_SOUND, "data": PERM_DATA, "awake": PERM_AWAKE,
+               "background": PERM_BACKGROUND}
+SCRIPT_PERMISSIONS = ("counters", "sound", "awake", "background")   # `data` comes from the `data` line
 
 MAX_COLUMNS = 4          # Format 3: data columns (header byte 37)
 COLUMN_NAME_LEN = 12
 DATA_APP_VALUES = 1024   # The store of one app: 4096 bytes (the firmware also has 8192 for all apps)
-SYS_ENGINE2 = (26, 27, 28, 29, 30)
+SYS_ENGINE2 = (26, 27, 28, 29, 30, 31)
 
-EVENTS = ("open", "draw", "press1", "press2", "long1", "long2", "tick", "close", "down1", "down2")
+EVENTS = ("open", "draw", "press1", "press2", "long1", "long2", "tick", "close", "down1", "down2",
+          "kill", "death")
 HANDLERS_V1 = 8        # Format 1 has the handlers up to close; format 2 also down1 and down2
+HANDLERS_V2 = 10       # Format 3 also kill and death (docs/APPS.md section 4.6)
+BACKGROUND_EVENTS = ("kill", "death")
 
 
 def handler_count(format_version):
-    return len(EVENTS) if format_version >= 2 else HANDLERS_V1
+    return len(EVENTS) if format_version >= 3 else HANDLERS_V2 if format_version >= 2 else HANDLERS_V1
 
 
 def data_start(format_version):
-    """The first byte after the handler table: 304 (format 1) or 308 (format 2)"""
+    """The first byte after the handler table: 304 (format 1), 308 (format 2) or 312 (format 3)"""
     return HANDLERS_OFFSET + 2 * handler_count(format_version)
 
 NAME_CHARS = set("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 +-%/.:")
@@ -156,6 +162,7 @@ SYSCALLS = {
     28: ("log_get", ("row", "column"), PERM_DATA, False),
     29: ("log_clear", (), PERM_DATA, False),
     30: ("battery_mv", (), 0, False),
+    31: ("background", (), 0, False),
 }
 SYS_BY_NAME = {value[0]: key for key, value in SYSCALLS.items()}
 SYS_TEXT = SYS_BY_NAME["text"]
@@ -424,7 +431,7 @@ def package_parts(data):
     parts["engine_version"] = data[5]
     parts["picture"] = bytes(data[PICTURE_OFFSET:PICTURE_OFFSET + PICTURE_SIZE])
     parts["format_version"] = data[4]
-    # A format 1 package has no down1 / down2 handler
+    # An older format has no handler for the newer events
     parts["handlers"] = [_u16(data, HANDLERS_OFFSET + 2 * i) if i < handler_count(data[4]) else NO_HANDLER
                          for i in range(len(EVENTS))]
     settings = []
@@ -874,11 +881,11 @@ class Parser:
 
     def top_permission(self, program, line):
         while True:
-            token = self.expect("name", "counters, sound or awake")
+            token = self.expect("name", "counters, sound, awake or background")
             if token[1] == "data":
                 self.error(line, "the data store comes from the line: data \"NAME\" ... (1 to 4 column names).")
             if token[1] not in SCRIPT_PERMISSIONS:
-                self.error(line, "the permissions are: counters, sound, awake.")
+                self.error(line, "the permissions are: counters, sound, awake, background.")
             program.permissions |= PERMISSIONS[token[1]]
             if not self.is_op(","):
                 break
@@ -957,7 +964,8 @@ class Parser:
         self.define(program, key, line)
 
     def top_on(self, program, line):
-        event = self.expect("name", "the event (open, draw, press1, press2, long1, long2, tick, close, down1 or down2)")[1]
+        event = self.expect("name", "the event (open, draw, press1, press2, long1, long2, tick, close, down1, down2, "
+                                    "kill or death)")[1]
         if event not in EVENTS:
             self.error(line, "the events are: %s." % ", ".join(EVENTS))
         if event in program.handlers:
@@ -1491,6 +1499,12 @@ class Compiler:
 
         self.check_calls()
 
+        # kill and death come only to the background app (docs/APPS.md section 4.6)
+        for event in BACKGROUND_EVENTS:
+            if event in program.handlers and not program.permissions & PERM_BACKGROUND:
+                self.error(program.handlers[event][1], "\"on %s\" runs only in the background app. "
+                           "Add the line: permission background" % event)
+
         # Handlers. Their variables share one area: handlers never run at the same time.
         self.pool_size = 0
         handler_labels = {}
@@ -1603,13 +1617,13 @@ def assemble_package(name, app_id, version, permissions, picture, handlers, sett
     """Put the parts together as a package (docs/APPS.md section 3). `settings`: list of
     (name, values, default). `bitmaps`: list of (width, height, data). Blocks in this order after
     the handler table: settings, string table, strings, bitmap table, bitmap data, code, CRC.
-    Format 3 for data columns, the permissions data / awake or an engine 2 call (`engine_version` 2);
-    format 2 only if the app has a down1 or down2 handler: other packages stay format 1, so that
-    older firmware can install them."""
+    Format 3 for data columns, the permissions data / awake / background, a kill or death handler or
+    an engine 2 call (`engine_version` 2); format 2 only if the app has a down1 or down2 handler:
+    other packages stay format 1, so that older firmware can install them."""
     if format_version is None:
-        if columns or permissions & ~PERM_V2 or engine_version == 2:
+        if columns or permissions & ~PERM_V2 or engine_version == 2 or                 any(offset != NO_HANDLER for offset in handlers[HANDLERS_V2:]):
             format_version = 3
-        elif any(offset != NO_HANDLER for offset in handlers[HANDLERS_V1:]):
+        elif any(offset != NO_HANDLER for offset in handlers[HANDLERS_V1:HANDLERS_V2]):
             format_version = 2
         else:
             format_version = 1
@@ -1812,6 +1826,7 @@ class Machine:
         self.now = 10000
         self.battery = 80
         self.battery_mv = 3900
+        self.background = False    # true: the app runs as the background app (Settings > Background)
         self.data = []             # the rows of the data store (docs/DATA.md section 2)
         self.data_capacity = DATA_APP_VALUES
         self.random = random.Random(seed)
@@ -2001,6 +2016,8 @@ class Machine:
             return self.battery
         if name == "battery_mv":
             return self.battery_mv if self.battery >= 0 else -1
+        if name == "background":
+            return 1 if self.background else 0
         columns = self.parts["columns"]
         if name == "log":
             # Full = stop. Not in draw (the firmware writes the rows later, never while it draws).
@@ -2074,8 +2091,11 @@ def run_actions(machine, actions):
     """Actions of the `run` command. Return the text output."""
     out = []
     for action in actions:
-        if action in ("press1", "press2", "long1", "long2", "down1", "down2", "tick"):
+        if action in ("press1", "press2", "long1", "long2", "down1", "down2", "tick", "kill", "death"):
             result = machine.run(action)
+        elif action.startswith("background:"):
+            machine.background = action[11:] not in ("0", "")
+            result = "ok"
         elif action.startswith("wait:"):
             machine.wait(int(action[5:]))
             result = "ok"
@@ -2110,8 +2130,9 @@ def run_actions(machine, actions):
             out.append("Wrote %s" % action[4:])
             result = "ok"
         else:
-            raise AppError("Unknown action %r. Actions: press1 press2 long1 long2 down1 down2 tick wait:MS frame png:FILE "
-                           "counter:NAME=N setting:N=V random:SEED battery:PERCENT mv:MILLIVOLTS data" % action)
+            raise AppError("Unknown action %r. Actions: press1 press2 long1 long2 down1 down2 tick kill death "
+                           "wait:MS frame png:FILE counter:NAME=N setting:N=V random:SEED battery:PERCENT "
+                           "mv:MILLIVOLTS background:0|1 data" % action)
         if result != "ok":
             out.append("App error after %s: %s" % (action, result))
     return out
@@ -2172,8 +2193,9 @@ def main(argv=None):
     picture.add_argument("-o", "--out", help="the PNG file (default: out/NAME_picture.png)")
     run = sub.add_parser("run", help="run the app in Python and print the screen")
     run.add_argument("file")
-    run.add_argument("actions", nargs="*", help="press1 press2 long1 long2 down1 down2 tick wait:MS frame png:FILE "
-                                                "counter:NAME=N setting:N=V random:SEED (a frame at the end)")
+    run.add_argument("actions", nargs="*", help="press1 press2 long1 long2 down1 down2 tick kill death wait:MS "
+                                                "frame png:FILE counter:NAME=N setting:N=V random:SEED "
+                                                "background:0|1 (a frame at the end)")
     sub.add_parser("catalog", help="build apps/*/ into updater/apps/ with catalog.json")
     sim = sub.add_parser("sim", help="open the web simulator with the app installed and running")
     sim.add_argument("file")

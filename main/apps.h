@@ -118,6 +118,12 @@ apps_result_t  Apps_setOrder(const uint32_t* ids, uint8_t count);
 // erases it. Set: 1 to 8 characters 0x20 .. 0x7E, no space at the start or the end; "" = none.
 void           Apps_getDeviceName(char* out);
 apps_result_t  Apps_setDeviceName(const char* name);
+// Settings > Background (docs/APPS.md section 4.6): the one app that runs in the background.
+// APPS_ID__NONE = none (OFF), or the stored app cannot run there now (deleted, no permission
+// "background", switched off for errors). A delete of the app and a factory reset erase it.
+uint32_t       Apps_getBackground(void);
+apps_result_t  Apps_setBackground(uint32_t id);              // APPS_ID__NONE = OFF
+bool           Apps_canRunInBackground(uint32_t id);
 bool           Apps_isDeviceNameValid(const char* name);
 
 // One more run-time error of an installed app. At APPS_ERROR_LIMIT it is hidden and flagged.

@@ -13,11 +13,11 @@ const StappFile = (() => {
   const PICTURE_OFFSET = 48;
   const PICTURE_SIZE = 240;
   const HANDLERS_OFFSET = 288;
-  const HANDLER_COUNT = { 1: 8, 2: 10, 3: 10 };   // format 1: open .. close; format 2: also down1, down2
+  const HANDLER_COUNT = { 1: 8, 2: 10, 3: 12 };   // format 1: open .. close; 2: also down1, down2; 3: also kill, death
   const MIN_SIZE = HANDLERS_OFFSET + 2 * HANDLER_COUNT[1] + 4;   // 308: header, picture, handler table, CRC
   const MAX_SIZE = 4096;
   const FORMAT_VERSION = 3;            // the newest format that this page knows
-  const PERMISSIONS = ["counters", "sound", "data", "awake"];   // format 3: data, awake (docs/DATA.md)
+  const PERMISSIONS = ["counters", "sound", "data", "awake", "background"];   // format 3: data, awake, background
 
   // CRC-32 (IEEE), as zlib.crc32 and Stapp_crc32()
   const TABLE = (() => {

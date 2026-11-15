@@ -95,7 +95,7 @@ stapp_result_t Stapp_check(const uint8_t* package, uint32_t size, stapp_info_t* 
      info.stringCount > STAPP_MAX_STRINGS || info.bitmapCount > STAPP_MAX_BITMAPS)
     return STAPP_ERR_HEADER;
 
-  // Format 3 (docs/DATA.md section 6): byte 37 = data columns, permissions data and awake.
+  // Format 3 (docs/DATA.md section 6): byte 37 = data columns, permissions data, awake, background.
   // Formats 1 and 2: byte 37 = 0, only the permissions counters and sound.
   if(package[4] >= 3) {
     info.columnCount = package[37];

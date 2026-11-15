@@ -3,10 +3,11 @@
  * @brief   : The data store of each installed app: rows of numbers that the app adds with log()
  *            and the sync page reads (docs/DATA.md section 2).
  *
- * One app at a time is in RAM (4 KB). The app host opens the store of the app that runs; the
- * Bluetooth commands of the sync page load the store that they read. Changed parts go to flash
- * in AppData_update() (at most once in 30 s), at the close of the app and at power-off. Never in
- * a draw function.
+ * Two stores are in RAM (4 KB each): slot FG for the app on the screen, slot BG for the background
+ * app (Settings > Background). The app host opens the store of each app that runs; the Bluetooth
+ * commands of the sync page use a slot with no running app. Changed parts go to flash in
+ * AppData_update() (at most once in 30 s), at the close of the app and at power-off. Never in a
+ * draw function.
  **************************************************************************************************/
 
 #ifndef _APP_DATA_H
@@ -23,16 +24,19 @@
 #define APP_DATA_MAX_COLUMNS      4
 #define APP_DATA_RESERVE_ENTRIES  160     // NVS entries (32 bytes) that stay free for settings, counters, installs
 #define APP_DATA_FLUSH_MS         30000
+#define APP_DATA_SLOTS            2
+#define APP_DATA_SLOT_FG          0       // The app on the screen
+#define APP_DATA_SLOT_BG          1       // The background app
 
 /* > Function Declarations ************************************************************************/
 
-// The store of the app that runs (app host). `columns` 1..4 from the package; 0 = no data store.
-void     AppData_open(uint32_t id, uint8_t columns);
-void     AppData_closeLater(void);                           // The app closes: the next AppData_update() writes
-bool     AppData_log(const int32_t* values);                 // One row of `columns` values. false = full
-uint16_t AppData_rows(void);
-int32_t  AppData_get(int32_t row, int32_t column);           // 0 outside the rows / columns
-void     AppData_clear(void);                                // All rows of the open app
+// The store of an app that runs (app host), in `slot`. `columns` 1..4 from the package; 0 = no data store.
+void     AppData_open(uint8_t slot, uint32_t id, uint8_t columns);
+void     AppData_closeLater(uint8_t slot);                   // The app closes: the next AppData_update() writes
+bool     AppData_log(uint8_t slot, const int32_t* values);   // One row of `columns` values. false = full
+uint16_t AppData_rows(uint8_t slot);
+int32_t  AppData_get(uint8_t slot, int32_t row, int32_t column);   // 0 outside the rows / columns
+void     AppData_clear(uint8_t slot);                        // All rows of the app of the slot
 
 // Each loop (App_update): the changed parts to flash, at most once in 30 s
 void     AppData_update(uint32_t now);

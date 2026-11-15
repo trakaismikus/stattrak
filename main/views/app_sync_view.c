@@ -405,6 +405,7 @@ static void _startBluetooth(void) {
 }
 
 static void _init(void) {
+  AppHost_backgroundPause(true);   // The background app stops: installs and restores change the apps
   _reset();
   s_failed = false;
   s_previewShown = false;
@@ -417,6 +418,7 @@ static void _deinit(void) {
   BtStart_cancel(VIEW_ID__APP_SYNC);
   Ota_deinit();
   _reset();
+  AppHost_backgroundPause(false);  // Starts again in the next AppHost_update()
 }
 
 static void _reset(void) {
@@ -506,6 +508,9 @@ static bool _eventHandler(uint16_t event) {
         _answer(true);                                      // YES
       } else if(s_state == APP_SYNC_STATE__INSTALLED && s_kind == APP_SYNC_KIND__PACKAGE) {
         // OPEN: as the app menu opens an app. Bluetooth goes off with this view (_deinit).
+        // The background app starts first: if it is this app, the view shows that one.
+        AppHost_backgroundPause(false);
+        AppHost_backgroundRefresh();
         AppHost_setApp(s_id);
         AppView_set(VIEW_ID__APP_HOST);
       } else if(s_state == APP_SYNC_STATE__INSTALLED) {

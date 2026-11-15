@@ -4,6 +4,7 @@
 #include "app.h"
 #include "eeprom.h"
 #include "battery.h"
+#include "app_host_view.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -73,6 +74,7 @@ static bool _eventHandler(uint16_t event) {
       Eeprom_increment(ENTRY_ID__GAME_KILLS, 0xFFFFFFFF);
       s_total = Eeprom_read(s_id);
       _updateTotal();
+      AppHost_counterAdded(APP_HOST_COUNTER__KILLS);   // The background app (docs/APPS.md 4.6)
       App_click(1000);
     } return true;
 

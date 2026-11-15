@@ -154,6 +154,8 @@ static void _printState(void) {
   printf("app_running=%lu\n", (unsigned long)(AppHost_isOpen() ? AppHost_getAppId() : 0));
   printf("app_error=%d\n", (int)AppHost_getError());
   printf("app_error_text=%s\n", AppHost_getError() == STAPP_OK ? "" : Stapp_resultText(AppHost_getError()));
+  printf("app_background=%lu\n", (unsigned long)AppHost_getBackgroundId());
+  printf("app_background_error=%d\n", (int)AppHost_getBackgroundError());
   printf("app_install_state=%d\n", (int)AppSync_getState());
   printf("app_settings_id=%lu\n", (unsigned long)AppSettings_getAppId());
   printf("app_settings_row=%u\n", (unsigned)AppSettings_getRow());

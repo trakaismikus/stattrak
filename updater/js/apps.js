@@ -10,7 +10,8 @@ const AppsTab = (() => {
   const CATALOG_URL = "apps/catalog.json";
   const MAX_BYTES = 24 * 1024;          // all installed packages together (docs/APPS.md section 2)
   const PERMISSION_TEXT = { sound: "Uses sound", counters: "Changes your kill counts",
-                            data: "Keeps data on the device", awake: "Keeps the device on while open" };
+                            data: "Keeps data on the device", awake: "Keeps the device on while open",
+                            background: "Can run in the background (one app: device Settings > Background)" };
 
   const A = {
     tab: "firmware",
@@ -59,6 +60,7 @@ const AppsTab = (() => {
     alert: '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>',
     lock: '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
     grip: '<circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/>',
+    background: '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',
     sound: '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>',
     counters: '<circle cx="12" cy="12" r="7"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/>',
   };

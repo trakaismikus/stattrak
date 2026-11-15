@@ -36,8 +36,10 @@ CLICK_SETTLE_MS = 300
 
 # The rows of the settings view (SETTING_LIST in main/app.h). SHOW_BATTERY and LOW_BAT are not
 # there for the battery types NONE and USB.
+# The setting ids (SETTING_LIST in main/app.h). BACKGROUND is a row only when an installed app can
+# run in the background; SHOW_BATTERY and LOW_BAT only for a battery type with a battery.
 SETTING_ROWS = [
-    "GAME_RESET", "COUNTER", "APP_SYNC", "BATTERY_TYPE", "AUTO_OFF", "SHOW_BATTERY", "LOW_BAT",
+    "GAME_RESET", "COUNTER", "APP_SYNC", "BACKGROUND", "BATTERY_TYPE", "AUTO_OFF", "SHOW_BATTERY", "LOW_BAT",
     "BRIGHTNESS", "DIM_SCREEN", "DIM_LEVEL", "SOUND", "FW_UPDATE", "FACTORY_RESET",
     "VERSION", "SERIAL",
 ]

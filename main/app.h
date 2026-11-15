@@ -111,7 +111,7 @@ typedef enum entry_id_enum {
 #define SETTING_LIST \
   SETTING(GAME_RESET,   Game,         "Game",       0, false,  SETTING_STR_VALUES("RESET")) \
   SETTING(COUNTER,      Counter,      "Counter",    1, true,   SETTING_STR_VALUES("TOTAL", "GAME")) \
-  SETTING(APP_SYNC,     Apps,         "Apps",       0, false,  SETTING_STR_VALUES("SYNC")) \
+  SETTING(APP_SYNC,     Apps,         "Apps",       0, false,  SETTING_STR_VALUES("SYNC"))   SETTING(BACKGROUND,   Background,   "Background", 0, true,   SETTING_STR_VALUES("OFF")) \
   SETTING(BATTERY_TYPE, Battery,      "Battery",    1, true,   SETTING_STR_VALUES("NONE", "USB", "1xRCR123A","3.7V(1S)", "7.4V(2S)", "11.1V(3S)", "3xAA/AAA", "9.6V(NiMH)")) \
   SETTING(AUTO_OFF,     AutoOff,      "Auto Off",   1, false,  SETTING_STR_VALUES("OFF", "30 min", "1 h", "2 h", "6 h", "12 h")) \
   SETTING(SHOW_BATTERY, ShowBat,      "Show Bat",   1, true,   SETTING_STR_VALUES("OFF", "ON")) \
