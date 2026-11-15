@@ -97,3 +97,8 @@
   .devmenu { left: 12px; right: 12px; width: auto; top: 56px; }
   .devbtn { min-height: 34px; padding: 0 8px 0 10px; gap: 6px; font-size: 16px; }
 }
+
+/* The header has the StatTrak button now: the repository link stays on one line, and gives its
+   place on narrower screens */
+.topbar__link--github { white-space: nowrap; }
+@media (max-width: 1320px) { .topbar__link--github { display: none; } }

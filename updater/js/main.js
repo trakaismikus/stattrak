@@ -514,7 +514,7 @@ async function onBleConnected() {
 function onBleDisconnected() {
   pushLog("> disconnected from device.", "warn");
   state.connState = "idle";
-  if (state.device) SiteEvents.emitDevice({ event: "disconnected", serial: state.device.id });
+  if (state.device) SiteEvents.emitDevice({ event: "disconnected", serial: state.device.id, fw: state.device.fw, name: bleNamePart(state.device.name) });
   state.device = null;
   state.step1Confirmed = false;
   if (state.flashState === "flashing" || state.flashState === "verifying") sawDisconnect = true;
@@ -935,7 +935,7 @@ function wireEvents() {
     try {
       if (bleOta) bleOta.disconnect();
     } catch (_) {}
-    if (state.device) SiteEvents.emitDevice({ event: "disconnected", serial: state.device.id });
+    if (state.device) SiteEvents.emitDevice({ event: "disconnected", serial: state.device.id, fw: state.device.fw, name: bleNamePart(state.device.name) });
     state.device = null;
     state.step1Confirmed = false;
     state.connState = "idle";
@@ -1005,7 +1005,7 @@ function wireEvents() {
     try {
       if (bleOta) bleOta.disconnect();
     } catch (_) {}
-    if (state.device) SiteEvents.emitDevice({ event: "disconnected", serial: state.device.id });
+    if (state.device) SiteEvents.emitDevice({ event: "disconnected", serial: state.device.id, fw: state.device.fw, name: bleNamePart(state.device.name) });
     state.notice = null;
     state.flashState = "ready";
     state.progress = 0;

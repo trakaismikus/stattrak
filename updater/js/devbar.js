@@ -36,7 +36,7 @@ const DevBar = (() => {
     }
     const f = fwState();
     if (f && f.device) return { kind: "fw", name: "StatTrak", serial: f.device.id, fw: f.device.fw, busy: f.flashState === "flashing" || f.flashState === "verifying" };
-    return { kind: "off", connecting: !!(a && a.state.conn === "connecting") };
+    return { kind: "off", connecting: !!(a && a.state.conn === "connecting"), locked: !!(a && a.firmwareBusy()) };
   }
 
   function vButton(d) {
@@ -56,8 +56,8 @@ const DevBar = (() => {
     if (d.kind === "off") {
       return '<div class="devmenu" role="dialog" aria-label="Connect StatTrak"><div class="devmenu__head"><span class="devmenu__title">Connect StatTrak</span></div>' +
         '<p class="devmenu__steps">On StatTrak: <b>Settings</b> › <b>Apps: SYNC</b> › hold the right button.</p>' +
-        `<button class="btn btn--primary" type="button" data-dev="connect"${d.connecting ? " disabled" : ""}>${icon(BT)}Connect</button>` +
-        '<p class="devmenu__note">For a firmware update, open the Firmware tab.</p></div>';
+        `<button class="btn btn--primary" type="button" data-dev="connect"${d.connecting || d.locked ? " disabled" : ""}>${icon(BT)}Connect</button>` +
+        (d.locked ? '<p class="devmenu__note">A firmware update runs. Wait until it is complete.</p>' : '<p class="devmenu__note">For a firmware update, open the Firmware tab.</p>') + "</div>";
     }
     let h = `<div class="devmenu" role="dialog" aria-label="Your StatTrak"><div class="devmenu__head"><span class="devbtn__dot"></span>` +
       `<span class="devmenu__title">${esc(d.name)}</span><span class="devmenu__state">${d.kind === "fw" ? "Update mode" : "Connected"}</span></div>` +
@@ -74,7 +74,9 @@ const DevBar = (() => {
       h += `<div class="devmenu__sec"><div class="devmenu__upd">${d.updates.length} update${d.updates.length > 1 ? "s" : ""}</div>` +
         d.updates.map((u) => {
           const mine = d.inst && d.inst.key === u.item.key;
+          const room = apps().roomFor(u.item);
           const act = mine ? `<span class="devmenu__wait">${d.inst.phase === "transfer" ? Math.round(d.inst.pct) + "%" : "Answer on StatTrak"}</span>`
+            : room ? `<span class="devmenu__v">${esc(room.text)}</span>`
             : `<button class="btn btn--primary btn--sm" type="button" data-dev="update" data-id="${u.app.id}"${d.busy ? " disabled" : ""}>Update</button>`;
           return `<div class="devmenu__row"><span><b>${esc(u.app.name)}</b> <span class="devmenu__v">v${u.app.version} → v${u.item.version}</span></span>${act}</div>`;
         }).join("") + "</div>";
@@ -116,7 +118,7 @@ const DevBar = (() => {
     const a = apps();
     if (what === "toggle") return setOpen(!open);
     if (what === "close") return setOpen(false);
-    if (what === "connect" && a) {
+    if (what === "connect" && a && !a.firmwareBusy()) {
       // The connection of My device: from the firmware tab, open My device first
       if (a.state.tab === "firmware") location.hash = "#device";
       a.connect();

@@ -190,6 +190,10 @@ test("the event stattrak:device: connected with serial, firmware and name; disco
   assert.equal(await page.evaluate("SiteEvents.device.serial"), "34B7DA010203");
   await act(page, '[data-act="disconnect"]');
   assert.deepEqual((await page.evaluate("window.__events")).map((e) => e.event), ["connected", "disconnected"]);
+  const gone = (await page.evaluate("window.__events"))[1];
+  assert.equal(gone.serial, "34B7DA010203");
+  assert.equal(gone.name, "ALPHA");
+  assert.equal(gone.fw, events[0].fw);
   assert.equal(await page.evaluate("SiteEvents.device"), null);
 });
 
@@ -201,4 +205,29 @@ test("the other pages: a Connect link to My device in the header", { skip: SKIP 
     assert.equal(await page.evaluate(`new URL(document.querySelector(".site-header .devbtn").href).hash`), "#device");
     assert.equal(await textOf(page, ".site-header .devbtn"), "Connect");
   }
+});
+
+test("an update that does not fit: the reason in place of Update, on My device and in the header", { skip: SKIP }, async (t) => {
+  const round = CATALOG.apps.find((a) => a.name === "ROUND TIMER");
+  const page = await open(t, { install: ["ROUND TIMER"] }, "#device");
+  await act(page, '[data-act="connect"]');
+  await page.waitFor(has("#appsList"));
+  await page.evaluate(`AppsTab.api.addCatalog("test", [{ key: "big-round", id: 0x${round.id}, name: "ROUND TIMER", version: ${round.version + 1}, size: 30000, file: "apps/none.stapp" }])`);
+  assert.equal(await page.evaluate(`!!${row("ROUND TIMER")}.querySelector('[data-act="update"]')`), false);
+  assert.match(await page.evaluate(`${row("ROUND TIMER")}.querySelector(".need").textContent`), /Needs 29\.3 KB/);
+  await act(page, '#devBar [data-dev="toggle"]');
+  assert.equal(await page.evaluate(`!!${has('#devBar [data-dev="update"]')}`), false);
+  assert.match(await textOf(page, "#devBar .devmenu"), /Needs 29\.3 KB/);
+});
+
+test("the header Connect is locked while a firmware update runs", { skip: SKIP }, async (t) => {
+  const page = await open(t, {});
+  await page.evaluate(`state.flashState = "verifying"; DevBar.render()`);
+  await act(page, '#devBar [data-dev="toggle"]');
+  assert.equal(await page.evaluate(`document.querySelector('#devBar [data-dev="connect"]').disabled`), true);
+  assert.match(await textOf(page, "#devBar .devmenu"), /A firmware update runs/);
+  await page.evaluate("AppsTab.api.connect()");
+  assert.equal(await page.evaluate("AppsTab.state.conn"), "off");
+  assert.deepEqual(await page.evaluate("window.__device.events"), []);
+  await page.evaluate(`state.flashState = "ready"`);
 });

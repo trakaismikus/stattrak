@@ -190,7 +190,8 @@ const AppsTab = (() => {
       `<img class="pic${app.hidden ? " pic--off" : ""}" alt="" src="${pictureOf(app)}">` +
       `<div class="row__info"><div class="row__name">${n}</div><div class="row__meta">${meta(app)}</div></div>` +
       '<div class="row__acts">' +
-      (update ? `<button class="btn btn--primary btn--sm" type="button" data-act="update"${busy() ? " disabled" : ""}>Update</button>` : "") +
+      (update ? (roomFor(update) ? `<div class="need">${esc(roomFor(update).text)}${roomFor(update).small ? `<small>· ${esc(roomFor(update).small)}</small>` : ""}</div>`
+        : `<button class="btn btn--primary btn--sm" type="button" data-act="update"${busy() ? " disabled" : ""}>Update</button>`) : "") +
       `<button class="sw" role="switch" type="button" aria-checked="${!app.hidden}" aria-label="Show ${n} in the menu"${canHide(app) ? "" : ' aria-disabled="true"'} data-act="toggle"><span class="sw__track"></span><span class="lbl">${app.hidden ? "Hidden" : "Shown"}</span></button>` +
       `<span class="mv"><button class="icon-btn" type="button" data-act="up" aria-label="Move up"${i === 0 ? " disabled" : ""}>${icon("up")}</button>` +
       `<button class="icon-btn" type="button" data-act="down" aria-label="Move down"${i === last ? " disabled" : ""}>${icon("down")}</button></span>` +
@@ -406,7 +407,7 @@ const AppsTab = (() => {
   /* ---- connection ---------------------------------------------------------------------- */
 
   function disconnect(newBanner) {
-    if (A.conn === "on") SiteEvents.emitDevice({ event: "disconnected", serial: A.serial });
+    if (A.conn === "on") SiteEvents.emitDevice({ event: "disconnected", serial: A.serial, fw: A.fw, name: namePart() });
     const ota = A.ota;
     A.ota = null;
     A.apps = null;
@@ -436,7 +437,7 @@ const AppsTab = (() => {
   const NOT_IN_SYNC = { kind: "warn", title: "StatTrak is not in Apps: SYNC", body: "Open Apps: SYNC on StatTrak, then connect." };
 
   async function connect() {
-    if (A.conn === "connecting") return;
+    if (A.conn === "connecting" || firmwareBusy()) return;
     disconnect(null);
     A.conn = "connecting";
     render();
@@ -968,6 +969,8 @@ const AppsTab = (() => {
     disconnect() { disconnect(null); render(); },
     install(item) { return startInstall(item); },
     updates,
+    roomFor,
+    firmwareBusy,
     usedBytes,
     maxBytes: MAX_BYTES,
     namePart,
