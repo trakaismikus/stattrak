@@ -621,6 +621,69 @@ class AppDataTest(DataTestCase):
         self.assertEqual(struct.unpack_from("<H", self.cmd(DATA_INFO, struct.pack("<I", id_b))[1], 1)[0], 512)
         self.assertEqual(struct.unpack_from("<H", self.cmd(CONFIG_INFO)[1], 4)[0], 8192)
 
+    def test_large_row_number_reads_nothing(self):
+        # log_get() with a row that overflows row x columns: 0, no read outside the rows
+        source = ('app "BIGROW"\ndata "A" "B"\non open { log(1, 2) }\n'
+                  'on draw { num(0, 0, log_get(1342177280, 0), 0, text, on, left) }\n')
+        package = app.compile_source(source)["package"]
+        self.open_logger(package)
+        self.dev.run(500)
+        state = self.dev.state()
+        self.assertEqual((state["view"], state["app_error"]), ("APP_HOST", 0))
+
+    def test_clear_in_close_goes_to_flash_after_the_close(self):
+        source = ('app "CLOSER"\ndata "A"\non press1 { log(7) }\non close { log_clear() }\n'
+                  'on draw { num(0, 0, log_count(), 0, text, on, left) }\n')
+        package = app.compile_source(source)["package"]
+        app_id = struct.unpack_from("<I", package, 8)[0]
+        self.open_logger(package)
+        self.dev.click(1)
+        self.dev.run(31000)                        # the row is in flash
+        self.assertIn("m%08x" % app_id, self.dev.read_blobs("data"))
+        self.open_sync()                           # the app closes: log_clear() in "on close"
+        self.assertEqual(self.read_rows(app_id), [])
+        self.assertFalse([k for k in self.dev.read_blobs("data") if ("%08x" % app_id) in k])
+
+    def test_longer_chunk_than_the_meta_keeps_the_rows(self):
+        # A flush that a power loss stopped after the chunk and before the meta: the old rows stay
+        package = data_app("LOGP")
+        app_id = struct.unpack_from("<I", package, 8)[0]
+        self.assert_installed(package)
+        self.dev.power_cut()
+        self.dev.write_blobs({"m%08x" % app_id: bytes([1, 2]) + struct.pack("<H", 10),
+                              "c%08x00" % app_id: struct.pack("<11i", *range(11))}, namespace="data")
+        self.dev.boot()
+        self.open_sync()
+        self.assertEqual(self.read_rows(app_id), [[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]])
+
+    def test_reserve_counts_the_chunks_that_are_only_in_ram(self):
+        package = data_app("FOUR", columns=("A", "B", "C", "D"))
+        app_id = struct.unpack_from("<I", package, 8)[0]
+        self.assert_installed(package)
+        free = struct.unpack_from("<H", self.cmd(CONFIG_INFO)[1], 10)[0] // 32
+        # Fill the flash until 190 entries are free (other namespace, blobs of at most 3968 bytes)
+        consume = free - 190
+        self.dev.power_cut()
+        blobs = {}
+        while consume > 0:
+            take = min(consume, 126)
+            blobs["fill%d" % len(blobs)] = bytes(max(0, (take - 2) * 32))
+            consume -= take
+        self.dev.write_blobs(blobs, namespace="zz")
+        self.dev.boot()
+        self.open_sync()
+        free = struct.unpack_from("<H", self.cmd(CONFIG_INFO)[1], 10)[0] // 32
+        self.assertTrue(175 <= free <= 200, free)        # room for one or two chunks above the reserve
+        self.leave_sync()
+        self.open_app(app_id)
+        for _ in range(40):                        # 40 rows of 4 = 2.5 chunks, all in RAM (no 30 s yet)
+            self.dev.click(1, settle_ms=200)
+        self.open_sync()
+        rows = len(self.read_rows(app_id))
+        self.assertLess(rows, 40)
+        free = struct.unpack_from("<H", self.cmd(CONFIG_INFO)[1], 10)[0] // 32
+        self.assertGreaterEqual(free, 160, "the reserve for the settings is gone (%d rows)" % rows)
+
     def test_flash_reserve_keeps_settings_working(self):
         # 8 apps with 24 KB of packages, then app rows until the store says full: the settings, the
         # counters and the device log must still save, and an app can still be replaced.

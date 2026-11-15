@@ -28,6 +28,7 @@
 
 /* > Local Function Declarations ******************************************************************/
 static void _load(uint32_t id);
+static uint32_t _chunks(uint32_t values);
 static bool _readMeta(uint32_t id, uint8_t* columns, uint16_t* count);
 static void _writeChanges(void);
 static uint32_t _otherValues(uint32_t id);
@@ -44,6 +45,8 @@ static uint16_t s_dirty = 0;           // Chunks to write (bit n = chunk n)
 static bool     s_metaDirty = false;
 static uint32_t s_nextFlush = 0;
 static bool     s_flushNow = false;     // The app closed: write in the next AppData_update()
+static bool     s_clearPending = false; // log_clear(): the flash keys of s_id go in the next write
+static uint16_t s_flashCount = 0;       // Values of s_id that are in flash (for the reserve check)
 
 // The open app (app host)
 static bool     s_appOpen = false;
@@ -63,7 +66,7 @@ void AppData_open(uint32_t id, uint8_t columns) {
 }
 
 void AppData_closeLater(void) {
-  if(s_appOpen && (s_dirty != 0 || s_metaDirty))
+  if(s_appOpen && (s_dirty != 0 || s_metaDirty || s_clearPending))
     s_flushNow = true;
   s_appOpen = false;
 }
@@ -79,12 +82,16 @@ bool AppData_log(const int32_t* values) {
   if((uint32_t)s_count + columns > left || (uint32_t)s_count + columns > APP_DATA_APP_VALUES)
     return false;
 
-  // A new chunk needs flash: the settings and the counters keep APP_DATA_RESERVE_ENTRIES
-  const uint16_t firstChunk = s_count / APP_DATA_CHUNK_VALUES;
-  const uint16_t lastChunk = (uint16_t)((s_count + columns - 1) / APP_DATA_CHUNK_VALUES);
-  if((s_count == 0 || lastChunk != firstChunk || (s_count % APP_DATA_CHUNK_VALUES) == 0) &&
-     DataStore_availableEntries() < APP_DATA_RESERVE_ENTRIES + CHUNK_ENTRIES)
-    return false;
+  // A new chunk needs flash: the settings and the counters keep APP_DATA_RESERVE_ENTRIES. The chunks
+  // that are only in RAM, or only partly in flash (they grow when they are written), need it too.
+  const uint32_t chunksNow = _chunks(s_count);
+  const uint32_t chunksAfter = _chunks((uint32_t)s_count + columns);
+  if(chunksAfter > chunksNow) {
+    const uint32_t fullInFlash = s_flashCount / APP_DATA_CHUNK_VALUES;
+    const uint32_t pending = (chunksAfter > fullInFlash) ? chunksAfter - fullInFlash : 0;
+    if(DataStore_availableEntries() < APP_DATA_RESERVE_ENTRIES + CHUNK_ENTRIES * pending)
+      return false;
+  }
 
   for(uint8_t c = 0; c < columns; c++) {
     s_values[s_count] = values[c];
@@ -101,20 +108,29 @@ uint16_t AppData_rows(void) {
 }
 
 int32_t AppData_get(int32_t row, int32_t column) {
-  if(!s_appOpen || s_columns == 0 || row < 0 || column < 0 || column >= s_columns)
+  // The row first: a large row number must not overflow the index
+  if(!s_appOpen || s_columns == 0 || row < 0 || row >= s_count / s_columns || column < 0 || column >= s_columns)
     return 0;
-  const int32_t index = row * s_columns + column;
-  return (index < s_count) ? s_values[index] : 0;
+  return s_values[row * s_columns + column];
 }
 
+// log_clear() can run in an app handler that runs while a view draws (the close of an app, the
+// open of the first app after the start picture): only RAM here, the flash keys go in AppData_update()
 void AppData_clear(void) {
   if(!s_appOpen)
     return;
-  AppData_erase(s_id);
+  s_count = 0;
+  s_columns = 0;
+  s_dirty = 0;
+  s_metaDirty = false;
+  s_flashCount = 0;
+  s_clearPending = true;
 }
 
 void AppData_update(uint32_t now) {
-  if(s_dirty == 0 && !s_metaDirty) {
+  if(s_clearPending)
+    s_flushNow = true;    // A clear goes to flash at once (no 30 s wait)
+  if(s_dirty == 0 && !s_metaDirty && !s_clearPending) {
     s_flushNow = false;
     return;
   }
@@ -174,6 +190,8 @@ void AppData_erase(uint32_t id) {
     s_columns = 0;
     s_dirty = 0;
     s_metaDirty = false;
+    s_clearPending = false;
+    s_flashCount = 0;
   }
 }
 
@@ -188,6 +206,8 @@ void AppData_forget(void) {
   s_columns = 0;
   s_dirty = 0;
   s_metaDirty = false;
+  s_clearPending = false;
+  s_flashCount = 0;
   s_appOpen = false;
 }
 
@@ -205,6 +225,8 @@ static void _load(uint32_t id) {
   s_columns = 0;
   s_dirty = 0;
   s_metaDirty = false;
+  s_clearPending = false;
+  s_flashCount = 0;
 
   uint8_t columns = 0;
   uint16_t count = 0;
@@ -217,15 +239,19 @@ static void _load(uint32_t id) {
     uint16_t part = (uint16_t)(count - loaded);
     if(part > APP_DATA_CHUNK_VALUES)
       part = APP_DATA_CHUNK_VALUES;
-    size_t length = (size_t)part * sizeof(int32_t);
+    // A chunk can be longer than the meta says (a flush that a power loss stopped before the meta):
+    // only the values that the meta counts are used
+    size_t length = 0;
     _chunkKey(key, id, n);
-    if(!DataStore_read(key, &s_values[loaded], &length))
+    if(!DataStore_readAny(key, &s_values[loaded], APP_DATA_CHUNK_VALUES * sizeof(int32_t), &length) ||
+       length < (size_t)part * sizeof(int32_t))
       break;     // Missing or short: the data ends here
     loaded = (uint16_t)(loaded + part);
   }
   // Only whole rows
   s_count = (uint16_t)(loaded - (loaded % columns));
   s_columns = (s_count > 0) ? columns : 0;
+  s_flashCount = s_count;
 }
 
 static bool _readMeta(uint32_t id, uint8_t* columns, uint16_t* count) {
@@ -245,8 +271,19 @@ static bool _readMeta(uint32_t id, uint8_t* columns, uint16_t* count) {
 
 static void _writeChanges(void) {
   char key[KEY_SIZE];
-  if(s_id == NO_ID || (s_dirty == 0 && !s_metaDirty))
+  if(s_id == NO_ID || (s_dirty == 0 && !s_metaDirty && !s_clearPending))
     return;
+
+  // log_clear(): the old keys first (the meta first, so a power loss leaves no half store)
+  if(s_clearPending) {
+    _metaKey(key, s_id);
+    DataStore_erase(key);
+    for(uint8_t n = 0; n < CHUNK_COUNT; n++) {
+      _chunkKey(key, s_id, n);
+      DataStore_erase(key);
+    }
+    s_clearPending = false;
+  }
 
   bool good = true;
   for(uint8_t n = 0; n < CHUNK_COUNT; n++) {
@@ -269,8 +306,10 @@ static void _writeChanges(void) {
 
   uint8_t meta[META_SIZE] = { META_VERSION, s_columns, (uint8_t)(s_count & 0xFF), (uint8_t)(s_count >> 8) };
   _metaKey(key, s_id);
-  if(DataStore_write(key, meta, META_SIZE))
+  if(DataStore_write(key, meta, META_SIZE)) {
     s_metaDirty = false;
+    s_flashCount = s_count;
+  }
 }
 
 // The values of all apps except `id` (the store in RAM counts with its RAM count)
@@ -298,6 +337,11 @@ static uint16_t _capacity(uint32_t id) {
   const uint32_t others = _otherValues(id);
   const uint32_t left = (others < APP_DATA_TOTAL_VALUES) ? APP_DATA_TOTAL_VALUES - others : 0;
   return (uint16_t)((left < APP_DATA_APP_VALUES) ? left : APP_DATA_APP_VALUES);
+}
+
+// Chunks for `values` values
+static uint32_t _chunks(uint32_t values) {
+  return (values + APP_DATA_CHUNK_VALUES - 1) / APP_DATA_CHUNK_VALUES;
 }
 
 static void _metaKey(char* key, uint32_t id) {

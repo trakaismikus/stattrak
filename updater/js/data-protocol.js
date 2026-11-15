@@ -193,10 +193,12 @@ const BackupFile = (() => {
       })),
       deviceName: typeof data.deviceName === "string" ? data.deviceName : "",
       startPicture: null,
+      startPictureBad: false,   // the file has a start picture that is not correct: it is not restored
     };
-    if (data.startPicture && typeof data.startPicture === "object") {
-      const pixels = FrameBuffer.fromBase64(data.startPicture.pixels);
+    if (data.startPicture !== null && data.startPicture !== undefined) {
+      const pixels = typeof data.startPicture === "object" ? FrameBuffer.fromBase64(data.startPicture.pixels) : null;
       if (pixels && pixels.length === FrameBuffer.BYTES) file.startPicture = { show: data.startPicture.show !== false, pixels };
+      else file.startPictureBad = true;
     }
     return { file };
   }
@@ -245,7 +247,8 @@ const BackupFile = (() => {
     if (parts.deviceName && StatTrakApps.nameProblem(file.deviceName) === "") {
       section(SECTION.DEVICE_NAME, [file.deviceName.length, ...Array.from(file.deviceName, (c) => c.charCodeAt(0))]);
     }
-    if (parts.startPicture) {
+    // A damaged picture in the file stays out: it must not delete the picture of the device
+    if (parts.startPicture && !file.startPictureBad) {
       if (!file.startPicture) section(SECTION.START_PIC, [0]);
       else section(SECTION.START_PIC, [file.startPicture.show ? 1 : 2, ...file.startPicture.pixels]);
     }
@@ -281,7 +284,8 @@ const BackupFile = (() => {
     const picText = (p) => (!p ? "None" : p.show ? "Shown at power-on" : "Kept, not shown");
     const dp = device.startPicture, fp = file.startPicture;
     const picSame = (!dp && !fp) || (!!dp && !!fp && dp.show === fp.show && sameArray(Array.from(dp.pixels), Array.from(fp.pixels)));
-    add("startPicture", "Start picture", picText(dp), picText(fp) + (dp && fp && !picSame && dp.show === fp.show ? " (an other picture)" : ""), picSame);
+    if (file.startPictureBad) add("startPicture", "Start picture", picText(dp), "Damaged in the file (not restored)", false);
+    else add("startPicture", "Start picture", picText(dp), picText(fp) + (dp && fp && !picSame && dp.show === fp.show ? " (an other picture)" : ""), picSame);
     // Apps: the order of the apps that both have, then each app
     // The order after a restore: the apps of the file first (appOrder)
     const order = appOrder(file, device);

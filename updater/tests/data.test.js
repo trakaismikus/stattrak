@@ -203,6 +203,23 @@ test("restore: only the ticked parts are sent", async () => {
   assert.equal(t.device.deviceName, "", "the name was not ticked");
 });
 
+test("restore: a damaged start picture in the file does not delete the picture of the device", async () => {
+  const t = await connect({ installedApps: APPS });
+  const device = await t.data.readAll();
+  const text = JSON.stringify({ type: "stattrak-backup", version: 1, stats: {}, settings: {}, apps: [],
+    startPicture: { show: true, pixels: "not base64 !!" } });
+  const { file } = t.page.BackupFile.parse(text);
+  assert.equal(file.startPictureBad, true);
+  const bytes = t.page.BackupFile.restoreData(file, device, { startPicture: true });
+  assert.equal(bytes.length, 5, "no START_PIC section");
+  const row = t.page.BackupFile.compare(file, device).find((r) => r.part === "startPicture");
+  assert.equal(row.same, false);
+  assert.match(row.file, /Damaged/);
+  // No picture in the file (null) still means: no picture
+  const none = t.page.BackupFile.parse(JSON.stringify({ type: "stattrak-backup", version: 1, startPicture: null })).file;
+  assert.deepEqual(Array.from(t.page.BackupFile.restoreData(none, device, { startPicture: true }).slice(5)), [6, 1, 0, 0]);
+});
+
 test("restore: no, no answer, a damaged backup", async () => {
   const t = await connect({ installedApps: APPS });
   const device = await t.data.readAll();
