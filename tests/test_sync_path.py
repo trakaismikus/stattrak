@@ -38,7 +38,9 @@ class SyncPathTest(unittest.TestCase):
         presses = [frame["press"] for frame in frames]
         self.assertIn("H2", presses)
         self.assertEqual(presses[-1], "-")
-        self.assertGreaterEqual(frames[-1]["ms"], 300)
+        # the App Sync screen shows long enough after the hold (its dots move, so it has more frames)
+        last_hold = max(i for i, press in enumerate(presses) if press == "H2")
+        self.assertGreaterEqual(sum(frame["ms"] for frame in frames[last_hold + 1:]), 300)
 
 
 if __name__ == "__main__":

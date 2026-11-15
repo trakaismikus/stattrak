@@ -117,6 +117,16 @@ class AppTestCase(SimTestCase):
             self.dev.long_press(1)
         self.assertEqual(self.dev.view, "SETTINGS")
 
+    def go_to_setting(self, name):
+        """Move the settings cursor to the row `name` (short presses, as a person does)."""
+        target = SETTING_ROWS.index(name)
+        for _ in range(2 * len(SETTING_ROWS)):
+            row = self.dev.state()["settings_row"]
+            if row == target:
+                break
+            self.dev.click(2 if row < target else 1, settle_ms=200)
+        self.assertEqual(self.dev.state()["settings_row"], target)
+
     def open_app(self, app_id):
         """Open an app with the app menu (both, button 2 until it is selected, both)."""
         self.dev.click_both()
@@ -570,8 +580,7 @@ class DeviceNameTest(AppTestCase):
         self.dev.open_app_sync()
         self.assertEqual(self.name_cmd(b"MIKUS")[0], OK)
         self.leave_sync()
-        self.dev.click(2, settle_ms=200)   # "Firmware"
-        self.dev.click(2, settle_ms=200)   # "Factory"
+        self.go_to_setting("FACTORY_RESET")
         self.dev.long_press(2)
         self.assertEqual(self.dev.view, "ASK")
         self.dev.long_press(2)             # Yes
@@ -856,8 +865,7 @@ class SafetyTest(AppTestCase):
     def test_a_factory_reset_removes_the_apps(self):
         self.assert_installed(counter_app())
         self.leave_sync()
-        self.dev.click(2, settle_ms=200)   # "Firmware" is the row after "Apps"
-        self.dev.click(2, settle_ms=200)   # then "Factory"
+        self.go_to_setting("FACTORY_RESET")
         self.dev.long_press(2)
         self.assertEqual(self.dev.view, "ASK")
         self.dev.long_press(2)             # Yes
