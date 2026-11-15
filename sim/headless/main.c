@@ -100,6 +100,7 @@ static void _printState(void) {
   printf("ble_name=%s\n", HostOta_getName());
   printf("rolled_back=%d\n", HostOta_wasRolledBack() ? 1 : 0);
   printf("nvs_writes=%lu\n", (unsigned long)HostNvs_getWriteCount());
+  printf("nvs_draw_writes=%lu\n", (unsigned long)HostNvs_getDrawWriteCount());
   printf("nvs_commits=%lu\n", (unsigned long)HostNvs_getCommitCount());
   printf("nvs_erases=%lu\n", (unsigned long)HostNvs_getEraseCount());
   printf("fw_version=%s\n", Board_getFwVersion());
@@ -387,6 +388,7 @@ int main(int argc, char** argv) {
   };
 
   Host_init(&config, &frontend);
+  HostNvs_drawingHook = AppView_isDrawing;   // nvs_draw_writes: flash writes in a draw (there must be none)
 
   HostButton_setLevel(0, strcmp(hold, "both") == 0 || strcmp(hold, "1") == 0);
   HostButton_setLevel(1, strcmp(hold, "both") == 0 || strcmp(hold, "2") == 0);

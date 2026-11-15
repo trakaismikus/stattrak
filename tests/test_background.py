@@ -8,10 +8,11 @@ import struct
 import unittest
 
 from stattrak_sim import SETTING_ROWS
-from test_apps import KILLS, OK, counter_app
+from test_apps import KILLS, KILL_DEAD, STATS, OK, counter_app
 from test_data import DataTestCase, shows, app
 
-DELETE = 0x0117   # APP_CMD_DELETE
+DELETE = 0x0117       # APP_CMD_DELETE
+SET_HIDDEN = 0x0119   # APP_CMD_SET_HIDDEN
 OTHER_SOURCE = 'app "OTHER"' + chr(10) + 'data "X"' + chr(10) + 'var ok' + chr(10) + 'on press1 { ok = log(77) }' + chr(10)
 
 
@@ -324,6 +325,53 @@ class SafetyTest(BackgroundTestCase):
         self.assertEqual(self.dev.state()["eeprom.game_kills"], 2)
         self.open_update_view_from_menu(transfer=False)
         self.assertEqual(self.dev.view, "UPDATE")
+
+    def test_two_app_errors_in_one_loop_write_nothing_in_a_draw(self):
+        # The background app fails in kill (AppHost_update), the app on the screen fails in its
+        # draw of the same loop: both error counts wait for AppHost_update()
+        source = 'app "LOOPER"\npermission background\non kill {\n  var i = 0\n  while 1 { i += 1 }\n}\n'
+        looper = app.compile_source(source)["package"]
+        looper_id = struct.unpack_from("<I", looper, 8)[0]
+        source = ('app "BREAKER"\npermission counters\nvar bad\non press1 {\n  add_counter(game_kills, 1)\n'
+                  '  bad = 1\n}\non draw {\n  var i = 0\n  while bad { i += 1 }\n}\n')
+        breaker = app.compile_source(source)["package"]
+        breaker_id = struct.unpack_from("<I", breaker, 8)[0]
+        self.install_background(looper, looper_id)
+        self.open_sync()
+        self.assert_installed(breaker, open_sync=False)
+        self.leave_sync()
+        self.open_app(breaker_id)
+        before = self.state("nvs_draw_writes")
+        self.dev.click(1)
+        self.dev.run(500)
+        self.assertNotEqual(self.state("app_background_error"), 0)
+        self.assertNotEqual(self.state("app_error"), 0)
+        self.assertEqual(self.state("nvs_draw_writes"), before, "a flash write in a draw")
+        errors = self.dev.read_blobs("apps")
+        self.assertIn("e%08x" % looper_id, errors)
+        self.assertIn("e%08x" % breaker_id, errors)
+
+    def test_cancel_of_the_update_mode_shows_the_background_app(self):
+        # The update mode from the background app (both buttons held at power-on), then cancel:
+        # the background app runs again, and the screen shows that one
+        package, app_id = bg_app()
+        self.install_background(package, app_id)
+        self.open_sync()
+        for builtin in (KILLS, KILL_DEAD, STATS):     # The background app is the first app of the menu
+            self.assertEqual(self.cmd(SET_HIDDEN, struct.pack("<IB", builtin, 1))[0], OK)
+        self.dev.power_cut()
+        self.dev.power_on(hold="both")
+        self.dev.run(10500)                           # Held for 10 s: the update mode
+        self.dev.release(1)
+        self.dev.release(2)
+        self.dev.run(500)
+        self.assertEqual(self.dev.view, "UPDATE")
+        self.assertEqual(self.state("app_background"), 0)
+        self.dev.long_press(1)                       # CANCEL: back to the view before (the app)
+        self.dev.run(500)
+        self.assertEqual(self.dev.view, "APP_HOST")
+        self.assertEqual(self.state("app_running"), app_id)
+        self.assertEqual(self.state("app_background"), app_id)
 
     def test_a_kill_handler_needs_the_permission(self):
         with self.assertRaises(app.AppError) as raised:

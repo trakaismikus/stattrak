@@ -132,6 +132,8 @@ void        HostNvs_setFailWrites(bool fail);
 void        HostNvs_setFailOpen(bool fail);
 void        HostNvs_setNoFreePagesOnce(bool enable);
 uint32_t    HostNvs_getWriteCount(void);
+uint32_t    HostNvs_getDrawWriteCount(void);       // writes and key erases while the firmware draws
+extern bool (*HostNvs_drawingHook)(void);          // the simulator program sets it (AppView_isDrawing)
 uint32_t    HostNvs_getCommitCount(void);
 uint32_t    HostNvs_getEraseCount(void);
 uint32_t    HostNvs_getEntryCount(void);

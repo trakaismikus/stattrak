@@ -39,8 +39,18 @@ static bool s_noFreePagesOnce = false;
 static uint32_t s_writeCount = 0;
 static uint32_t s_commitCount = 0;
 static uint32_t s_eraseCount = 0;
+static uint32_t s_drawWriteCount = 0;   // Writes and key erases while the firmware draws
+
+// Set by the simulator program: true while the firmware draws a frame (AppView_isDrawing)
+bool (*HostNvs_drawingHook)(void) = NULL;
 
 /* > Local Functions ******************************************************************************/
+
+static void _countWrite(void) {
+  s_writeCount++;
+  if(HostNvs_drawingHook != NULL && HostNvs_drawingHook())
+    s_drawWriteCount++;
+}
 
 static host_nvs_entry_t* _find(const char* ns, const char* key) {
   for(uint32_t i = 0; i < s_entryCount; i++) {
@@ -121,6 +131,7 @@ void HostNvs_setFailOpen(bool fail)           { s_failOpen = fail; }
 void HostNvs_setNoFreePagesOnce(bool enable)  { s_noFreePagesOnce = enable; }
 
 uint32_t HostNvs_getWriteCount(void)   { return s_writeCount; }
+uint32_t HostNvs_getDrawWriteCount(void) { return s_drawWriteCount; }
 uint32_t HostNvs_getCommitCount(void)  { return s_commitCount; }
 uint32_t HostNvs_getEraseCount(void)   { return s_eraseCount; }
 uint32_t HostNvs_getEntryCount(void)   { return s_entryCount; }
@@ -268,7 +279,7 @@ esp_err_t nvs_set_u32(nvs_handle_t handle, const char* key, uint32_t value) {
   if(!HostNvs_put(s_handles[handle - 1].ns, key, value))
     return ESP_ERR_NVS_NOT_ENOUGH_SPACE;
 
-  s_writeCount++;
+  _countWrite();
   HostState_markChanged();
   return ESP_OK;
 }
@@ -304,7 +315,7 @@ esp_err_t nvs_set_blob(nvs_handle_t handle, const char* key, const void* value, 
   if(!HostNvs_putBlob(s_handles[handle - 1].ns, key, (const uint8_t*)value, (uint32_t)length))
     return ESP_ERR_NVS_NOT_ENOUGH_SPACE;
 
-  s_writeCount++;
+  _countWrite();
   HostState_markChanged();
   return ESP_OK;
 }
@@ -368,7 +379,7 @@ esp_err_t nvs_erase_key(nvs_handle_t handle, const char* key) {
   if(entry != NULL)
     _removeEntry(entry);
 
-  s_writeCount++;
+  _countWrite();
   HostState_markChanged();
   return ESP_OK;
 }

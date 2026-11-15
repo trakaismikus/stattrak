@@ -2242,6 +2242,10 @@ def main(argv=None):
             print(out)
         elif args.action == "run":
             machine = Machine(load_package(args.file))
+            # background:0|1 is the mode from the start: open sees it too
+            for action in args.actions:
+                if action.startswith("background:"):
+                    machine.background = action[11:] not in ("0", "")
             result = machine.run("open")
             if result != "ok":
                 print("App error in open: %s" % result)

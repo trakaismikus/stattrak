@@ -79,6 +79,9 @@ static bool _eventHandler(uint16_t event) {
       return true;
 
     case EVENT__LONG_PRESS_1:
+      // The background app starts first: if the view before is that app, it shows that one
+      AppHost_backgroundPause(false);
+      AppHost_backgroundRefresh();
       AppView_set(AppView_getPrevious());
       return true;
 

@@ -145,7 +145,7 @@ static bool           s_pendingSave = false;
 static uint32_t       s_pendingSaveId = APPS_ID__NONE;
 static uint8_t        s_pendingSaveCount = 0;
 static int32_t        s_pendingValues[STAPP_MAX_SAVED];
-static uint32_t       s_pendingErrorId = APPS_ID__NONE;
+static uint32_t       s_pendingErrorIds[2] = { APPS_ID__NONE, APPS_ID__NONE };   // One for each runner
 
 // Color 2 (invert) of text and digits draws here first
 static uint8_t        s_scratchFrame[SCREEN_W * SCREEN_H / 8];
@@ -268,7 +268,8 @@ void AppHost_backgroundForget(void) {
   s_pendingDeaths = 0;
   // The flash is erased: nothing that waits is written
   s_pendingSave = false;
-  s_pendingErrorId = APPS_ID__NONE;
+  s_pendingErrorIds[0] = APPS_ID__NONE;
+  s_pendingErrorIds[1] = APPS_ID__NONE;
 }
 
 /* > Local Function Definitions *******************************************************************/
@@ -457,10 +458,19 @@ static void _fail(runner_t* r, stapp_result_t result) {
   ESP_LOGW(TAG, "App %08lx stopped: %s (code offset %u)", (unsigned long)r->id, Stapp_resultText(result),
            (unsigned)r->vm.errorPc);
 
-  // The error count goes to flash later (this can be in the draw function)
-  if(s_pendingErrorId != APPS_ID__NONE && s_pendingErrorId != r->id)
-    Apps_noteError(s_pendingErrorId);
-  s_pendingErrorId = r->id;
+  // The error count goes to flash later, in AppHost_update() (this can be in the draw function).
+  // A free place, or the same app: one error count for each app and loop.
+  for(uint8_t i = 0; i < 2; i++) {
+    if(s_pendingErrorIds[i] == r->id)
+      return;
+  }
+  for(uint8_t i = 0; i < 2; i++) {
+    if(s_pendingErrorIds[i] == APPS_ID__NONE) {
+      s_pendingErrorIds[i] = r->id;
+      return;
+    }
+  }
+  ESP_LOGW(TAG, "App %08lx: the error count waits for no place", (unsigned long)r->id);
 }
 
 static bool _valuesChanged(const runner_t* r) {
@@ -484,10 +494,12 @@ static void _flushPending(void) {
     s_pendingSave = false;
     Apps_saveValues(s_pendingSaveId, s_pendingValues, s_pendingSaveCount);
   }
-  if(s_pendingErrorId != APPS_ID__NONE) {
-    const uint32_t id = s_pendingErrorId;
-    s_pendingErrorId = APPS_ID__NONE;
-    Apps_noteError(id);
+  for(uint8_t i = 0; i < 2; i++) {
+    if(s_pendingErrorIds[i] != APPS_ID__NONE) {
+      const uint32_t id = s_pendingErrorIds[i];
+      s_pendingErrorIds[i] = APPS_ID__NONE;
+      Apps_noteError(id);
+    }
   }
 }
 
