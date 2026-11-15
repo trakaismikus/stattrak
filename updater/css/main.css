@@ -30,12 +30,6 @@ body {
 }
 .topbar__link:hover { background: rgba(255,255,255,0.04); color: var(--fg1); }
 
-.topbar__meta .btn--ghost { padding: 8px 14px; font-size: 12px; }
-.topbar__meta .btn__count {
-  font-family: var(--font-mono); font-size: 10px; font-weight: 400;
-  font-style: normal; letter-spacing: 0; text-transform: none;
-  color: var(--fg-muted); margin-left: 4px;
-}
 
 /* --- banners --------------------------------------------------------- */
 .banner {
@@ -232,29 +226,7 @@ body {
   50% { opacity: 0.5; box-shadow: 0 0 0 6px rgba(255,122,31,0); }
 }
 
-/* breadcrumb eyebrow-style */
-/* the boxes of a path on the device (Settings, Firmware: Update, ...): easy to see on black */
-.path-crumb {
-  display: inline-block;
-  font-family: var(--font-body);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  line-height: 1.3;
-  color: #fff;
-  background: var(--st-ink-700);
-  border: 1px solid var(--st-ink-400);
-  padding: 4px 11px;
-  border-radius: var(--r-sm);
-  vertical-align: 1px;
-}
-.path-sep {
-  display: inline-block;
-  margin: 0 8px;
-  color: var(--fg3);
-  font-weight: 500;
-}
+/* the boxes of a path on the device: css/site.css (SiteUI.crumbs) */
 
 /* how-to animation on step 1: the device shows the way to the update mode */
 .howto {
@@ -300,14 +272,6 @@ st-device[data-press="B"] .st-dev__btn {
   box-shadow: 0 0 8px 2px rgba(255, 122, 31, 0.75), 0 3px 14px 3px rgba(255, 122, 31, 0.35);
 }
 
-/* step 1 paragraph */
-.step1-instructions {
-  margin: 0 0 16px;
-  color: var(--fg1);
-  font-size: 16px;
-  line-height: 1.9;
-}
-.step1-instructions .path-crumb { margin: 0 2px; }
 
 /* --- step 2: firmware ------------------------------------------------- */
 .fw-tabs {
@@ -574,44 +538,7 @@ st-device[data-press="B"] .st-dev__btn {
 .success__meta strong { color: var(--fg1); font-weight: 500; margin-left: 6px; }
 .success__actions { margin-top: 24px; display: flex; gap: 10px; justify-content: center; }
 
-/* --- buttons --------------------------------------------------------- */
-.btn {
-  display: inline-flex; align-items: center; justify-content: center;
-  gap: 8px;
-  font-family: var(--font-stencil); font-weight: 800; font-style: italic;
-  font-size: 14px; text-transform: uppercase; letter-spacing: 0.06em;
-  padding: 11px 20px;
-  border-radius: var(--r-sm);
-  border: 1px solid transparent;
-  cursor: pointer;
-  transition: all var(--dur-fast) var(--ease-standard);
-  text-decoration: none;
-  white-space: nowrap;
-  color: var(--fg1);
-  background: transparent;
-}
-.btn:disabled, .btn[aria-disabled="true"] { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
-.btn--primary {
-  background: var(--accent); color: var(--fg-on-accent);
-}
-.btn--primary:hover { background: var(--accent-hover); }
-.btn--primary:active { background: var(--accent-pressed); transform: translateY(1px); box-shadow: var(--shadow-press); }
-.btn--ghost {
-  background: transparent; color: var(--fg1);
-  border-color: var(--stroke-2);
-}
-.btn--ghost:hover { background: rgba(255,255,255,0.04); border-color: var(--fg3); }
-.btn--danger-ghost {
-  background: transparent; color: var(--st-kill-red);
-  border-color: rgba(226,52,52,0.35);
-}
-.btn--danger-ghost:hover { background: rgba(226,52,52,0.08); }
-.btn--danger {
-  background: var(--st-kill-red); color: #fff;
-}
-.btn--danger:hover { background: #c72a2a; }
-.btn--danger:active { background: #a62424; transform: translateY(1px); box-shadow: var(--shadow-press); }
-.btn--lg { font-size: 16px; padding: 14px 28px; }
+/* --- buttons: css/site.css (one button style for the whole site) --- */
 
 .btn-row { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; align-items: center; }
 
@@ -700,7 +627,6 @@ st-device[data-press="B"] .st-dev__btn {
   margin-left: 12px;
 }
 .modal__header-actions { display: inline-flex; gap: 6px; align-items: center; }
-.modal__header-actions .btn--ghost { padding: 6px 12px; font-size: 11px; }
 .modal__body {
   flex: 1; min-height: 0;
   padding: 14px 18px;

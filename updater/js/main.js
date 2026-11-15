@@ -124,8 +124,11 @@ function pushLog(message, kind = "info") {
 }
 
 function renderLogCount() {
-  $("logCount").textContent = String(state.log.length);
+  if (typeof DevBar !== "undefined" && DevBar.isOpen()) DevBar.render();
 }
+
+/* The console opens from the StatTrak panel of the header (js/devbar.js) */
+const SiteConsole = { open: () => openConsole(), count: () => state.log.length };
 
 // --- Derived selectors -----------------------------------------------
 function selectedFirmware() {
@@ -920,7 +923,6 @@ function handleFile(file) {
 // --- Wiring -----------------------------------------------------------
 function wireEvents() {
   // topbar
-  $("consoleBtn").addEventListener("click", openConsole);
 
   // step 1
   $("pairBtn").addEventListener("click", onPairClick);

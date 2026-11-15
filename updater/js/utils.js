@@ -51,6 +51,20 @@ function crc16_ccitt(buffer) {
   }
   return crc;
 }
+/* Shared parts of the web site. Use these, do not write the same markup again in a page or in an
+ * added script (updater/README.md, "Shared parts").
+ *   SiteUI.crumbs(["Settings", "Apps: SYNC", "Hold right button"]): the way on the device to a
+ *   screen, in the boxes of css/site.css (.step1-instructions, .path-crumb, .path-sep).
+ *   SiteUI.base(): the path from this page to the site folder ("" or "../", <body data-base>). */
+const SiteUI = {
+  esc: (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])),
+  crumbs(steps, lead) {
+    const boxes = steps.map((s) => `<span class="path-crumb">${SiteUI.esc(s)}</span>`).join('<span class="path-sep" aria-hidden="true">→</span>');
+    return `<p class="step1-instructions">${SiteUI.esc(lead === undefined ? "Turn on StatTrak and navigate to" : lead)}&nbsp; ${boxes}</p>`;
+  },
+  base: () => (typeof document !== "undefined" && document.body && document.body.dataset.base) || "",
+};
+
 /* The site tells other scripts of the page about the StatTrak that it talks to. One browser event,
  * "stattrak:device", with detail = { event, serial, fw, previousFw, name }:
  *   event: "connected" | "flashed" | "disconnected"

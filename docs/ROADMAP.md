@@ -34,8 +34,8 @@ This repository (`trakaismikus/stattrak`) is private until these are done:
 2. The public address of the web updater works: the DNS record for
    `stattrak.tridos.design`.
 3. The official firmware files are in the "Releases" of this repository. Then change
-   `GH_OWNER` and `GH_REPO` in `updater/js/main.js` and the link at the top of
-   `updater/index.html` from `janiszah/stattrak-fw` to this repository, and put a note into
+   `GH_OWNER` and `GH_REPO` in `updater/js/main.js` from `janiszah/stattrak-fw` to this
+   repository, and put a note into
    the old release repository.
 4. Check the firmware fonts and the picture (AUDIT, section D), and the use of the name
    "StatTrak".

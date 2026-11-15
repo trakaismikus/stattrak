@@ -57,27 +57,7 @@ body {
 button, input, select, textarea { font: inherit; color: inherit; }
 code { font-family: var(--font-mono); font-size: 0.85em; }
 
-/* ---------- buttons ---------- */
-.btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  font-family: var(--font-display); font-weight: 800; font-style: italic;
-  font-size: 15px; text-transform: uppercase; letter-spacing: 0.05em;
-  padding: 8px 15px; border-radius: var(--r-sm); border: 1px solid transparent;
-  cursor: pointer; white-space: nowrap; color: var(--fg1); background: transparent;
-  transition: all var(--dur-fast) var(--ease-standard);
-}
-.btn svg { flex-shrink: 0; }
-.btn--primary { background: var(--accent); color: var(--fg-on-accent); }
-.btn--primary:hover { background: var(--accent-hover); }
-.btn--primary:active { background: var(--accent-pressed); transform: translateY(1px); box-shadow: var(--shadow-press); }
-.btn--ghost { border-color: var(--stroke-2); }
-.btn--ghost:hover { background: rgba(255,255,255,0.04); border-color: var(--fg3); }
-.btn--danger-ghost { color: var(--st-kill-red); border-color: rgba(226,52,52,0.35); }
-.btn--danger-ghost:hover { background: rgba(226,52,52,0.08); }
-.btn--lg { font-size: 17px; padding: 10px 20px; }
-.btn--sm { font-size: 13px; padding: 5px 9px; gap: 6px; }
-.btn--icon { padding: 0; width: 36px; height: 36px; }
-.btn:disabled, .btn:disabled:hover { opacity: 0.32; cursor: default; background: transparent; border-color: var(--stroke-2); }
+/* ---------- buttons: css/site.css (one button style for the whole site) ---------- */
 .btn.is-copied { background: var(--st-success); color: var(--fg-on-accent); }
 
 .eyebrow {
@@ -403,7 +383,7 @@ st-device { display: block; position: relative; width: 100%; aspect-ratio: 1896 
 </style>
 <!-- site:head -->
 </head>
-<body>
+<body data-base="../">
 
 <!-- ================= SITE HEADER (the same on every page, ../css/site.css) ================= -->
 <header class="site-header">
@@ -417,7 +397,7 @@ st-device { display: block; position: relative; width: 100%; aspect-ratio: 1896 
       <a class="tab tab--on" href="index.html" aria-current="page">Designer</a>
     </nav>
     <div class="site-header__meta">
-      <a class="devbtn devbtn--off" href="../index.html#device" title="Connect your StatTrak on My device"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg><span>Connect</span></a>
+      <div class="devbar" id="devBar"></div>
       <!-- site:meta -->
     </div>
   </div>
@@ -2338,6 +2318,12 @@ window.StatTrakDesigner = {
 };
 })();
 </script>
+<script src="../js/utils.js"></script>
+<script src="../js/ble.js"></script>
+<script src="../js/apps-protocol.js"></script>
+<script src="../js/apps-pictures.js"></script>
+<script src="../js/apps.js"></script>
+<script src="../js/devbar.js"></script>
 <!-- site:body -->
 </body>
 </html>

@@ -7,7 +7,9 @@
  *   firmware, a link to the firmware tab and Disconnect.
  * - Not connected: "Connect". The panel shows the way to "Apps: SYNC" and a Connect button.
  *
- * The other pages (Get started, Designer) have a plain link "Connect" to index.html#device.
+ * The same button on every page (Get started, Designer too): they load the connection code of My
+ * device. Only the Firmware tab has its own connection (the device in the update mode).
+ * The console (js/main.js) opens from the panel when a device is connected.
  */
 
 const DevBar = (() => {
@@ -22,6 +24,8 @@ const DevBar = (() => {
   const ARROW = '<line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>';
 
   const apps = () => (typeof AppsTab !== "undefined" ? AppsTab.api : null);
+  // A tab of index.html: "#name" there, else the address of index.html (the other pages)
+  const page = (name) => (document.getElementById("appsView") ? "#" + name : SiteUI.base() + "index.html#" + name);
   const fwState = () => (typeof state !== "undefined" ? state : null);
 
   /* What the button shows: { kind: sync | fw | off, ... } */
@@ -55,7 +59,7 @@ const DevBar = (() => {
   function vPanel(d) {
     if (d.kind === "off") {
       return '<div class="devmenu" role="dialog" aria-label="Connect StatTrak"><div class="devmenu__head"><span class="devmenu__title">Connect StatTrak</span></div>' +
-        '<p class="devmenu__steps">On StatTrak: <b>Settings</b> › <b>Apps: SYNC</b> › hold the right button.</p>' +
+        SiteUI.crumbs(["Settings", "Apps: SYNC", "Hold right button"]) +
         `<button class="btn btn--primary" type="button" data-dev="connect"${d.connecting || d.locked ? " disabled" : ""}>${icon(BT)}Connect</button>` +
         (d.locked ? '<p class="devmenu__note">A firmware update runs. Wait until it is complete.</p>' : '<p class="devmenu__note">For a firmware update, open the Firmware tab.</p>') + "</div>";
     }
@@ -81,9 +85,12 @@ const DevBar = (() => {
           return `<div class="devmenu__row"><span><b>${esc(u.app.name)}</b> <span class="devmenu__v">v${u.app.version} → v${u.item.version}</span></span>${act}</div>`;
         }).join("") + "</div>";
     }
+    if (typeof SiteConsole !== "undefined") {
+      h += `<button class="btn btn--ghost btn--sm devmenu__console" type="button" data-dev="console">Console <span class="devmenu__count">${SiteConsole.count()}</span></button>`;
+    }
     h += '<div class="devmenu__btns">' +
-      (d.kind === "sync" ? `<a class="btn btn--ghost btn--sm" href="#device" data-dev="close">My device ${icon(ARROW, 14)}</a>`
-        : `<a class="btn btn--ghost btn--sm" href="#firmware" data-dev="close">Firmware ${icon(ARROW, 14)}</a>`) +
+      (d.kind === "sync" ? `<a class="btn btn--ghost btn--sm" href="${page("device")}" data-dev="close">My device ${icon(ARROW, 14)}</a>`
+        : `<a class="btn btn--ghost btn--sm" href="${page("firmware")}" data-dev="close">Firmware ${icon(ARROW, 14)}</a>`) +
       `<button class="btn btn--ghost btn--sm" type="button" data-dev="disconnect"${d.busy ? " disabled" : ""}>Disconnect</button></div></div>`;
     return h;
   }
@@ -118,6 +125,7 @@ const DevBar = (() => {
     const a = apps();
     if (what === "toggle") return setOpen(!open);
     if (what === "close") return setOpen(false);
+    if (what === "console" && typeof SiteConsole !== "undefined") { setOpen(false); SiteConsole.open(); return; }
     if (what === "connect" && a && !a.firmwareBusy()) {
       // The connection of My device: from the firmware tab, open My device first
       if (a.state.tab === "firmware") location.hash = "#device";

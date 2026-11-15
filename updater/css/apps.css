@@ -14,7 +14,6 @@
 .apps .sec-head + .banner { margin-bottom: 10px; }
 .apps button { font-family: inherit; }
 
-.apps .btn--sm { padding: 6px 12px; font-size: 13px; min-height: 34px; }
 .apps .icon-btn {
   display: inline-grid; place-items: center; width: 44px; height: 44px; flex: 0 0 auto;
   border-radius: var(--r-sm); border: 1px solid transparent; background: none; color: var(--fg1); cursor: pointer;

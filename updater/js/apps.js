@@ -12,7 +12,7 @@
  */
 
 const AppsTab = (() => {
-  const CATALOG_URL = "apps/catalog.json";
+  const catalogUrl = () => SiteUI.base() + "apps/catalog.json";
   const MAX_BYTES = 24 * 1024;          // all installed packages together (docs/APPS.md section 2)
   const PERMISSION_TEXT = { sound: "Uses sound", counters: "Changes your kill counts" };
 
@@ -127,7 +127,7 @@ const AppsTab = (() => {
     if (A.catalog) return;
     A.catalog = [];
     try {
-      const response = await fetch(CATALOG_URL, { cache: "no-cache" });
+      const response = await fetch(catalogUrl(), { cache: "no-cache" });
       const catalog = await response.json();
       if (!catalog || catalog.format !== "stattrak-apps" || !Array.isArray(catalog.apps)) throw new Error("not a catalog");
       A.catalog = catalog.apps
@@ -135,7 +135,7 @@ const AppsTab = (() => {
         .map((a) => ({
           key: a.id, id: parseInt(a.id, 16), name: a.name, desc: a.description || "", size: a.size,
           version: a.version, permissions: a.permissions || [], picture: a.picture, settings: a.settings || [],
-          file: "apps/" + a.file,
+          file: SiteUI.base() + "apps/" + a.file,
         }));
       for (const item of A.catalog) A.known[item.key] = { picture: item.picture, settings: item.settings };
     } catch (error) {
@@ -157,9 +157,7 @@ const AppsTab = (() => {
   function vConnect() {
     const supported = typeof detectBleSupport !== "function" || detectBleSupport().supported;
     return (A.banner ? banner(A.banner.kind, A.banner.title, A.banner.body) : "") +
-      '<div class="connect"><p class="step1-instructions">Turn on StatTrak and navigate to&nbsp; <span class="path-crumb">Settings</span>' +
-      '<span class="path-sep" aria-hidden="true">→</span><span class="path-crumb">Apps: SYNC</span>' +
-      '<span class="path-sep" aria-hidden="true">→</span><span class="path-crumb">Hold right button</span></p>' +
+      '<div class="connect">' + SiteUI.crumbs(["Settings", "Apps: SYNC", "Hold right button"]) +
       device("sync-path", undefined, "StatTrak: both buttons to the app menu, left button to SETTINGS, both buttons to open it, " +
         "right button down to APPS: SYNC, hold the right button. The screen shows APP SYNC, Waiting.") +
       `<button class="btn btn--primary btn--lg" data-act="connect" type="button"${A.conn === "connecting" || !supported ? " disabled" : ""}>` +
@@ -475,6 +473,8 @@ const AppsTab = (() => {
       A.conn = "on";
       log(`connected, firmware ${A.fw}, ${A.list.length} apps, ${A.info.free} bytes free`, "ok");
       SiteEvents.emitDevice({ event: "connected", serial: A.serial, fw: A.fw, name: namePart() });
+      // On the other pages (no My device view) the catalog is loaded here: for "Update available"
+      if (!A.catalog) loadCatalog();
     } catch (error) {
       if (ota !== A.ota) return;
       // Firmware 1.0.1 does not answer user commands at all
@@ -911,6 +911,8 @@ const AppsTab = (() => {
   }
 
   function init() {
+    // Also on the other pages (they connect from the header): the browser asks before it leaves an install
+    window.addEventListener("beforeunload", (event) => { if (busy() || firmwareBusy()) event.preventDefault(); });
     const main = $("#appsMain");
     if (!main) return;
     main.addEventListener("click", onClick);
@@ -943,8 +945,6 @@ const AppsTab = (() => {
     });
     const fromHash = () => showTab(tabOfHash(location.hash));
     window.addEventListener("hashchange", fromHash);
-    // Also a typed address or Back: the browser asks first during a transfer or an install
-    window.addEventListener("beforeunload", (event) => { if (busy() || firmwareBusy()) event.preventDefault(); });
     fromHash();
   }
 

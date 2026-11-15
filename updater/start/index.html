@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="../css/site.css" />
 <!-- site:head -->
 </head>
-<body>
+<body data-base="../">
   <!-- ================= SITE HEADER (the same on every page, css/site.css) ================= -->
   <header class="site-header">
     <div class="site-header__in">
@@ -24,9 +24,8 @@
         <!-- site:nav -->
         <a class="tab" href="../designer/index.html">Designer</a>
       </nav>
-      <div class="site-header__meta topbar__meta">
-        <a class="topbar__link" href="https://tridos.design/products/stattrak-hit-counter" target="_blank" rel="noreferrer">Get a StatTrak</a>
-        <a class="devbtn devbtn--off" href="../index.html#device" title="Connect your StatTrak on My device"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg><span>Connect</span></a>
+      <div class="site-header__meta">
+        <div class="devbar" id="devBar"></div>
         <!-- site:meta -->
       </div>
     </div>
@@ -260,6 +259,12 @@ I may not be a programmer. Use plain words.</pre>
       });
     });
   </script>
+<script src="../js/utils.js"></script>
+<script src="../js/ble.js"></script>
+<script src="../js/apps-protocol.js"></script>
+<script src="../js/apps-pictures.js"></script>
+<script src="../js/apps.js"></script>
+<script src="../js/devbar.js"></script>
 <!-- site:body -->
 </body>
 </html>

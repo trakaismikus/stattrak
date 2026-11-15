@@ -122,6 +122,24 @@ device in "Apps: SYNC"); from the firmware tab it opens My device first. During 
 update the button shows the device of the firmware tab. The other pages have a **Connect**
 link to `index.html#device`.
 
+## Shared parts (every page)
+
+Use these; do not write the same thing again in a page or in an added script.
+
+- **The header** is the same on every page: the logo, the menu, the StatTrak button
+  (`<div class="devbar" id="devBar"></div>`, `js/devbar.js`) and `<!-- site:meta -->`.
+  `tests/site.test.js` checks that the headers are the same.
+- **Buttons:** only the classes of `css/site.css` (`.btn` + one size `--sm` / `--lg` / `--icon`
+  + one kind `--primary` / `--ghost` / `--danger` / `--danger-ghost`). No other button styles in a
+  page. The header buttons are `.devbtn` (34 px, the height of `.btn--sm`).
+- **The way on the device** ("Settings → Apps: SYNC → Hold right button"):
+  `SiteUI.crumbs([...])` (`js/utils.js`), with the boxes `.path-crumb` of `css/site.css`.
+- **The device picture:** `<st-device>` (`js/device.js`, `assets/device.webp`). Its own frames:
+  `StDevice.anims[name] = (arg) => [{ b: { w: 128, h: 32, d }, ms, press: "" }]` (or a Promise),
+  then `<st-device anim="name" arg="...">`; one picture: `el.showBuffer({ w, h, d })`.
+- Classes of an added site must not use the names of these files: they start with their own
+  prefix (the private site uses `as-`).
+
 ## Places for added parts
 
 A site that is built from this folder can add its own parts (an extra tab, a sign-in button,

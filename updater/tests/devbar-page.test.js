@@ -197,14 +197,33 @@ test("the event stattrak:device: connected with serial, firmware and name; disco
   assert.equal(await page.evaluate("SiteEvents.device"), null);
 });
 
-test("the other pages: a Connect link to My device in the header", { skip: SKIP }, async (t) => {
+test("the other pages: the same StatTrak button, and it connects there (Designer)", { skip: SKIP }, async (t) => {
   const page = await browser.newPage();
-  t.after(() => page.close());
-  for (const name of ["start/index.html", "designer/index.html"]) {
-    await page.goto(site.url + "/" + name);
-    assert.equal(await page.evaluate(`new URL(document.querySelector(".site-header .devbtn").href).hash`), "#device");
-    assert.equal(await textOf(page, ".site-header .devbtn"), "Connect");
-  }
+  await page.setInitScript(initScript({ deviceName: "BRAVO-6" }));
+  await page.goto(site.url + "/designer/index.html");
+  t.after(async () => { assert.deepEqual(page.errors, [], "errors in the page"); await page.close(); });
+  assert.equal(await textOf(page, "#devBar .devbtn"), "Connect");
+  await act(page, '#devBar [data-dev="toggle"]');
+  // The way on the device: the shared boxes, as on My device
+  assert.deepEqual(await page.evaluate('[...document.querySelectorAll("#devBar .path-crumb")].map((e) => e.textContent)'), ["Settings", "Apps: SYNC", "Hold right button"]);
+  await act(page, '#devBar [data-dev="connect"]');
+  await page.waitFor(`/BRAVO-6/.test(document.querySelector("#devBar .devbtn").textContent)`);
+  await act(page, '#devBar [data-dev="toggle"]');
+  assert.match(await textOf(page, "#devBar .devmenu"), /Serial 34B7DA010203/);
+  // No console on this page; My device is a link to index.html
+  assert.equal(await page.evaluate(`!!document.querySelector('#devBar [data-dev="console"]')`), false);
+  assert.match(await page.evaluate(`document.querySelector('#devBar [data-dev="close"]').getAttribute("href")`), /^\.\.\/index\.html#device$/);
+});
+
+test("the console opens from the StatTrak panel; the way on the device uses the shared boxes", { skip: SKIP }, async (t) => {
+  const page = await open(t, {}, "#device");
+  assert.equal(await page.evaluate('document.querySelectorAll("#appsMain .path-crumb").length'), 3);
+  await act(page, '[data-act="connect"]');
+  await page.waitFor(`AppsTab.state.conn === "on"`);
+  await act(page, '#devBar [data-dev="toggle"]');
+  await act(page, '#devBar [data-dev="console"]');
+  await page.waitFor(`document.querySelector(".modal-panel--console")`);
+  assert.equal(await page.evaluate("!!document.getElementById(\"consoleBtn\")"), false);
 });
 
 test("an update that does not fit: the reason in place of Update, on My device and in the header", { skip: SKIP }, async (t) => {

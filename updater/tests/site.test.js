@@ -95,11 +95,37 @@ test("every page has the places for added parts, and the StatTrak button or a Co
     // site:nav is in the menu, right after My device
     const nav = html.match(/<nav class="site-nav"[^>]*>([\s\S]*?)<\/nav>/)[1];
     assert.match(nav, />My device<\/a>\s*<!-- site:nav -->/, page);
-    if (page === "index.html") {
-      assert.match(html, /<div class="devbar" id="devBar"><\/div>/);
-      assert.equal(html.split("<!-- site:views -->").length, 2);
-    } else {
-      assert.match(html, /<a class="devbtn devbtn--off" href="\.\.\/index\.html#device"/, page);
-    }
+    assert.match(html, /<div class="devbar" id="devBar"><\/div>/, page);
+    if (page === "index.html") assert.equal(html.split("<!-- site:views -->").length, 2);
   }
+});
+
+/* The header is the same on every page: the logo, the menu, the StatTrak button and the place
+   for added parts. Only the marked tab and the paths to the other pages differ. */
+test("every page has the same header", () => {
+  const norm = (page) => {
+    const head = read(page).match(/<header class="site-header">([\s\S]*?)<\/header>/)[1];
+    return head
+      .replace(/ (?:id="[^"]*"|aria-current="page")/g, "")
+      .replace(/ tab--on/g, "")
+      .replace(/href="([^"#]*)(#[^"]*)?"/g, (m, file, hash) => `href="${file ? fromRoot(page, file) : page}${hash || ""}"`)
+      .replace(/src="([^"]*)"/g, (m, file) => `src="${fromRoot(page, file)}"`)
+      .replace(/\s*\/>/g, ">")
+      .replace(/\s+/g, " ").trim();
+  };
+  const first = norm(PAGES[0]);
+  for (const page of PAGES.slice(1)) assert.equal(norm(page), first, page);
+  // No other buttons in the header: the console opens from the StatTrak panel
+  for (const page of PAGES) assert.doesNotMatch(read(page).match(/<header[\s\S]*?<\/header>/)[0], /consoleBtn|topbar__link|<button/, page);
+});
+
+/* One button style for the whole site (css/site.css): no page defines its own .btn rules */
+test("the buttons are defined in css/site.css only", () => {
+  const files = ["css/main.css", "css/apps.css", "css/start.css", "designer/index.html", "start/index.html", "index.html"];
+  for (const f of files) {
+    if (!fs.existsSync(path.join(SITE, f))) continue;
+    // A rule that starts with .btn or .btn--x (a placement inside a part, like ".sec-head .btn", is fine)
+    assert.doesNotMatch(read(f), /(^|[,}])\s*\.btn(--[a-z-]+)?(:[a-z-]+)?\s*[,{]/m, `${f} defines a .btn style`);
+  }
+  assert.match(read("css/site.css"), /\.btn \{/);
 });
