@@ -87,6 +87,12 @@ This repository (`trakaismikus/stattrak`) is private until these are done:
   Connect from any tab. Installed apps with a newer catalog version show "Update available".
   The site has places for added parts (an extra tab, a sign-in button) and tells added scripts
   about the device with the event `stattrak:device`; the site itself sends nothing.
+  On a web server, Get started and the Screen Designer open inside the same page, so the
+  StatTrak connection stays when you change pages. My device: the name of StatTrak at the top
+  (a pencil opens the Bluetooth name), the boot image (the start picture), backup, app data and
+  device log above the app list, each one folds. The Screen Designer: "Show on StatTrak" sends
+  the selected screen once, over the connection of the header (in place of the live preview).
+  No console on the page (the log is in the developer tools of the browser).
 - **2026-11: App Sync how-to and Screen Designer tools.** The Apps tab shows the whole way to
   App Sync on the current firmware (counter, app menu, Settings, "Apps: SYNC", hold the right
   button, each click shown) with the lit buttons, at the size of the firmware how-to; "Apps: SYNC"

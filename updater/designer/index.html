@@ -54,6 +54,8 @@ body {
   display: grid; grid-template-rows: auto 52px minmax(0, 1fr) 150px;
   min-width: 1000px;
 }
+/* inside index.html (#designer): no own header */
+.in-frame body { grid-template-rows: 52px minmax(0, 1fr) 150px; }
 button, input, select, textarea { font: inherit; color: inherit; }
 code { font-family: var(--font-mono); font-size: 0.85em; }
 
@@ -97,7 +99,7 @@ code { font-family: var(--font-mono); font-size: 0.85em; }
 .topbar__spacer { flex: 1; }
 .topbar__acts { display: flex; gap: 8px; align-items: center; }
 .topbar__div { width: 1px; height: 28px; background: var(--stroke-1); margin: 0 4px; }
-/* Live preview: the state under the tool bar, at the right */
+/* Show on StatTrak: the state under the tool bar, at the right */
 .live-state {
   position: absolute; top: calc(100% + 8px); right: 16px; z-index: 5; max-width: 420px;
   background: var(--st-ink-800); border: 1px solid var(--stroke-2); border-radius: var(--r-sm);
@@ -108,7 +110,6 @@ code { font-family: var(--font-mono); font-size: 0.85em; }
 .live-state.is-on::before { background: var(--st-success); }
 .live-state.is-err { border-color: rgba(226,52,52,0.6); }
 .live-state.is-err::before { background: var(--st-kill-red); }
-.btn.is-live { border-color: var(--st-success); color: var(--st-success); }
 
 /* ---------- workbench ---------- */
 .work { display: grid; grid-template-columns: 78px minmax(0, 1fr) 300px; min-height: 0; }
@@ -398,6 +399,10 @@ st-device { display: block; position: relative; width: 100%; aspect-ratio: 1896 
   .sec { padding: 14px 14px; }
 }
 </style>
+<script>
+/* Inside index.html (Get started and the Designer open there, js/utils.js SiteFrame): no own header */
+try { if (window.parent !== window && window.parent.AppsTab) document.documentElement.classList.add("in-frame"); } catch (e) { /* an other site */ }
+</script>
 <!-- site:head -->
 </head>
 <body data-base="../">
@@ -444,21 +449,21 @@ st-device { display: block; position: relative; width: 100%; aspect-ratio: 1896 
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       Save
     </button>
-    <button class="btn btn--ghost" id="pngBtn" type="button" title="Save the selected screen as a 128 x 32 picture (white = on). Use it as the start picture in Apps.">
+    <button class="btn btn--ghost" id="pngBtn" type="button" title="Save the selected screen as a 128 x 32 picture (white = on). Use it as the boot image on My device.">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>
       Download PNG
     </button>
     <span class="topbar__div"></span>
-    <button class="btn btn--ghost" id="liveBtn" type="button" title="Show the selected screen on your StatTrak while you draw (Bluetooth)">
+    <button class="btn btn--ghost" id="showBtn" type="button" hidden title="Show the selected screen on StatTrak. It stays there until you press a button on StatTrak.">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg>
-      <span id="liveLbl">Live preview</span>
+      <span id="showLbl">Show on StatTrak</span>
     </button>
     <button class="btn btn--primary btn--lg" id="sendBtn" type="button">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg>
       Send to AI
     </button>
   </div>
-  <div class="live-state" id="liveState" role="status" hidden></div>
+  <div class="live-state" id="showState" role="status" hidden></div>
 </div>
 
 <!-- ================= WORKBENCH ================= -->
@@ -622,11 +627,15 @@ st-device { display: block; position: relative; width: 100%; aspect-ratio: 1896 
 
 <script src="assets.js"></script>
 <script src="design.js"></script>
-<!-- Live preview: the Bluetooth code of the Apps tab (plain scripts: they also load from a disk) -->
+<!-- The StatTrak connection of the header (plain scripts: they also load from a disk) -->
 <script src="../js/utils.js"></script>
 <script src="../js/ble.js"></script>
 <script src="../js/apps-protocol.js"></script>
 <script src="../js/data-protocol.js"></script>
+<script src="../js/apps-pictures.js"></script>
+<script src="../js/apps-data.js"></script>
+<script src="../js/apps.js"></script>
+<script src="../js/devbar.js"></script>
 <script src="default-design.js"></script>
 <script src="../js/device.js"></script>
 <script>
@@ -1085,7 +1094,7 @@ function render() {
   const tc = document.querySelector(`.tile[data-i="${cur}"] canvas`);
   if (tc) bufToCanvas(tc, buf);
   if (!$('#sendModal').hidden) updateAiText();
-  liveChanged();
+  showChanged(buf);
 }
 function fitZoom() {
   const sc = $('#scroll');
@@ -2083,134 +2092,84 @@ $('#pngBtn').addEventListener('click', () => {
 });
 
 /* ================================================================================================
- * Live preview: the selected screen on the device over Bluetooth, while the device shows
- * Settings > Apps: SYNC. The same connection and commands as the Apps tab (../js/ble.js,
- * ../js/apps-protocol.js, ../js/data-protocol.js): a preview frame (docs/DATA.md 5.1, kind 3),
- * about 400 ms after the last change, one frame at a time. Nothing is written to flash.
+ * Show on StatTrak: the selected screen on the connected StatTrak. The connection is the one of
+ * the StatTrak button in the header (inside index.html: the one of that page, SiteFrame.host).
+ * One press = one frame (docs/DATA.md 5.1, kind 3). StatTrak shows it until a button is pressed
+ * on it or the next frame comes. Nothing is written to flash. The button shows only while a
+ * StatTrak is connected.
  * ============================================================================================== */
-const LIVE_WAIT_MS = 400;
-// var: render() can run before this line (then there is no preview yet)
-var Live = { ota: null, data: null, on: false, pairing: false, sending: false, again: false, timer: null, last: null, frames: 0 };
-const OPEN_SYNC = 'Open Settings > Apps: SYNC on the device';
-function liveState(text, kind) {
-  const el = $('#liveState');
+// var: render() can run before this line (then there is nothing to compare yet)
+var Show = { sending: false, shown: null, frames: 0, note: null };
+function showHost() {
+  const w = (typeof SiteFrame !== 'undefined' && SiteFrame.host) || window;
+  return w.AppsTab || null;
+}
+function showState(text, kind) {
+  const el = $('#showState');
   el.hidden = !text;
   el.textContent = text || '';
   el.className = 'live-state' + (kind ? ' is-' + kind : '');
 }
-function liveButton() {
-  const b = $('#liveBtn');
-  const supported = !!(navigator.bluetooth && typeof navigator.bluetooth.requestDevice === 'function');
-  if (!supported) {
-    b.disabled = true;
-    $('#liveLbl').textContent = 'Live preview needs Chrome or Edge';
-    b.title = 'Live preview uses Bluetooth in the browser: open this page in Chrome or Edge on a computer.';
+const SHOW_OLD_FW = 'Update the firmware of StatTrak: it cannot show a screen from here.';
+function showButton() {
+  const t = showHost(), b = $('#showBtn');
+  const on = !!t && t.state.conn === 'on';
+  b.hidden = !on;
+  if (!on) {
+    // No StatTrak: no button, no state
+    Show.shown = null;
+    Show.note = null;
+    if (!Show.sending) showState('');
     return;
   }
-  const busy = Live.pairing || (!!Live.ota && !Live.on);
-  b.disabled = busy;
-  $('#liveLbl').textContent = Live.on ? 'Stop' : (busy ? 'Connecting…' : 'Live preview');
-  b.classList.toggle('is-live', Live.on);
+  const can = t.api.canPreview();
+  b.disabled = Show.sending || can !== true || t.api.busy();
+  $('#showLbl').textContent = Show.sending ? 'Sending…' : 'Show on StatTrak';
+  if (can === false && !Show.sending) showState(SHOW_OLD_FW, 'err');
 }
-function liveEnd(text, kind) {
-  const ota = Live.ota;
-  clearTimeout(Live.timer);
-  Object.assign(Live, { ota: null, data: null, on: false, sending: false, again: false, timer: null, last: null });
-  if (ota) {
-    ota.removeEventListener('bleConnected', liveConnected);
-    ota.removeEventListener('bleDisconnected', liveLost);
-    ota.removeEventListener('bleConnectFailed', liveFailed);
-    try { ota.disconnect(); } catch (e) { /* already gone */ }
-  }
-  liveState(text, kind);
-  liveButton();
+/* After each change of the screen: does StatTrak still show this screen? */
+function showChanged(buf) {
+  if (!Show || Show.sending || !Show.shown) return;
+  const now = Array.prototype.join.call(buf || pixelsOf(S()), '');
+  if (now === Show.shown) showState('StatTrak shows this screen until you press a button on StatTrak.', 'on');
+  else showState('StatTrak shows an older version. Press Show on StatTrak to send this one.');
 }
-async function liveStart() {
-  if (Live.ota || Live.pairing) return;
-  liveState(OPEN_SYNC + ', then pick StatTrak in the list.');
-  Live.pairing = true;
-  liveButton();
-  let ota;
+async function showSend() {
+  const t = showHost();
+  if (!t || Show.sending || t.state.conn !== 'on') return;
+  const pixels = pixelsOf(S()), key = Array.prototype.join.call(pixels, '');
+  Show.sending = true;
+  showState('Sending the screen to StatTrak…');
+  showButton();
+  let result;
   try {
-    ota = await StatTrakApps.pair();
+    // A plain array: index.html makes its own bytes (an other window)
+    result = await t.api.preview(Array.from(FrameBuffer.fromPixels(pixels)));
   } catch (e) {
-    Live.pairing = false;
-    liveEnd(e && e.name === 'NotFoundError' ? '' : 'Could not connect. ' + OPEN_SYNC + ', then try again.', e && e.name === 'NotFoundError' ? '' : 'err');
-    return;
+    result = e;
   }
-  Live.pairing = false;
-  Live.ota = ota;
-  ota.addEventListener('bleConnected', liveConnected);
-  ota.addEventListener('bleDisconnected', liveLost);
-  ota.addEventListener('bleConnectFailed', liveFailed);
-  liveState('Connecting… ' + OPEN_SYNC + '.');
-  liveButton();
-}
-function liveConnected(event) {
-  if (event.target !== Live.ota) return;
-  Live.ota.wantConnection = false;   // One connection: when it is lost, the person connects again
-  Live.data = new StatTrakData(new StatTrakApps(Live.ota));
-  Live.on = true;
-  liveButton();
-  liveSend();
-}
-function liveLost(event) {
-  if (event.target !== Live.ota) return;
-  liveEnd('Connection lost. ' + OPEN_SYNC + ', then start the live preview again.', 'err');
-}
-function liveFailed(event) {
-  if (event.target !== Live.ota) return;
-  liveEnd('Could not connect. ' + OPEN_SYNC + ', then try again.', 'err');
-}
-/* A change of the screen: send it about 400 ms after the last change */
-function liveChanged() {
-  if (!Live || !Live.on) return;
-  clearTimeout(Live.timer);
-  Live.timer = setTimeout(liveSend, LIVE_WAIT_MS);
-}
-/* Never two frames at once: a change during a send gives one more send after it */
-async function liveSend() {
-  if (!Live.on) return;
-  if (Live.sending) { Live.again = true; return; }
-  const data = Live.data;
-  Live.sending = true;
-  try {
-    do {
-      Live.again = false;
-      const frame = FrameBuffer.fromPixels(pixelsOf(S()));
-      const result = await data.sendPreview(frame);
-      if (data !== Live.data) return;
-      if (result.result !== 'done') throw Object.assign(new Error('stopped'), { kind: 'stopped' });
-      Live.last = frame;
-      Live.frames++;
-    } while (Live.again && Live.on);
-    liveState('Connected — the device shows your screen. A button on the device ends it; draw again to show it again.', 'on');
-  } catch (e) {
-    if (data !== Live.data) return;
-    const k = e && e.kind;
-    if (k === 'old firmware') return liveEnd('Update the firmware of StatTrak: it has no live preview.', 'err');
-    if (k === 'not in sync') return liveEnd('StatTrak does not show Apps: SYNC. ' + OPEN_SYNC + ', then try again.', 'err');
-    if (k === 'waiting') liveState('Answer the question on StatTrak first.', 'err');
-    else if (k === 'no answer' || k === 'bad answer') return liveEnd('No answer from StatTrak. ' + OPEN_SYNC + ', then try again.', 'err');
-    else liveState('StatTrak did not show the screen. Draw again to try again.', 'err');
-  } finally {
-    if (data === Live.data) {
-      Live.sending = false;
-      if (Live.again && Live.on) liveChanged();
-    }
+  Show.sending = false;
+  if (result === 'done') {
+    Show.shown = key;
+    Show.frames++;
+    showChanged();
+  } else {
+    Show.shown = null;
+    const k = result && result.kind;
+    if (result === 'busy') showState('StatTrak is busy with an other transfer. Try again when it ends.', 'err');
+    else if (result === 'unsupported') showState(SHOW_OLD_FW, 'err');
+    else if (k === 'waiting') showState('Answer the question on StatTrak first.', 'err');
+    else if (k === 'not in sync') showState('StatTrak does not show Apps: SYNC. Connect again from the StatTrak button.', 'err');
+    else showState('StatTrak did not show the screen. Try again.', 'err');
   }
+  showButton();
 }
-async function liveStop() {
-  const data = Live.data;
-  clearTimeout(Live.timer);
-  Live.on = false;
-  if (data) {
-    try { await data.previewStop(); } catch (e) { /* the connection ends anyway */ }
-  }
-  liveEnd('');
+$('#showBtn').addEventListener('click', showSend);
+{
+  const t = showHost();
+  if (t) t.api.subscribe(() => showButton());
 }
-$('#liveBtn').addEventListener('click', () => { if (Live.on) liveStop(); else liveStart(); });
-liveButton();
+showButton();
 
 /* ================================================================================================
  * Keyboard
@@ -2491,19 +2450,13 @@ renderRail(); sizeCanvas(); refreshView(); updateUndoButtons(); fitZoom();
 window.StatTrakDesigner = {
   get project() { return P; }, get current() { return cur; }, get selected() { return sel; },
   get history() { return { undo: hist.undo.length, redo: hist.redo.length, open: !!hist.open }; },
-  get live() { return { on: Live.on, frames: Live.frames, sending: Live.sending }; },
+  get show() { return { sending: Show.sending, frames: Show.frames, shown: !!Show.shown }; },
   pixels: () => Array.from(pixelsOf(S())),
   undo, redo, openText, designFromText,
   get group() { return group ? { els: group.els.map(e => S().elements.indexOf(e)), parts: group.parts.length, rect: group.rect } : null; }
 };
 })();
 </script>
-<script src="../js/utils.js"></script>
-<script src="../js/ble.js"></script>
-<script src="../js/apps-protocol.js"></script>
-<script src="../js/apps-pictures.js"></script>
-<script src="../js/apps.js"></script>
-<script src="../js/devbar.js"></script>
 <!-- site:body -->
 </body>
 </html>

@@ -65,7 +65,7 @@ async function open(t, deviceOptions, options) {
   // What a test that stops at a wait shows: the last lines of the page console, and the device
   page.diagnose = () => page.evaluate(`JSON.stringify({
     flashState: state.flashState, connState: state.connState, file: !!state.uploadedFile,
-    log: state.log.slice(-12).map((line) => line.m), device: window.__device.events.slice(-12),
+    device: window.__device.events.slice(-12),
   }, null, 1)`);
   await page.setInitScript(initScript(deviceOptions || {}, settings));
   await load(page);

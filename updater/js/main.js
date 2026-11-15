@@ -20,10 +20,8 @@ const state = {
   step2Confirmed: false,
   flashState: "ready",      // ready | flashing | verifying | done | error
   progress: 0,
-  log: [],
   notice: null,             // { kind: error | warn | ok, title, body } shown above the steps
   doneInfo: null,           // { version, device } that the device reported after the update
-  consoleOpen: false,
   confirmOpen: false,
 };
 
@@ -116,19 +114,11 @@ function detectBleSupport() {
   return { supported: hasBle, name };
 }
 
+/* The log of the updater: only in the developer tools of the browser (F12), no view on the page */
 function pushLog(message, kind = "info") {
-  state.log.push({ t: nowHHMMSS(), k: kind, m: message });
-  if (state.log.length > 200) state.log.splice(0, state.log.length - 200);
-  renderLogCount();
-  if (state.consoleOpen) renderConsoleModalBody();
+  const line = `[${nowHHMMSS()}] ${message}`;
+  if (kind === "warn") console.warn(line); else console.log(line);
 }
-
-function renderLogCount() {
-  if (typeof DevBar !== "undefined" && DevBar.isOpen()) DevBar.render();
-}
-
-/* The console opens from the StatTrak panel of the header (js/devbar.js) */
-const SiteConsole = { open: () => openConsole(), count: () => state.log.length };
 
 // --- Derived selectors -----------------------------------------------
 function selectedFirmware() {
@@ -790,43 +780,6 @@ async function confirmWaitingFirmware(manual, pending) {
 }
 
 // --- Modals -----------------------------------------------------------
-function openConsole() {
-  state.consoleOpen = true;
-  mountConsoleModal();
-}
-function closeConsole() {
-  state.consoleOpen = false;
-  unmountModal();
-}
-function mountConsoleModal() {
-  const root = $("modalRoot");
-  const tpl = $("consoleModalTpl");
-  root.innerHTML = "";
-  root.appendChild(tpl.content.cloneNode(true));
-  root.hidden = false;
-
-  root.querySelector("[data-close]").addEventListener("click", closeConsole);
-  root.querySelector("[data-clear]").addEventListener("click", () => {
-    state.log.length = 0;
-    renderLogCount();
-    renderConsoleModalBody();
-  });
-  root.querySelector(".modal-backdrop").addEventListener("click", (e) => {
-    if (e.target.matches("[data-dismiss]")) closeConsole();
-  });
-  renderConsoleModalBody();
-}
-function renderConsoleModalBody() {
-  const root = $("modalRoot");
-  const body = root.querySelector("[data-log-body]");
-  if (!body) return;
-  body.innerHTML = state.log
-    .map((l) => `<div class="log__line log__line--${l.k}"><span class="log__time">${l.t}</span>${escapeHtml(l.m)}</div>`)
-    .join("");
-  body.scrollTop = body.scrollHeight;
-  const count = root.querySelector("[data-log-count]");
-  if (count) count.textContent = String(state.log.length);
-}
 
 function openConfirm() {
   const fw = selectedFirmware();
@@ -1023,7 +976,6 @@ function wireEvents() {
   document.addEventListener("keydown", (e) => {
     if (e.key !== "Escape") return;
     if (state.confirmOpen) closeConfirm();
-    else if (state.consoleOpen) closeConsole();
   });
 }
 

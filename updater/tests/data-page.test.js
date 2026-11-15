@@ -1,5 +1,5 @@
-/* Tests of the parts under the app list of the Apps tab (start picture, backup, app data, device
- * log: js/apps-data.js) and of the Screen Designer buttons Download PNG and Live preview, in a
+/* Tests of the parts above the app list of My device (boot image, backup, app data, device log:
+ * js/apps-data.js) and of the Screen Designer buttons Download PNG and Show on StatTrak, in a
  * real headless Chrome with the stand-in device in place of Web Bluetooth.
  * Run: node --test "tests/*.test.js"
  *
@@ -87,7 +87,7 @@ async function openPage(t, url, deviceOptions, speed) {
 async function openApps(t, deviceOptions) {
   const page = await openPage(t, "/index.html", deviceOptions, SPEED);
   page.diagnose = () => page.evaluate(`JSON.stringify({ conn: AppsTab.state.conn, work: SyncParts.state.work, supported: SyncParts.state.supported,
-    log: state.log.slice(-10).map((l) => l.m), device: window.__device.events.slice(-10) }, null, 1)`);
+    device: window.__device.events.slice(-10) }, null, 1)`);
   await page.evaluate(`BleOta.RECONNECT_GIVE_UP_MS = ${300000 / SPEED}; StatTrakApps.QUESTION_WAIT_MS = ${40000 / SPEED}; location.hash = "#apps"`);
   await page.waitFor(`!document.getElementById("appsView").hidden`);
   await act(page, '[data-act="connect"]');
@@ -99,6 +99,11 @@ const act = (page, selector) => page.evaluate(`(() => { const el = document.quer
 const has = (selector) => `document.querySelector(${JSON.stringify(selector)})`;
 const text = (page, selector) => page.evaluate(`(document.querySelector(${JSON.stringify(selector)}) || {}).textContent || ""`);
 const sectionText = (title) => `([...document.querySelectorAll("#appsMain section")].find((s) => s.querySelector(".h2").textContent === ${JSON.stringify(title)}) || {}).textContent || ""`;
+/* Opens a part that folds (Boot image, Backup, App data, Device log) */
+const openFold = async (page, key) => {
+  await page.waitFor(`document.querySelector('[data-fold="${key}"]')`);
+  if (!(await page.evaluate(`document.querySelector('[data-fold="${key}"]').classList.contains("fold--open")`))) await act(page, `[data-fold="${key}"] .fold__head`);
+};
 const inSection = (title, selector) => `[...document.querySelectorAll("#appsMain section")].find((s) => s.querySelector(".h2").textContent === ${JSON.stringify(title)}).querySelector(${JSON.stringify(selector)})`;
 const download = async (page, name) => {
   await page.waitFor(`window.__downloads.some((d) => d.name === ${JSON.stringify(name)} && d.bytes)`);
@@ -125,6 +130,24 @@ const pngFile = (w, h) => `new Promise((resolve) => {
 
 const RUNNER_APP = { name: "RUNNER", id: RUNNER, saved: 2, format: 2, settings: [{ name: "LEVEL", values: ["EASY", "HARD"] }] };
 
+test("My device: boot image, backup, app data and device log are above the apps and fold; closed at first; the page keeps the choice", { skip: SKIP }, async (t) => {
+  const page = await openApps(t);
+  await page.waitFor(`SyncParts.state.log !== null && document.querySelectorAll(".fold").length === 4`);
+  const heads = await page.evaluate(`[...document.querySelectorAll("#appsMain .h2")].map((h) => h.textContent)`);
+  assert.deepEqual(heads, ["Boot image", "Backup", "App data", "Device log", "On your StatTrak", "Add apps"]);
+  assert.deepEqual(await page.evaluate(`[...document.querySelectorAll(".fold")].map((f) => f.classList.contains("fold--open"))`), [false, false, false, false]);
+  assert.deepEqual(await page.evaluate(`[...document.querySelectorAll(".fold__body")].map((b) => b.hidden)`), [true, true, true, true]);
+  assert.equal(await text(page, '[data-fold="pic"] .fold__sum'), "None");
+  assert.equal(await text(page, '[data-fold="log"] .fold__sum'), "Empty");
+  await act(page, '[data-fold="log"] .fold__head');
+  assert.equal(await page.evaluate(`document.querySelector('[data-fold="log"] .fold__head').getAttribute("aria-expanded")`), "true");
+  assert.equal(await page.evaluate(`document.querySelector('[data-fold="log"] .fold__body').hidden`), false);
+  assert.equal(await page.evaluate(`!!document.querySelector('[data-fold="log"] .fold__sum')`), false);
+  assert.deepEqual(await page.evaluate(`JSON.parse(localStorage.getItem("stattrak.syncFolds"))`), { log: true });
+  await act(page, '[data-fold="log"] .fold__head');
+  assert.equal(await page.evaluate(`document.querySelector('[data-fold="log"] .fold__body').hidden`), true);
+});
+
 test("an older firmware: one line in place of the new parts", { skip: SKIP }, async (t) => {
   const page = await openApps(t, { data: false, apps: true });
   await page.waitFor(`/Update the firmware to use this\\./.test(document.getElementById("appsMain").textContent)`);
@@ -135,13 +158,14 @@ test("an older firmware: one line in place of the new parts", { skip: SKIP }, as
 test("start picture: a PNG that is not 128 x 32 is scaled to fit, shows on the device picture, goes to StatTrak; show at power-on; delete asks first", { skip: SKIP }, async (t) => {
   const page = await openApps(t);
   await page.waitFor(has('[data-act="sync-pic-file"]'));
-  assert.match(await page.evaluate(sectionText("Start picture")), /No start picture on StatTrak/);
-  assert.equal(await page.evaluate(`${inSection("Start picture", ".sync__link")}.getAttribute("href")`), "designer/index.html");
-  assert.match(await page.evaluate(sectionText("Start picture")), /Make one in the Screen Designer, then use Download PNG there/);
+  await openFold(page, "pic");
+  assert.match(await page.evaluate(sectionText("Boot image")), /No boot image on StatTrak/);
+  assert.equal(await page.evaluate(`${inSection("Boot image", ".sync__link")}.getAttribute("href")`), "designer/index.html");
+  assert.match(await page.evaluate(sectionText("Boot image")), /Make one in the Screen Designer, then use Download PNG there/);
 
   await pickFile(page, "syncPicFile", pngFile(256, 64));
   await page.waitFor(has("#syncPicDevice"));
-  assert.match(await page.evaluate(sectionText("Start picture")), /256 x 64, scaled to fit/);
+  assert.match(await page.evaluate(sectionText("Boot image")), /256 x 64, scaled to fit/);
   assert.equal(await text(page, "#syncDarkValue"), "50%");
   assert.equal(await page.evaluate(`document.getElementById("syncPicDevice").getAttribute("anim")`), "still");
   // The slider: a new picture on the device picture, the slider stays
@@ -156,7 +180,7 @@ test("start picture: a PNG that is not 128 x 32 is scaled to fit, shows on the d
   // The white left half is on: 128 x 32 scaled from 256 x 64
   const rows = await page.evaluate(`FakeStatTrak.frameRows(window.__device.startPic)`);
   assert.equal(rows[10], "#".repeat(64) + ".".repeat(64));
-  assert.match(await page.evaluate(sectionText("Start picture")), /Sent\. StatTrak shows it for 2 s\./);
+  assert.match(await page.evaluate(sectionText("Boot image")), /Sent\. StatTrak shows it for 2 s\./);
 
   await act(page, '[data-act="sync-pic-show"]');
   await page.waitFor(`window.__device.startPicShow === false`);
@@ -164,18 +188,18 @@ test("start picture: a PNG that is not 128 x 32 is scaled to fit, shows on the d
 
   await act(page, '[data-act="sync-pic-del"]');
   await page.waitFor(has(".sync__ask"));
-  assert.match(await text(page, ".sync__ask"), /Delete the start picture on StatTrak\?/);
+  assert.match(await text(page, ".sync__ask"), /Delete the boot image on StatTrak\?/);
   assert.ok(await page.evaluate("!!window.__device.startPic"), "not deleted before the answer");
   await act(page, '[data-act="sync-pic-really-del"]');
   await page.waitFor(`window.__device.startPic === null`);
-  await page.waitFor(`/No start picture on StatTrak/.test(${sectionText("Start picture")})`);
+  await page.waitFor(`/No boot image on StatTrak/.test(${sectionText("Boot image")})`);
 });
 
 test("start picture: a file that is not a picture", { skip: SKIP }, async (t) => {
   const page = await openApps(t);
   await page.waitFor(has('[data-act="sync-pic-file"]'));
   await pickFile(page, "syncPicFile", `Promise.resolve(new File(["hello"], "notes.txt", { type: "text/plain" }))`);
-  await page.waitFor(`/notes\\.txt is not a PNG or JPG picture\\./.test(${sectionText("Start picture")})`);
+  await page.waitFor(`/notes\\.txt is not a PNG or JPG picture\\./.test(${sectionText("Boot image")})`);
 });
 
 test("backup: Download backup saves the file of docs/DATA.md 5.3", { skip: SKIP }, async (t) => {
@@ -283,9 +307,13 @@ test("device log: newest first with plain reasons, Download CSV", { skip: SKIP }
 
 async function openDesigner(t, deviceOptions) {
   const page = await openPage(t, "/designer/index.html", deviceOptions, 1);
-  await page.waitFor(`window.StatTrakDesigner && document.getElementById("liveBtn")`);
+  await page.waitFor(`window.StatTrakDesigner && document.getElementById("showBtn")`);
   return page;
 }
+
+/* The frame on the device is the selected screen of the designer (in the window `win`) */
+const frameIsScreen = (win) => `(() => { const want = ${win}.StatTrakDesigner.pixels(), rows = FakeStatTrak.frameRows(window.__device.previewFrame);
+  for (let y = 0; y < 32; y++) for (let x = 0; x < 128; x++) if ((rows[y][x] === "#") !== !!want[y * 128 + x]) return false; return true; })()`;
 
 test("designer: Download PNG saves the selected screen as an exact 128 x 32 PNG, white = on", { skip: SKIP }, async (t) => {
   const page = await openDesigner(t);
@@ -317,34 +345,75 @@ test("designer: Download PNG saves the selected screen as an exact 128 x 32 PNG,
   assert.ok(same.on > 50, "the example screen has pixels");
 });
 
-test("designer: Live preview sends the selected screen as a preview frame; a new screen goes after the wait; Stop", { skip: SKIP }, async (t) => {
+test("designer: Show on StatTrak only while StatTrak is connected; one press = one frame; the state says when the screen changed", { skip: SKIP }, async (t) => {
   const page = await openDesigner(t);
-  assert.equal(await text(page, "#liveLbl"), "Live preview");
-  await act(page, "#liveBtn");
-  await page.waitFor(`window.__device.previewCount >= 1`);
-  await page.waitFor(`/Connected — the device shows your screen/.test(document.getElementById("liveState").textContent)`);
-  assert.equal(await text(page, "#liveLbl"), "Stop");
-  const check = `(() => { const want = StatTrakDesigner.pixels(), rows = FakeStatTrak.frameRows(window.__device.previewFrame);
-    for (let y = 0; y < 32; y++) for (let x = 0; x < 128; x++) if ((rows[y][x] === "#") !== !!want[y * 128 + x]) return false; return true; })()`;
-  assert.equal(await page.evaluate(check), true, "the frame on the device is the screen");
-  // Only the parts that are not all 0 were sent
+  // No StatTrak: no button, no state
+  assert.equal(await page.evaluate(`document.getElementById("showBtn").hidden`), true);
+  assert.equal(await page.evaluate(`document.getElementById("showState").hidden`), true);
+  // Connect from the StatTrak button of the header
+  await act(page, '#devBar [data-dev="toggle"]');
+  await act(page, '#devBar [data-dev="connect"]');
+  await page.waitFor(`AppsTab.state.conn === "on" && !document.getElementById("showBtn").hidden && !document.getElementById("showBtn").disabled`);
+  assert.equal(await text(page, "#showLbl"), "Show on StatTrak");
+  assert.equal(await page.evaluate("window.__device.previewCount || 0"), 0, "nothing goes to StatTrak before a press");
+
+  await act(page, "#showBtn");
+  await page.waitFor(`window.__device.previewCount === 1 && StatTrakDesigner.show.shown`);
+  assert.equal(await page.evaluate(frameIsScreen("window")), true, "the frame on the device is the screen");
   assert.ok(await page.evaluate("window.__device.xferDataCount < 37"), "empty parts were sent");
   assert.equal(await page.evaluate("window.__device.syncState"), 6);
+  assert.equal(await text(page, "#showState"), "StatTrak shows this screen until you press a button on StatTrak.");
 
-  // An other screen: one more frame after about 400 ms
+  // An other screen: nothing is sent by itself; the state says that StatTrak shows the older one
   await act(page, '.tile[data-i="1"]');
-  await page.waitFor(`window.__device.previewCount >= 2 && !StatTrakDesigner.live.sending`);
-  assert.equal(await page.evaluate("StatTrakDesigner.current"), 1);
-  assert.equal(await page.evaluate(check), true, "the frame on the device is the new screen");
+  await page.waitFor(`/older version/.test(document.getElementById("showState").textContent)`);
+  assert.equal(await page.evaluate("window.__device.previewCount"), 1);
+  await act(page, "#showBtn");
+  await page.waitFor(`window.__device.previewCount === 2 && /shows this screen/.test(document.getElementById("showState").textContent)`);
+  assert.equal(await page.evaluate(frameIsScreen("window")), true, "the frame on the device is the new screen");
 
-  await act(page, "#liveBtn");
-  await page.waitFor(`window.__device.syncState === 0 && !window.__device.link`);
-  assert.equal(await page.evaluate("window.__device.display"), "Waiting...");
-  await page.waitFor(`document.getElementById("liveLbl").textContent === "Live preview"`);
+  // Disconnect: the button goes away
+  await act(page, '#devBar [data-dev="toggle"]');
+  await act(page, '#devBar [data-dev="disconnect"]');
+  await page.waitFor(`document.getElementById("showBtn").hidden && document.getElementById("showState").hidden`);
 });
 
-test("designer: without Web Bluetooth the button says why", { skip: SKIP }, async (t) => {
-  const page = await openDesigner(t, { noBluetooth: true });
-  assert.equal(await text(page, "#liveLbl"), "Live preview needs Chrome or Edge");
-  assert.equal(await page.evaluate(`document.getElementById("liveBtn").disabled`), true);
+test("designer: a firmware without the preview: the button is off and the state says why", { skip: SKIP }, async (t) => {
+  const page = await openDesigner(t, { data: false, apps: true });
+  await act(page, '#devBar [data-dev="toggle"]');
+  await act(page, '#devBar [data-dev="connect"]');
+  await page.waitFor(`AppsTab.state.conn === "on" && SyncParts.state.supported === false`);
+  await page.waitFor(`!document.getElementById("showBtn").hidden && document.getElementById("showBtn").disabled`);
+  assert.equal(await text(page, "#showState"), "Update the firmware of StatTrak: it cannot show a screen from here.");
+});
+
+test("index.html: Get started and the Designer are tabs of the page; the StatTrak connection stays; Show on StatTrak uses it", { skip: SKIP }, async (t) => {
+  const page = await openApps(t);
+  await page.waitFor(`SyncParts.state.supported === true`);
+  assert.equal(await page.evaluate(`document.getElementById("tabDesigner").getAttribute("href")`), "#designer");
+  assert.equal(await page.evaluate(`document.getElementById("tabStart").getAttribute("href")`), "#start");
+  // To the Designer: the same page, the connection stays, the Designer has no own header
+  await act(page, "#tabDesigner");
+  await page.waitFor(`location.hash === "#designer" && !document.getElementById("designerView").hidden && document.body.classList.contains("frame-on")`);
+  const designer = `document.querySelector("#designerView iframe").contentWindow`;
+  await page.waitFor(`${designer}.StatTrakDesigner && ${designer}.document.getElementById("showBtn")`);
+  assert.equal(await page.evaluate("AppsTab.state.conn"), "on");
+  assert.equal(await page.evaluate(`${designer}.getComputedStyle(${designer}.document.querySelector(".site-header")).display`), "none");
+  assert.equal(await page.evaluate(`document.getElementById("tabDesigner").classList.contains("tab--on")`), true);
+  // Show on StatTrak goes through the connection of index.html
+  await page.waitFor(`!${designer}.document.getElementById("showBtn").hidden && !${designer}.document.getElementById("showBtn").disabled`);
+  await page.evaluate(`${designer}.document.getElementById("showBtn").click()`);
+  await page.waitFor(`window.__device.previewCount === 1 && ${designer}.StatTrakDesigner.show.shown`);
+  assert.equal(await page.evaluate(frameIsScreen(designer)), true, "the frame on the device is the screen of the Designer");
+  // Get started, then back to My device: still connected, no second pairing
+  await act(page, "#tabStart");
+  await page.waitFor(`!document.getElementById("startView").hidden && document.querySelector("#startView iframe")`);
+  assert.equal(await page.evaluate("AppsTab.state.conn"), "on");
+  // A link of Get started to My device changes the tab of index.html (no new page)
+  const start = `document.querySelector("#startView iframe").contentWindow`;
+  await page.waitFor(`${start}.document.readyState === "complete" && ${start}.document.querySelector('a[href*="index.html#device"]')`);
+  await page.evaluate(`${start}.document.querySelector('a[href*="index.html#device"]').click()`);
+  await page.waitFor(`location.hash === "#device" && !document.getElementById("appsView").hidden && !document.body.classList.contains("frame-on")`);
+  assert.equal(await page.evaluate("AppsTab.state.conn"), "on");
+  assert.equal(await page.evaluate("window.__device.requests.length"), 1, "one pairing only");
 });

@@ -115,7 +115,7 @@ test("every page has the same header", () => {
   };
   const first = norm(PAGES[0]);
   for (const page of PAGES.slice(1)) assert.equal(norm(page), first, page);
-  // No other buttons in the header: the console opens from the StatTrak panel
+  // No other buttons in the header (the StatTrak button is filled in by js/devbar.js)
   for (const page of PAGES) assert.doesNotMatch(read(page).match(/<header[\s\S]*?<\/header>/)[0], /consoleBtn|topbar__link|<button/, page);
 });
 

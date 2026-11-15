@@ -318,28 +318,6 @@
   <div class="modal-root" id="modalRoot" hidden></div>
 
   <!-- Templates consumed by js/main.js when mounting modals -->
-  <template id="consoleModalTpl">
-    <div class="modal-backdrop" data-dismiss>
-      <div class="modal-panel modal-panel--console" role="dialog" aria-label="Console">
-        <header class="modal__header">
-          <div style="display:inline-flex; align-items:center;">
-            <h3 class="modal__header-title">Console</h3>
-            <span class="modal__header-meta"><span data-log-count>0</span> lines · Live OTA log</span>
-          </div>
-          <div class="modal__header-actions">
-            <button class="btn btn--ghost btn--sm" data-clear type="button">Clear</button>
-            <button class="file-card__remove" data-close type="button" aria-label="Close">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-          </div>
-        </header>
-        <div class="modal__body">
-          <div class="log" data-log-body></div>
-        </div>
-      </div>
-    </div>
-  </template>
-
   <template id="confirmModalTpl">
     <div class="modal-backdrop" data-dismiss>
       <div class="modal-panel modal-panel--danger" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">

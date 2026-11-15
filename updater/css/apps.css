@@ -99,7 +99,9 @@
 /* --- status line ----------------------------------------------------- */
 .apps .status { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 12px 16px; background: var(--st-ink-900); border: 1px solid var(--stroke-1); border-radius: var(--r-md); }
 .apps .status__dev { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 16px; }
-.apps .status__dev small { font-family: var(--font-mono); font-weight: 400; font-size: 14px; letter-spacing: 0.04em; color: var(--fg2); }
+.apps .status__name { overflow-wrap: anywhere; }
+.apps .icon-btn--sm { width: 32px; height: 32px; color: var(--fg2); }
+.apps .icon-btn--sm:hover:not(:disabled) { color: var(--fg1); }
 .apps .status .store { flex: 1 1 200px; }
 
 /* --- app rows -------------------------------------------------------- */
@@ -146,30 +148,49 @@
 .apps .banner--info .banner__icon, .apps .banner--info .banner__title { color: var(--fg1); }
 .apps .banner--info .banner__body { color: var(--fg2); }
 
-/* the Bluetooth name */
-.apps .name__now { font-size: 16px; }
-.apps .name__form { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; }
-.apps .name__label { font-weight: 700; font-size: 15px; min-width: 90px; }
-.apps .name__input {
+/* the Bluetooth name: the popup from the pencil next to the name (in #modalRoot, outside .apps) */
+.modal-panel--name { max-width: 520px; }
+.modal-panel--name .modal__header .icon-btn { display: inline-grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: var(--r-sm); background: none; color: var(--fg1); cursor: pointer; }
+.modal-panel--name .modal__header .icon-btn:hover { background: rgba(255,255,255,0.06); }
+.namebox { display: flex; flex-direction: column; gap: 14px; padding: 18px; overflow: visible; font-size: 16px; line-height: 1.45; }
+.namebox .row__desc { color: var(--fg2); font-size: 15px; }
+.namebox .btns { display: flex; gap: 8px; }
+.namebox .name__now { font-size: 16px; }
+.namebox .name__form { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; }
+.namebox .name__label { font-weight: 700; font-size: 15px; min-width: 90px; }
+.namebox .name__input {
   width: 14ch; min-height: 40px; padding: 6px 10px; border-radius: var(--r-sm);
   border: 1px solid var(--stroke-2); background: var(--st-ink-900); color: var(--fg1);
   font-family: var(--font-mono); font-size: 16px;
 }
-.apps .name__input[aria-invalid="true"] { border-color: var(--st-kill-red); }
+.namebox .name__input[aria-invalid="true"] { border-color: var(--st-kill-red); }
 /* The popup after a new Bluetooth name (it is in #modalRoot, outside .apps) */
 .modal-panel--info { max-width: 420px; padding: 24px 24px 18px; }
-.apps .name__prefix { font-family: var(--font-mono); font-size: 16px; color: var(--fg2, inherit); white-space: pre; margin-right: -6px; }
-.apps .name__input:disabled { opacity: 0.5; }
-.apps .name__msg { font-size: 14px; min-height: 1.45em; }
-.apps .name__msg:empty { display: none; }
-.apps .name__msg--err { color: var(--st-kill-red); }
-.apps .name__msg--ok { color: var(--st-success); }
+.namebox .name__prefix { font-family: var(--font-mono); font-size: 16px; color: var(--fg2, inherit); white-space: pre; margin-right: -6px; }
+.namebox .name__input:disabled { opacity: 0.5; }
+.namebox .name__msg { font-size: 14px; min-height: 1.45em; }
+.namebox .name__msg:empty { display: none; }
+.namebox .name__msg--err { color: var(--st-kill-red); }
+.namebox .name__msg--ok { color: var(--st-success); }
 .apps .res { display: flex; gap: 10px; align-items: flex-start; font-size: 16px; }
 .apps .res b { display: block; }
 .apps .res span { color: var(--fg1); }
 .apps .res--err { color: var(--st-kill-red); }
 
-/* --- the parts under the app list (js/apps-data.js) ---------------------- */
+/* --- the parts above the app list (js/apps-data.js): each one folds -------- */
+.apps .folds { display: flex; flex-direction: column; gap: 10px; }
+.apps .fold__head {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 52px; padding: 10px 16px;
+  background: var(--st-ink-900); border: 1px solid var(--stroke-1); border-radius: var(--r-md);
+  color: var(--fg1); text-align: left; cursor: pointer; transition: border-color var(--dur-fast) var(--ease-standard);
+}
+.apps .fold__head:hover { border-color: var(--stroke-2); }
+.apps .fold__head .h2 { font-size: 20px; }
+.apps .fold__chev { flex: 0 0 auto; color: var(--fg2); transition: transform var(--dur-fast) var(--ease-standard); }
+.apps .fold--open .fold__chev { transform: rotate(90deg); }
+.apps .fold__sum { margin-left: auto; font-size: 15px; color: var(--fg2); text-align: right; }
+.apps .fold__body { margin-top: 10px; }
+.apps .fold__body[hidden] { display: none; }
 .apps .sync__msg { font-size: 15px; }
 .apps .sync__msg--ok { color: var(--st-success); }
 .apps .sync__msg--err { color: var(--st-kill-red); }

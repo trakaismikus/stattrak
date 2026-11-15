@@ -546,23 +546,6 @@ st-device[data-press="B"] .st-dev__btn {
 
 .btn-row { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; align-items: center; }
 
-/* --- log ------------------------------------------------------------- */
-.log {
-  background: #000;
-  border: 1px solid var(--stroke-1);
-  border-radius: var(--r-sm);
-  padding: 10px 12px;
-  font-family: var(--font-mono); font-size: 11px; line-height: 1.6;
-  color: var(--fg2);
-  overflow-y: auto;
-}
-.log__line { white-space: nowrap; }
-.log__line--ok { color: #6FCF5E; }
-.log__line--info { color: var(--fg2); }
-.log__line--warn { color: var(--st-warning); }
-.log__line--err { color: var(--st-kill-red); }
-.log__time { color: var(--fg-muted); margin-right: 8px; }
-
 /* --- footer ---------------------------------------------------------- */
 .footer {
   margin-top: 60px; padding-top: 24px;
@@ -585,7 +568,7 @@ st-device[data-press="B"] .st-dev__btn {
 .chip--stable { background: var(--st-ink-700); color: var(--fg2); }
 .chip--beta { background: rgba(244,196,48,0.14); color: var(--st-warning); }
 
-/* --- modals (console + confirm) ------------------------------------- */
+/* --- modals (confirm, Bluetooth name) ------------------------------------- */
 .modal-root[hidden] { display: none; }
 
 .modal-backdrop {
@@ -613,8 +596,6 @@ st-device[data-press="B"] .st-dev__btn {
   to   { opacity: 1; transform: none; }
 }
 
-/* console modal */
-.modal-panel--console { max-width: 760px; max-height: 80vh; }
 .modal__header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 18px;
@@ -636,7 +617,6 @@ st-device[data-press="B"] .st-dev__btn {
   padding: 14px 18px;
   overflow: hidden;
 }
-.modal__body .log { height: 55vh; max-height: none; }
 
 /* confirm modal */
 .modal-panel--danger {

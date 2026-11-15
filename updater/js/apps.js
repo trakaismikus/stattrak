@@ -40,6 +40,7 @@ const AppsTab = (() => {
     devName: null,          // DEVICE_NAME { custom, name }, null = a firmware without it
     nameDraft: "",          // the text in the name field
     nameMsg: null,          // { kind: ok | err, text } under the name field
+    nameOpen: false,        // the popup "Bluetooth name" is open
     catalog: null,          // [item]
     extra: {},              // source -> [item]: apps that an added script knows (AppsTab.api.addCatalog)
     known: {},              // idHex -> { picture, settings } of catalog and file apps
@@ -53,7 +54,7 @@ const AppsTab = (() => {
   const hex = (id) => (id >>> 0).toString(16).padStart(8, "0");
   const kb = (bytes) => (Math.round((bytes / 1024) * 10) / 10).toFixed(1).replace(/\.0$/, "") + " KB";
   const log = (message, kind) => { if (typeof pushLog === "function") pushLog("> apps: " + message, kind); };
-  // An install, or a transfer of the parts under the app list (js/apps-data.js): the controls are locked
+  // An install, or a transfer of the parts above the app list (js/apps-data.js): the controls are locked
   const busy = () => !!A.inst || SyncParts.busy();
 
   /* ---- line icons (the stroke style of the updater) ---- */
@@ -72,6 +73,7 @@ const AppsTab = (() => {
     background: '<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>',
     sound: '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>',
     counters: '<circle cx="12" cy="12" r="7"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/>',
+    pencil: '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
   };
   const icon = (name, size) => `<svg width="${size || 18}" height="${size || 18}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[name]}</svg>`;
   const perms = (list) => list.map((p) => `<span class="perm">${icon(p in P ? p : "alert", 14)}${esc(PERMISSION_TEXT[p] || p)}</span>`).join("");
@@ -170,7 +172,9 @@ const AppsTab = (() => {
 
   function vStatus() {
     const used = usedBytes(), pct = Math.min(100, (used / MAX_BYTES) * 100);
-    return `<div class="status"><span class="status__dev"><span class="dot"></span>StatTrak <small>${esc(A.fw)}</small></span>` +
+    const name = namePart() || "StatTrak";   // as in the StatTrak button of the header
+    const edit = A.devName ? `<button class="icon-btn icon-btn--sm status__edit" type="button" data-act="name-edit" aria-label="Change the Bluetooth name"${busy() ? " disabled" : ""}>${icon("pencil", 15)}</button>` : "";
+    return `<div class="status"><span class="status__dev"><span class="dot"></span><span class="status__name" id="appsDevName">${esc(name)}</span>${edit}</span>` +
       `<div class="store${pct > 75 ? " store--full" : ""}"><span>${kb(used)} / ${kb(MAX_BYTES)}</span><div class="store__bar"><div class="store__fill" style="width:${pct}%"></div></div></div>` +
       '<button class="btn btn--ghost btn--sm" data-act="disconnect" type="button">Disconnect</button></div>';
   }
@@ -263,7 +267,7 @@ const AppsTab = (() => {
 
   function vList() {
     const last = A.list.length - 1;
-    let h = vStatus();
+    let h = vStatus() + SyncParts.view();
     h += `<section><div class="sec-head"><h2 class="h2">On your StatTrak</h2></div><div class="list${busy() ? " list--busy" : ""}" id="appsList">` +
       A.list.map((app, i) => vRow(app, i, last)).join("") + vSettingsRow() + "</div></section>";
     const working = allItems().filter((i) => !(A.catalog || []).includes(i) && ((A.inst && A.inst.key === i.key) || (A.err && A.err.key === i.key)));
@@ -274,24 +278,54 @@ const AppsTab = (() => {
         '<button class="btn btn--ghost btn--sm banner__more" type="button" data-act="file">Pick another file</button></div>' +
         `<button class="icon-btn banner__close" type="button" data-act="dismiss" aria-label="Close">${icon("x")}</button></div>` : "") +
       `<div class="list">${items.map(vCat).join("")}</div></section>`;
-    return h + vName() + SyncParts.view();
+    return h;
   }
 
-  /* The Bluetooth name of StatTrak in "Apps: SYNC" (DEVICE_NAME) */
+  /* The popup "Bluetooth name" (DEVICE_NAME): opens from the pencil next to the name */
   function vName() {
-    if (!A.devName) return "";
     const now = A.devName, off = busy() ? " disabled" : "";
-    return '<section><div class="sec-head"><h2 class="h2">Bluetooth name</h2></div><div class="row namebox"><div class="row__panel">' +
+    return '<div class="modal-backdrop" data-dismiss><div class="modal-panel modal-panel--name" role="dialog" aria-modal="true" aria-labelledby="appsNameTitle">' +
+      '<header class="modal__header"><h3 class="modal__header-title" id="appsNameTitle">Bluetooth name</h3>' +
+      `<button class="icon-btn" type="button" data-name="close" aria-label="Close">${icon("x")}</button></header><div class="modal__body namebox">` +
       `<div class="name__now">StatTrak shows the name <strong>${esc(now.name)}</strong> in Apps: SYNC${now.custom ? "" : " (the standard name)"}.</div>` +
       '<form class="name__form" data-form="name" novalidate><label class="name__label" for="appsName">New name</label>' +
       `<span class="name__prefix" aria-hidden="true">${esc(StatTrakApps.NAME_PREFIX)}</span>` +
       `<input class="name__input" id="appsName" type="text" maxlength="${StatTrakApps.NAME_MAX}" autocomplete="off" spellcheck="false" ` +
       `value="${esc(A.nameDraft)}" aria-describedby="appsNameMsg appsNameHelp"${A.nameMsg && A.nameMsg.kind === "err" ? ' aria-invalid="true"' : ""}${off}>` +
-      `<button class="btn btn--primary btn--sm" type="submit" data-act="name-save"${off}>Save</button>` +
-      (now.custom ? `<button class="btn btn--ghost btn--sm" type="button" data-act="name-reset"${off}>Back to StatTrak</button>` : "") + "</form>" +
+      `<button class="btn btn--primary" type="submit" data-name="save"${off}>Save</button></form>` +
       `<div class="name__msg${A.nameMsg ? " name__msg--" + A.nameMsg.kind : ""}" id="appsNameMsg" role="status">${A.nameMsg ? esc(A.nameMsg.text) : ""}</div>` +
       `<div class="row__desc" id="appsNameHelp">1 to ${StatTrakApps.NAME_MAX} characters after "${esc(StatTrakApps.NAME_PREFIX)}". A phone or computer finds StatTrak by this name. The firmware update always uses "StatTrak".</div>` +
-      "</div></div></section>";
+      (now.custom ? `<div class="btns"><button class="btn btn--ghost btn--sm" type="button" data-name="reset"${off}>Back to StatTrak</button></div>` : "") +
+      "</div></div></div>";
+  }
+
+  function openName() {
+    const root = document.getElementById("modalRoot");
+    if (!root || !A.devName || busy()) return;
+    A.nameOpen = true;
+    A.nameDraft = "";
+    A.nameMsg = null;
+    root.innerHTML = vName();
+    root.hidden = false;
+    root.querySelector(".modal-backdrop").addEventListener("click", (e) => { if (e.target.matches("[data-dismiss]")) closeName(); });
+    root.querySelector('[data-name="close"]').addEventListener("click", closeName);
+    const reset = root.querySelector('[data-name="reset"]');
+    if (reset) reset.addEventListener("click", () => saveName("", true));
+    root.querySelector('[data-form="name"]').addEventListener("submit", (event) => {
+      event.preventDefault();
+      saveName(root.querySelector("#appsName").value);
+    });
+    root.querySelector("#appsName").addEventListener("input", (event) => onNameInput(event.target));
+    root.querySelector("#appsName").focus();
+  }
+
+  function closeName() {
+    if (!A.nameOpen) return;
+    A.nameOpen = false;
+    const root = document.getElementById("modalRoot");
+    if (root) { root.innerHTML = ""; root.hidden = true; }
+    const pencil = $('[data-act="name-edit"]');
+    if (pencil) pencil.focus();
   }
 
   function vOldFw() {
@@ -307,6 +341,7 @@ const AppsTab = (() => {
       else if (A.conn === "oldfw") main.innerHTML = vOldFw();
       else main.innerHTML = vConnect();
     }
+    if (A.nameOpen && (A.conn !== "on" || !A.devName)) closeName();
     notify();
   }
 
@@ -348,6 +383,8 @@ const AppsTab = (() => {
     if (!fwTab || !appsTab) return;
     const all = [["firmware", fwTab, $("#firmwareView")], ["apps", appsTab, $("#appsView")]]
       .concat([...tabs].map(([name, t]) => [name, t.tab, t.view]));
+    const frame = tabs.get(A.tab);
+    document.body.classList.toggle("frame-on", !!(frame && frame.frame));
     for (const [name, el, view] of all) {
       // An install blocks the firmware tab; a firmware update blocks the others
       const blocked = name === "firmware" ? usesSync(A.tab) && busy() : A.tab === "firmware" && firmwareBusy();
@@ -362,7 +399,7 @@ const AppsTab = (() => {
     const leaving = busy() || firmwareBusy();
     for (const id of ["siteLogo", "tabStart", "tabDesigner"]) {
       const el = document.getElementById(id);
-      if (!el) continue;
+      if (!el || (tabs.has(el.getAttribute("href").slice(1)))) continue;   // a tab of this page
       if (leaving) el.setAttribute("aria-disabled", "true"); else el.removeAttribute("aria-disabled");
     }
   }
@@ -783,29 +820,35 @@ const AppsTab = (() => {
   }
 
   /* The Bluetooth name: "" = back to "StatTrak" */
+  function nameMessage(text) {
+    A.nameMsg = text ? { kind: "err", text } : null;
+    const msg = $("#appsNameMsg"), input = $("#appsName");
+    if (msg) { msg.textContent = text || ""; msg.className = "name__msg" + (text ? " name__msg--err" : ""); }
+    if (input) { if (text) { input.setAttribute("aria-invalid", "true"); input.focus(); } else input.removeAttribute("aria-invalid"); }
+  }
+
+  let nameSaving = false;
   async function saveName(name, reset) {
-    if (busy() || !A.apps) return;
+    if (busy() || !A.apps || nameSaving) return;
     const problem = name === "" && !reset ? "Type a name first." : StatTrakApps.nameProblem(name);
-    if (problem) {
-      A.nameMsg = { kind: "err", text: problem };
-      render();
-      const input = $("#appsName");
-      if (input) input.focus();
-      return;
-    }
+    if (problem) return nameMessage(problem);
+    nameSaving = true;
+    for (const b of document.querySelectorAll("#modalRoot [data-name]")) if (b.dataset.name !== "close") b.disabled = true;
     try {
       A.devName = await A.apps.setDeviceName(name);
     } catch (error) {
-      if (error.kind === "status") {
-        A.nameMsg = { kind: "err", text: "StatTrak refused the name." };
-        return render();
-      }
+      nameSaving = false;
+      for (const b of document.querySelectorAll("#modalRoot [data-name]")) b.disabled = false;
+      if (error.kind === "status") return nameMessage("StatTrak refused the name.");
       A.nameMsg = null;
+      closeName();
       return fail(error);
     }
+    nameSaving = false;
     log("Bluetooth name: " + A.devName.name, "ok");
     A.nameDraft = "";
     A.nameMsg = null;
+    A.nameOpen = false;
     render();
     showNameNotice();
   }
@@ -855,7 +898,7 @@ const AppsTab = (() => {
     if (act === "disconnect") { disconnect(null); return render(); }
     if (act === "file") { A.fileErr = null; return $("#appsFile").click(); }
     if (act === "dismiss") { A.err = null; A.fileErr = null; if (A.fileItem && !busy()) A.fileItem = null; return render(); }
-    if (act === "name-reset") return saveName("", true);
+    if (act === "name-edit") return openName();
     if (act === "install" && cat) {
       const item = allItems().concat(A.fileItem ? [A.fileItem] : []).find((i) => i.key === cat.dataset.key);
       if (item) startInstall(item);
@@ -923,22 +966,22 @@ const AppsTab = (() => {
     // Also on the other pages (they connect from the header): the browser asks before it leaves an install
     window.addEventListener("beforeunload", (event) => { if (busy() || firmwareBusy()) event.preventDefault(); });
     const main = $("#appsMain");
-    if (!main) return;
-    main.addEventListener("click", onClick);
-    main.addEventListener("submit", (event) => {
-      if (!event.target.matches('[data-form="name"]')) return;
-      event.preventDefault();
-      A.fresh = null;
-      const input = $("#appsName");
-      saveName(input ? input.value : "");
-    });
-    main.addEventListener("input", (event) => { if (event.target.id === "appsName") onNameInput(event.target); else SyncParts.onInput(event.target); });
-    main.addEventListener("change", (event) => SyncParts.onChange(event.target));
+    // Also on the pages without My device: the Screen Designer shows screens through it (light =
+    // only CONFIG_INFO is read, not the boot image, the app data and the log)
     SyncParts.init({
-      apps: () => A.apps, list: () => A.list, fw: () => A.fw, busy, render, fail, toast, log,
+      apps: () => A.apps, list: () => A.list, fw: () => A.fw, busy, render, fail, toast, log, light: !main,
       // After a restore: the list and the Bluetooth name again
       refresh: async () => { await refresh(); A.devName = await A.apps.deviceName(); },
     });
+    if (!main) return;
+    main.addEventListener("click", onClick);
+    // A link to a page that is a tab here (the Screen Designer): the tab, the connection stays
+    main.addEventListener("click", (event) => {
+      const a = event.target.closest && event.target.closest("a[data-tab]");
+      if (a && tabs.has(a.dataset.tab)) { event.preventDefault(); location.hash = "#" + a.dataset.tab; }
+    });
+    main.addEventListener("input", (event) => SyncParts.onInput(event.target));
+    main.addEventListener("change", (event) => SyncParts.onChange(event.target));
     main.addEventListener("keydown", onKeyDown);
     main.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("pointermove", onPointerMove);
@@ -948,6 +991,7 @@ const AppsTab = (() => {
         if (event.currentTarget.getAttribute("aria-disabled") === "true") event.preventDefault();
       });
     }
+    document.addEventListener("keydown", (event) => { if (event.key === "Escape" && A.nameOpen) closeName(); });
     // A locked added tab (a firmware update runs)
     document.addEventListener("click", (event) => {
       const el = event.target.closest && event.target.closest(".site-nav .tab");
@@ -958,9 +1002,35 @@ const AppsTab = (() => {
       event.target.value = "";
       onFile(file);
     });
+    frameTab("start", "tabStart", "start/index.html", "Get started");
+    frameTab("designer", "tabDesigner", "designer/index.html", "Screen Designer");
     const fromHash = () => showTab(tabOfHash(location.hash));
     window.addEventListener("hashchange", fromHash);
     fromHash();
+  }
+
+  /* Get started and the Screen Designer: tabs of this page (#start, #designer) that show the page
+     in a frame, so that the StatTrak connection stays (js/utils.js SiteFrame). From a disk (file:)
+     the frame cannot reach this page: there the links open the pages on their own. */
+  function frameTab(name, tabId, src, title) {
+    const tab = document.getElementById(tabId);
+    if (!tab || !/^https?:$/.test(location.protocol)) return;
+    const view = document.createElement("div");
+    view.className = "page-frame";
+    view.id = name + "View";
+    view.hidden = true;
+    document.querySelector(".app").before(view);
+    tab.setAttribute("href", "#" + name);
+    tabs.set(name, {
+      tab, view, frame: true,
+      onShow() {
+        if (view.firstChild) return;
+        const iframe = document.createElement("iframe");
+        iframe.src = src;
+        iframe.title = title;
+        view.appendChild(iframe);
+      },
+    });
   }
 
   /* The interface for scripts that a page adds (see the comment at the top). */
@@ -991,11 +1061,17 @@ const AppsTab = (() => {
     namePart,
     busy,
     subscribe(fn) { listeners.push(fn); },
+    /* The Screen Designer: can the connected StatTrak show a preview frame (null = not known
+       yet), and send one (512 bytes, js/data-protocol.js). See SyncParts.preview(). */
+    canPreview() { return A.conn === "on" ? SyncParts.canPreview() : false; },
+    preview(bytes) { return A.conn === "on" ? SyncParts.preview(Uint8Array.from(bytes)) : Promise.resolve("unsupported"); },
   };
 
   return { init, render, renderTabs, state: A, onFile, api };
 })();
 
 function renderTabs() { AppsTab.renderTabs(); }
+// For the pages in the frame of index.html (js/utils.js SiteFrame): a const is not a window property
+if (typeof window !== "undefined") window.AppsTab = AppsTab;
 
 document.addEventListener("DOMContentLoaded", () => AppsTab.init());

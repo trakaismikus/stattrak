@@ -1,7 +1,17 @@
 /* The header of the StatTrak web site: the same on every page (index.html, start/, designer/).
  * The logo and the menu are always at the same place: a full-width bar, its content in the
- * page column (1200 px). The right side is for the page (Console, links).
+ * page column (1200 px). The right side is for the page (links).
  * Uses only tokens that colors_and_type.css and the designer page both define. */
+
+/* Get started and the Designer inside index.html (js/utils.js SiteFrame): the header of
+   index.html is the only one */
+.in-frame .site-header { display: none; }
+
+/* index.html: the frame of #start and #designer, under the header */
+.page-frame { height: calc(100vh - 65px); height: calc(100dvh - 65px); }
+.page-frame iframe { display: block; width: 100%; height: 100%; border: 0; }
+body.frame-on { overflow: hidden; }
+body.frame-on .app { display: none; }
 
 .site-header {
   background: var(--bg);
@@ -123,12 +133,10 @@
 .devmenu__upd { color: var(--accent); font-weight: 700; }
 .devmenu__wait { color: var(--accent); font-weight: 700; }
 .devmenu .step1-instructions { margin: 0; text-align: left; font-size: 15px; line-height: 2.1; }
-.devmenu__console { align-self: flex-start; }
 .devmenu__msg { margin: 0; font-size: 15px; color: var(--fg2); }
 .devmenu__msg b { color: var(--fg1); }
 .devmenu__msg--error, .devmenu__msg--error b { color: var(--st-kill-red); }
 .devmenu__msg--warn b { color: var(--st-warning); }
-.devmenu__count { font-family: var(--font-mono); font-style: normal; font-weight: 400; letter-spacing: 0; color: var(--fg3); }
 .devmenu__note { margin: 0; color: var(--fg3); font-size: 14px; }
 .devmenu__btns { display: flex; gap: 8px; }
 .devmenu__btns .btn { flex: 1; justify-content: center; }

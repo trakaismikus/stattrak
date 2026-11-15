@@ -210,20 +210,19 @@ test("the other pages: the same StatTrak button, and it connects there (Designer
   await page.waitFor(`/BRAVO-6/.test(document.querySelector("#devBar .devbtn").textContent)`);
   await act(page, '#devBar [data-dev="toggle"]');
   assert.match(await textOf(page, "#devBar .devmenu"), /Serial 34B7DA010203/);
-  // No console on this page; My device is a link to index.html
+  // My device is a link to index.html
   assert.equal(await page.evaluate(`!!document.querySelector('#devBar [data-dev="console"]')`), false);
   assert.match(await page.evaluate(`document.querySelector('#devBar [data-dev="close"]').getAttribute("href")`), /^\.\.\/index\.html#device$/);
 });
 
-test("the console opens from the StatTrak panel; the way on the device uses the shared boxes", { skip: SKIP }, async (t) => {
+test("no console on the page; the way on the device uses the shared boxes", { skip: SKIP }, async (t) => {
   const page = await open(t, {}, "#device");
   assert.equal(await page.evaluate('document.querySelectorAll("#appsMain .path-crumb").length'), 3);
   await act(page, '[data-act="connect"]');
   await page.waitFor(`AppsTab.state.conn === "on"`);
   await act(page, '#devBar [data-dev="toggle"]');
-  await act(page, '#devBar [data-dev="console"]');
-  await page.waitFor(`document.querySelector(".modal-panel--console")`);
-  assert.equal(await page.evaluate("!!document.getElementById(\"consoleBtn\")"), false);
+  assert.equal(await page.evaluate(`!!document.querySelector('#devBar [data-dev="console"]')`), false);
+  assert.equal(await page.evaluate(`!!document.getElementById("consoleModalTpl") || typeof SiteConsole !== "undefined"`), false);
 });
 
 test("an update that does not fit: the reason in place of Update, on My device and in the header", { skip: SKIP }, async (t) => {

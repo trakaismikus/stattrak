@@ -1,6 +1,8 @@
-/* StatTrak updater, Apps tab: the parts under the app list (docs/DATA.md): the start picture, the
- * backup, the app data and the device log. js/apps.js shows them after the connection; the
- * commands are in js/data-protocol.js.
+/* StatTrak updater, My device: the parts above the app list (docs/DATA.md): the boot image (the
+ * start picture of the firmware), the backup, the app data and the device log. Each part folds
+ * open and closed (closed at first; the page keeps the choice). js/apps.js shows them after the
+ * connection; the commands are in js/data-protocol.js. The live preview of the Screen Designer
+ * also goes through here (preview()), so that it never runs during an other transfer.
  *
  * Only when the device answers CONFIG_INFO: an older firmware (status 1) gets one line in place of
  * these parts. While a transfer or an install runs, all controls are locked (host.busy()).
@@ -8,7 +10,7 @@
 
 const SyncParts = (() => {
   const S = {
-    host: null,             // js/apps.js: { apps(), list(), fw(), busy(), render(), fail(error), toast(text), log(text, kind) }
+    host: null,             // js/apps.js: { apps(), list(), fw(), busy(), render(), fail(error), toast(text), log(text, kind), light }
     data: null,             // StatTrakData
     supported: null,        // null = not read yet, true, false = an older firmware
     info: null,             // CONFIG_INFO
@@ -23,8 +25,20 @@ const SyncParts = (() => {
     log: null,              // the device log, newest first
     backupMsg: null,        // { kind, text }
     restore: null,          // { file, device, rows, missing, parts, phase: table | ask | send | done, result, skipped }
+    open: loadFolds(),      // key -> true: the parts that are open
   };
   const DARK_DEFAULT = 50;
+  const FOLDS_KEY = "stattrak.syncFolds";
+
+  function loadFolds() {
+    try { return JSON.parse(localStorage.getItem(FOLDS_KEY) || "{}") || {}; } catch (_) { return {}; }
+  }
+  /* Open or close a part (the summary line of a part, js/apps.js) */
+  function fold(key) {
+    S.open[key] = !S.open[key];
+    try { localStorage.setItem(FOLDS_KEY, JSON.stringify(S.open)); } catch (_) { /* private mode */ }
+    render();
+  }
 
   const $ = (selector) => document.querySelector(selector);
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -121,6 +135,7 @@ const SyncParts = (() => {
       S.info = info;
       render();
       if (!info) { log("no backup and data commands (older firmware)", "warn"); return; }
+      if (S.host.light) return;   // a page without My device (the Screen Designer, Get started)
       await loadPicture();
       await loadDataApps();
       await loadLog();
@@ -439,8 +454,15 @@ const SyncParts = (() => {
 
   /* ---- views ---------------------------------------------------------------------------- */
 
-  const section = (title, body, act) =>
-    `<section class="sync"><div class="sec-head"><h2 class="h2">${esc(title)}</h2>${act || ""}</div>${body}</section>`;
+  // A part that folds: the head is a button (the whole line), the summary shows when it is closed
+  const section = (key, title, body, summary) => {
+    const open = !!S.open[key];
+    return `<section class="sync fold${open ? " fold--open" : ""}" data-fold="${key}">` +
+      `<button class="fold__head" type="button" data-act="sync-fold" aria-expanded="${open}" aria-controls="fold-${key}">` +
+      '<svg class="fold__chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg>' +
+      `<h2 class="h2">${esc(title)}</h2>${summary && !open ? `<span class="fold__sum">${esc(summary)}</span>` : ""}</button>` +
+      `<div class="fold__body" id="fold-${key}"${open ? "" : " hidden"}>${body}</div></section>`;
+  };
   const panel = (body, extra) => `<div class="row${extra ? " " + extra : ""}"><div class="row__panel">${body}</div></div>`;
   const msg = (m) => (m ? `<div class="sync__msg sync__msg--${m.kind}" role="status">${esc(m.text)}</div>` : "");
   const bar = (pct, label) => `<div id="syncBusy"><div class="inst__line"><span>${esc(label)}</span><span class="pct">${Math.round(pct || 0)}%</span></div>` +
@@ -454,25 +476,25 @@ const SyncParts = (() => {
     if (S.devPic) {
       const on = S.devPic.state === StatTrakData.PIC_STATE__ON;
       h += '<div class="spic__now">' +
-        `<img class="spic__img" alt="The start picture on StatTrak" src="${S.devPic.url}">` +
+        `<img class="spic__img" alt="The boot image on StatTrak" src="${S.devPic.url}">` +
         '<div class="spic__acts">' +
         `<button class="sw" role="switch" type="button" aria-checked="${on}" data-act="sync-pic-show"${off()}><span class="sw__track"></span><span class="lbl">Show at power-on</span></button>` +
-        `<button class="btn btn--ghost btn--sm" type="button" data-act="sync-pic-del"${off()}>Delete start picture</button></div></div>`;
+        `<button class="btn btn--ghost btn--sm" type="button" data-act="sync-pic-del"${off()}>Delete boot image</button></div></div>`;
       if (S.picAsk) {
-        h += '<div class="sync__ask"><div class="msg">Delete the start picture on StatTrak?</div><div class="btns">' +
+        h += '<div class="sync__ask"><div class="msg">Delete the boot image on StatTrak?</div><div class="btns">' +
           `<button class="btn btn--ghost btn--sm" type="button" data-act="sync-pic-cancel">Cancel</button>` +
           `<button class="btn btn--danger btn--sm" type="button" data-act="sync-pic-really-del"${off()}>Delete</button></div></div>`;
       }
     } else {
-      h += '<div class="row__desc">No start picture on StatTrak. It starts with the first app.</div>';
+      h += '<div class="row__desc">No boot image on StatTrak. It starts with the first app.</div>';
     }
     h += '<div class="spic__new"><div class="btns">' +
       `<button class="btn btn--ghost btn--sm" type="button" data-act="sync-pic-file"${off()}>Choose a PNG or JPG</button></div>` +
-      '<a class="sync__link" href="designer/index.html">Make one in the Screen Designer, then use Download PNG there</a>';
+      '<a class="sync__link" href="designer/index.html" data-tab="designer">Make one in the Screen Designer, then use Download PNG there</a>';
     if (S.picErr) h += `<div class="sync__msg sync__msg--err" role="alert">${esc(S.picErr)}</div>`;
     if (S.pic) {
       h += '<div class="spic__edit">' +
-        `<st-device id="syncPicDevice" anim="still" arg="${esc(S.pic.still)}" label="StatTrak screen: the new start picture"></st-device>` +
+        `<st-device id="syncPicDevice" anim="still" arg="${esc(S.pic.still)}" label="StatTrak screen: the new boot image"></st-device>` +
         '<div class="spic__ctl">' +
         `<div class="row__desc">${esc(S.pic.name)}${S.pic.scaled ? ` · ${S.pic.width} x ${S.pic.height}, scaled to fit` : " · 128 x 32"}</div>` +
         `<label class="spic__dark" for="syncDark">How dark is on <output id="syncDarkValue">${S.pic.dark}%</output></label>` +
@@ -483,7 +505,8 @@ const SyncParts = (() => {
     }
     if (S.picMsg) h += `<div class="sync__msg${/^Sent/.test(S.picMsg) ? " sync__msg--ok" : " sync__msg--err"}" role="status">${esc(S.picMsg)}</div>`;
     h += "</div>";
-    return section("Start picture", panel(h, "spic"));
+    const sum = !S.devPic ? "None" : S.devPic.state === StatTrakData.PIC_STATE__ON ? "Shown at power-on" : "Off";
+    return section("pic", "Boot image", panel(h, "spic"), sum);
   }
 
   function vRestore() {
@@ -525,13 +548,13 @@ const SyncParts = (() => {
 
   function vBackup() {
     const w = S.work && (S.work.kind === "backup") ? S.work : null;
-    let h = '<div class="row__desc">A backup file has your stats, settings, the setup of your apps, the Bluetooth name, the start picture and the device log. The apps themselves are not in it.</div>' +
+    let h = '<div class="row__desc">A backup file has your stats, settings, the setup of your apps, the Bluetooth name, the boot image and the device log. The apps themselves are not in it.</div>' +
       '<div class="btns">' +
       `<button class="btn btn--primary btn--sm" type="button" data-act="sync-backup"${off()}>Download backup</button>` +
       `<button class="btn btn--ghost btn--sm" type="button" data-act="sync-restore"${off()}>Restore from file</button></div>`;
     if (w) h += `<div class="inst__line" id="syncBusy"><span>${esc(w.text || "Reading StatTrak…")}</span></div>`;
     h += msg(S.backupMsg) + vRestore();
-    return section("Backup", panel(h));
+    return section("backup", "Backup", panel(h), S.restore ? "Restore open" : "");
   }
 
   function vDataApp(app) {
@@ -554,31 +577,34 @@ const SyncParts = (() => {
   function vData() {
     const body = S.dataApps.length ? `<div class="list">${S.dataApps.map(vDataApp).join("")}</div>` :
       panel('<div class="row__desc">No app on StatTrak keeps data.</div>');
-    return section("App data", body);
+    const n = S.dataApps.length;
+    return section("data", "App data", body, n === 0 ? "No data" : n === 1 ? "1 app" : `${n} apps`);
   }
 
   function vLog() {
     const entries = S.log || [];
-    const act = `<button class="btn btn--ghost btn--sm" type="button" data-act="sync-log-csv"${entries.length ? "" : " disabled"}>Download CSV</button>`;
+    const act = `<div class="btns"><button class="btn btn--ghost btn--sm" type="button" data-act="sync-log-csv"${entries.length ? "" : " disabled"}>Download CSV</button></div>`;
     const body = !S.log ? panel('<div class="row__desc">Reading…</div>') : !entries.length ? panel('<div class="row__desc">The log is empty.</div>') :
-      panel('<div class="row__desc">One line for each start, newest first. The reason tells how the run before it ended.</div>' +
+      panel('<div class="row__desc">One line for each start, newest first. The reason tells how the run before it ended.</div>' + act +
         '<ol class="dlog">' + entries.map((e) =>
           `<li><span class="dlog__boot">Start ${e.boot}</span><span class="dlog__why">${esc(DataCsv.reasonText(e.reason))}</span>` +
           `<span class="dlog__bat">${esc(DataCsv.batteryText(e.battery))}</span>${e.firmwareChanged ? '<span class="tag new">New firmware</span>' : ""}</li>`).join("") + "</ol>");
-    return section("Device log", body, act);
+    const sum = !S.log ? "" : entries.length === 0 ? "Empty" : entries.length === 1 ? "1 start" : `${entries.length} starts`;
+    return section("log", "Device log", body, sum);
   }
 
   function view() {
     if (!S.data) return "";
-    if (S.supported === null) return section("Backup and data", panel('<div class="row__desc">Reading StatTrak…</div>'));
-    if (S.supported === false) return section("Backup and data", panel('<div class="row__desc sync__old">Update the firmware to use this.</div>'));
-    return vPicture() + vBackup() + vData() + vLog();
+    if (S.supported === null) return '<section class="sync"><div class="row"><div class="row__panel"><div class="row__desc">Reading StatTrak…</div></div></div></section>';
+    if (S.supported === false) return section("old", "Boot image, backup and data", panel('<div class="row__desc sync__old">Update the firmware to use this.</div>'), "Needs a newer firmware");
+    return `<div class="folds">${vPicture() + vBackup() + vData() + vLog()}</div>`;
   }
 
   /* ---- events (from js/apps.js) --------------------------------------------------------- */
 
   function onClick(b) {
     const act = b.dataset.act;
+    if (act === "sync-fold") return fold(b.closest("[data-fold]").dataset.fold);
     if (act === "sync-pic-cancel") { S.picAsk = false; return render(); }
     if (act === "sync-restore-close") { if (!S.work) { S.restore = null; S.backupMsg = null; } return render(); }
     if (S.host.busy()) return;
@@ -623,5 +649,27 @@ const SyncParts = (() => {
     pick("syncBackupFile", onBackupFile);
   }
 
-  return { init, reset, connected, listChanged, view, busy, onClick, onInput, onChange, state: S };
+  /* ---- live preview (the Screen Designer) ----------------------------------------------- */
+
+  /* Can StatTrak show a preview frame? null = not known yet (still reading), false = no */
+  function canPreview() {
+    if (!S.data || S.supported === null) return null;
+    return !!(S.supported && S.info && S.info.preview);
+  }
+
+  /* Sends one preview frame (512 bytes). The device shows it until a button is pressed on it or
+     the next frame comes. Returns "done", "busy" (an other transfer runs) or "unsupported";
+     throws the errors of the transfer. */
+  async function preview(bytes) {
+    if (!canPreview()) return "unsupported";
+    if (S.host.busy()) return "busy";
+    let result = "busy";
+    await run({ kind: "preview" }, async () => {
+      const answer = await S.data.sendPreview(bytes);
+      result = answer && answer.result === "done" ? "done" : "stopped";
+    });
+    return result;
+  }
+
+  return { init, reset, connected, listChanged, view, busy, onClick, onInput, onChange, canPreview, preview, state: S };
 })();
