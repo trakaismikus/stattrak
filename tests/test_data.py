@@ -684,6 +684,36 @@ class AppDataTest(DataTestCase):
         free = struct.unpack_from("<H", self.cmd(CONFIG_INFO)[1], 10)[0] // 32
         self.assertGreaterEqual(free, 160, "the reserve for the settings is gone (%d rows)" % rows)
 
+    def test_clear_then_log_near_the_reserve(self):
+        # log_clear() then log() in one handler: the space of the cleared rows counts (the erase waits)
+        source = 'app "RESTART"\ndata "A"\non press1 { log_clear()\n log(123) }\n'
+        package = app.compile_source(source)["package"]
+        app_id = struct.unpack_from("<I", package, 8)[0]
+        self.assert_installed(package)
+        self.dev.power_cut()
+        self.dev.write_blobs({"m%08x" % app_id: bytes([1, 1]) + struct.pack("<H", 64),
+                              "c%08x00" % app_id: bytes(256)}, namespace="data")
+        self.dev.boot()
+        self.open_sync()
+        free = struct.unpack_from("<H", self.cmd(CONFIG_INFO)[1], 10)[0] // 32
+        consume = free - 166            # 166 free: below the 174 that a new chunk needs without the old rows
+        self.dev.power_cut()
+        blobs = {}
+        while consume > 0:
+            take = min(consume, 126)
+            blobs["fill%d" % len(blobs)] = bytes(max(0, (take - 2) * 32))
+            consume -= take
+        self.dev.write_blobs(blobs, namespace="zz")
+        self.dev.boot()
+        self.open_sync()
+        free = struct.unpack_from("<H", self.cmd(CONFIG_INFO)[1], 10)[0] // 32
+        self.assertLess(free, 174)
+        self.leave_sync()
+        self.open_app(app_id)
+        self.dev.click(1)
+        self.open_sync()
+        self.assertEqual(self.read_rows(app_id), [[123]])
+
     def test_flash_reserve_keeps_settings_working(self):
         # 8 apps with 24 KB of packages, then app rows until the store says full: the settings, the
         # counters and the device log must still save, and an app can still be replaced.

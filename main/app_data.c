@@ -47,6 +47,7 @@ static uint32_t s_nextFlush = 0;
 static bool     s_flushNow = false;     // The app closed: write in the next AppData_update()
 static bool     s_clearPending = false; // log_clear(): the flash keys of s_id go in the next write
 static uint16_t s_flashCount = 0;       // Values of s_id that are in flash (for the reserve check)
+static uint16_t s_reclaim = 0;          // NVS entries that the pending clear frees (for the reserve check)
 
 // The open app (app host)
 static bool     s_appOpen = false;
@@ -89,7 +90,7 @@ bool AppData_log(const int32_t* values) {
   if(chunksAfter > chunksNow) {
     const uint32_t fullInFlash = s_flashCount / APP_DATA_CHUNK_VALUES;
     const uint32_t pending = (chunksAfter > fullInFlash) ? chunksAfter - fullInFlash : 0;
-    if(DataStore_availableEntries() < APP_DATA_RESERVE_ENTRIES + CHUNK_ENTRIES * pending)
+    if(DataStore_availableEntries() + s_reclaim < APP_DATA_RESERVE_ENTRIES + CHUNK_ENTRIES * pending)
       return false;
   }
 
@@ -119,6 +120,15 @@ int32_t AppData_get(int32_t row, int32_t column) {
 void AppData_clear(void) {
   if(!s_appOpen)
     return;
+  // The entries of the old store in flash are free after the deferred erase (meta + chunks, about)
+  uint32_t reclaim = 0;
+  if(s_flashCount > 0 || s_clearPending) {
+    const uint32_t bytes = (uint32_t)s_flashCount * sizeof(int32_t);
+    reclaim = s_reclaim + 3u + (bytes / (APP_DATA_CHUNK_VALUES * 4u)) * 10u;
+    if(bytes % (APP_DATA_CHUNK_VALUES * 4u))
+      reclaim += 2u + ((bytes % (APP_DATA_CHUNK_VALUES * 4u)) + 31u) / 32u;
+  }
+  s_reclaim = (uint16_t)reclaim;
   s_count = 0;
   s_columns = 0;
   s_dirty = 0;
@@ -192,6 +202,7 @@ void AppData_erase(uint32_t id) {
     s_metaDirty = false;
     s_clearPending = false;
     s_flashCount = 0;
+    s_reclaim = 0;
   }
 }
 
@@ -208,6 +219,7 @@ void AppData_forget(void) {
   s_metaDirty = false;
   s_clearPending = false;
   s_flashCount = 0;
+  s_reclaim = 0;
   s_appOpen = false;
 }
 
@@ -227,6 +239,7 @@ static void _load(uint32_t id) {
   s_metaDirty = false;
   s_clearPending = false;
   s_flashCount = 0;
+  s_reclaim = 0;
 
   uint8_t columns = 0;
   uint16_t count = 0;
@@ -283,6 +296,7 @@ static void _writeChanges(void) {
       DataStore_erase(key);
     }
     s_clearPending = false;
+    s_reclaim = 0;
   }
 
   bool good = true;
