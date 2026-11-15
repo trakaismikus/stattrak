@@ -26,6 +26,7 @@
 #include "ota.h"
 #include "ble_commands.h"
 #include "bt_start.h"
+#include "titan_view.h"
 
 #include <assert.h>
 
@@ -165,6 +166,7 @@ void App_update(void) {
   AppHost_update(now);
   AppSync_update(now);
   BtStart_update(now);   // The radio start of a Bluetooth screen (main/views/bt_start.h)
+  TitanView_update(now); // The TITAN app: radio events (only while it is open)
 
   // While firmware is being received, count it as activity, so auto off and dim start after it
   if(Ota_isBusy(otaState)) {

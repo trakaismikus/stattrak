@@ -6,6 +6,7 @@
  * The tests call the real firmware code. Hardware is replaced by sim/host (see sim/README.md).
  **************************************************************************************************/
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -22,6 +23,7 @@
 #include "font.h"
 #include "img.h"
 #include "app.h"
+#include "gate.h"
 
 /* > Storage (main/eeprom.c) **********************************************************************/
 
@@ -372,6 +374,104 @@ static int _pixelCount(void) {
   return count;
 }
 
+/* --- GATE Public API messages (main/gate.c). The frames are the examples of the GATE document. */
+
+static uint8_t _hex(const char* text, uint8_t* out) {
+  uint8_t n = 0;
+  while(text[0] && text[1]) {
+    unsigned int byte = 0;
+    sscanf(text, "%2x", &byte);
+    out[n++] = (uint8_t)byte;
+    text += 2;
+  }
+  return n;
+}
+
+TEST(gate_crc8_matches_the_examples_of_the_gate_document) {
+  static const char* const kFrames[] = {
+    "EF04CFBE", "FE06CF4F4B8B", "EF045678", "EF045363", "EF042526", "EF056601FA", "FE06B04F4BAB",
+    "FE06664F4BF9", "FE06A44F4BA2", "EF08A40101010AFA", "EF0AAF50494E414243B0",
+    "EF10B050494E41424352445858484F38", "FE0C5668362E362D3636502B",
+  };
+  for(size_t i = 0; i < sizeof(kFrames) / sizeof(kFrames[0]); i++) {
+    uint8_t frame[GATE_FRAME_MAX];
+    const uint8_t len = _hex(kFrames[i], frame);
+    CHECK_EQ(Gate_crc8(frame, (uint8_t)(len - 1)), frame[len - 1]);
+  }
+}
+
+TEST(gate_pin_frame_is_the_example_of_the_gate_document) {
+  uint8_t expected[GATE_FRAME_MAX], frame[GATE_FRAME_MAX];
+  const uint8_t expectedLen = _hex("EF10B050494E41424352445858484F38", expected);
+  const uint8_t len = Gate_buildPin(frame, "PINABC", "RDXXHO");
+  CHECK_EQ(len, expectedLen);
+  CHECK(memcmp(frame, expected, len) == 0);
+
+  // Wrong lengths give no frame
+  CHECK_EQ(Gate_buildPin(frame, "PINAB", "RDXXHO"), 0);
+  CHECK_EQ(Gate_buildPin(frame, "PINABC", "RDXXHOX"), 0);
+  CHECK_EQ(Gate_buildCommand(frame, 0x56, NULL, 17), 0);
+}
+
+TEST(gate_answers_ok_error_and_bad_frames) {
+  uint8_t frame[GATE_FRAME_MAX];
+  uint8_t cmd = 0;
+  uint8_t len = _hex("FE06B04F4BAB", frame);
+  CHECK_EQ(Gate_parseAnswer(frame, len, &cmd), GATE_ANSWER__OK);
+  CHECK_EQ(cmd, GATE_CMD__PIN);
+
+  // "ER", with a correct CRC
+  uint8_t error[6] = { 0xFE, 0x06, 0xB0, 'E', 'R', 0 };
+  error[5] = Gate_crc8(error, 5);
+  CHECK_EQ(Gate_parseAnswer(error, 6, &cmd), GATE_ANSWER__ERROR);
+
+  // Data answer (firmware version)
+  len = _hex("FE0C5668362E362D3636502B", frame);
+  CHECK_EQ(Gate_parseAnswer(frame, len, &cmd), GATE_ANSWER__DATA);
+  CHECK_EQ(cmd, GATE_CMD__FW_VERSION);
+
+  // A bad CRC, our own direction, a length larger than the data
+  len = _hex("FE06B04F4BAC", frame);
+  CHECK_EQ(Gate_parseAnswer(frame, len, NULL), GATE_ANSWER__BAD);
+  len = _hex("EF04CFBE", frame);
+  CHECK_EQ(Gate_parseAnswer(frame, len, NULL), GATE_ANSWER__BAD);
+  len = _hex("FE10B04F4BAB", frame);
+  CHECK_EQ(Gate_parseAnswer(frame, len, NULL), GATE_ANSWER__BAD);
+  CHECK_EQ(Gate_parseAnswer(NULL, 6, NULL), GATE_ANSWER__BAD);
+}
+
+TEST(gate_info_fields) {
+  // Locked, mag sensor on + no mag, AUTO, trigger pressed, 150 shots, 7220 mV (0x1C34)
+  const uint8_t data[8] = { 1, 0x03, 3, 1, 150, 0, 0x34, 0x1C };
+  gate_info_t info;
+  CHECK(Gate_parseInfo(data, sizeof(data), &info));
+  CHECK(info.fireLocked);
+  CHECK_EQ(info.flags, GATE_FLAG__MAG_SENSOR | GATE_FLAG__NO_MAG);
+  CHECK_EQ(info.selector, GATE_SELECTOR__AUTO);
+  CHECK_EQ(info.trigger, 1);
+  CHECK_EQ(info.fired, 150);
+  CHECK_EQ(info.voltageMv, 7220);
+
+  // Too short; an unknown selector value becomes UNDEFINED
+  CHECK(!Gate_parseInfo(data, 7, &info));
+  const uint8_t odd[8] = { 0, 0, 9, 0, 0, 0, 0xFF, 0xFF };
+  CHECK(Gate_parseInfo(odd, sizeof(odd), &info));
+  CHECK_EQ(info.selector, GATE_SELECTOR__UNDEFINED);
+  CHECK_EQ(info.voltageMv, GATE_VOLTAGE_UNKNOWN);
+}
+
+TEST(gate_names) {
+  char serial[GATE_SERIAL_LEN + 1];
+  CHECK(Gate_parseName("TTN2B BT RD5ZEI", serial));
+  CHECK(strcmp(serial, "RD5ZEI") == 0);
+  CHECK(Gate_parseName("TTN2B BT RD_003", serial));   // The scan response example of the document
+  CHECK(strcmp(serial, "RD_003") == 0);
+  CHECK(!Gate_parseName("TTN2B BT RD5ZE", serial));
+  CHECK(!Gate_parseName("StatTrak", serial));
+  CHECK(!Gate_parseName("TTN2B XX RD5ZEI", serial));
+  CHECK(!Gate_parseName(NULL, serial));
+}
+
 TEST(gfx_draws_inside_the_display_only) {
   BspOled_init();
   Gfx_clearAll(0);
@@ -483,6 +583,12 @@ int main(void) {
   RUN(animation_runs_and_stops);
   RUN(animation_progress_stays_in_range);
   RUN(animation_more_than_the_maximum_is_ignored);
+
+  RUN(gate_crc8_matches_the_examples_of_the_gate_document);
+  RUN(gate_pin_frame_is_the_example_of_the_gate_document);
+  RUN(gate_answers_ok_error_and_bad_frames);
+  RUN(gate_info_fields);
+  RUN(gate_names);
 
   RUN(gfx_draws_inside_the_display_only);
   RUN(gfx_random_drawing_stays_inside_the_frame_buffer);

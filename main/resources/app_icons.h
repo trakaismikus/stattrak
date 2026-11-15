@@ -17,5 +17,6 @@ extern const app_icon_t kIconCrosshairSmall;  // 15 x 15
 extern const app_icon_t kIconSkull;  // 15 x 13
 extern const app_icon_t kIconBars;  // 17 x 13
 extern const app_icon_t kIconGear;  // 13 x 13
+extern const app_icon_t kIconLightning;  // 11 x 17 (TITAN)
 
 #endif // _APP_ICONS_H

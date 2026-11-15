@@ -68,6 +68,7 @@ static const struct {
   { APPS_ID__KILLS,     VIEW_ID__TOTAL,     "KILLS" },
   { APPS_ID__KILL_DEAD, VIEW_ID__KILL_DEAD, "KILLS + DEAD" },
   { APPS_ID__STATS,     VIEW_ID__STATS,     "STATS" },
+  { APPS_ID__TITAN,     VIEW_ID__TITAN,     "TITAN" },
 };
 
 static nvs_handle_t s_handle;

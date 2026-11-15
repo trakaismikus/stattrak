@@ -231,6 +231,12 @@ static void _openSettings(void) {
   if(s_count == 0 || AppView_getNext() != VIEW_ID__LAUNCHER)
     return;
   const apps_item_t* item = &s_items[_wrap(s_selected)];
+  if(item->view == VIEW_ID__TITAN) {
+    // The settings of TITAN have their own view (no radio there)
+    App_click(1200);
+    AppView_set(VIEW_ID__TITAN_SETUP);
+    return;
+  }
   if(item->view != VIEW_ID__APP_HOST || Apps_getSettingCount(item->id) == 0)
     return;
   if(AppSettings_setApp(item->id)) {
@@ -248,6 +254,8 @@ static int8_t _indexOf(view_id_t view) {
   } else if(view == VIEW_ID__APP_SETTINGS) {
     id = AppSettings_getAppId();
     view = VIEW_ID__APP_HOST;
+  } else if(view == VIEW_ID__TITAN_SETUP) {
+    view = VIEW_ID__TITAN;
   }
 
   for(int8_t i = 0; i < APP_COUNT; i++) {
@@ -274,6 +282,7 @@ static void _drawCover(const apps_item_t* item, int16_t x, int16_t y) {
     case VIEW_ID__KILL_DEAD: _coverKillDead(x, y); break;
     case VIEW_ID__STATS:     _coverStats(x, y); break;
     case VIEW_ID__SETTINGS:  _coverSettings(x, y); break;
+    case VIEW_ID__TITAN:     _drawIconText(x, y, &kIconLightning, "TITAN"); break;
     case VIEW_ID__APP_HOST: {
       // The title picture of an installed app (80 x 24, from the package)
       const uint8_t* picture = Apps_getPicture(item->id);

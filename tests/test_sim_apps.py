@@ -12,7 +12,7 @@ import tempfile
 import unittest
 
 from helpers import BATTERY_LIPO_1S
-from test_apps import AppTestCase, counter_app, INSTALLED, KILLS, KILL_DEAD, STATS
+from test_apps import AppTestCase, counter_app, INSTALLED, BUILTIN_APPS
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.join(REPO_ROOT, "tools"))
@@ -43,12 +43,12 @@ class SimAppsTest(AppTestCase):
         state = self.simapp(package)
         self.assertEqual(state["view"], "APP_SYNC")
         self.assertEqual(state["simapp_state"], QUESTION, state["simapp_text"])
-        self.assertEqual(self.apps_list(), [KILLS, KILL_DEAD, STATS])      # nothing installed yet
+        self.assertEqual(self.apps_list(), BUILTIN_APPS)      # nothing installed yet
         self.dev.long_press(2)                                               # yes
         self.dev.run(500)
         state = self.dev.state()
         self.assertEqual(state["simapp_state"], DONE, state["simapp_text"])
-        self.assertEqual(self.apps_list(), [KILLS, KILL_DEAD, STATS, app_id])
+        self.assertEqual(self.apps_list(), BUILTIN_APPS + [app_id])
         self.dev.long_press(1)                       # SYNC MORE
         self.dev.long_press(1)                       # BACK: leave Apps: SYNC, back to the view before it
         self.assertEqual(self.dev.view, "TOTAL")
@@ -62,7 +62,7 @@ class SimAppsTest(AppTestCase):
         self.dev.run(500)
         state = self.dev.state()
         self.assertEqual(state["simapp_state"], REFUSED, state["simapp_text"])
-        self.assertEqual(self.apps_list(), [KILLS, KILL_DEAD, STATS])
+        self.assertEqual(self.apps_list(), BUILTIN_APPS)
 
     def test_a_bad_file_is_refused_by_the_firmware(self):
         package = bytearray(counter_app())
@@ -75,7 +75,7 @@ class SimAppsTest(AppTestCase):
         state = self.dev.state()
         self.assertEqual(state["simapp_state"], FAILED)
         self.assertIn("not a valid app file", state["simapp_text"])
-        self.assertEqual(self.apps_list(), [KILLS, KILL_DEAD, STATS])
+        self.assertEqual(self.apps_list(), BUILTIN_APPS)
 
     def test_simopen_answers_yes_and_opens_the_app(self):
         # "python tools/app.py sim", the page address #app=... and "simulator --app FILE" do this
@@ -175,7 +175,7 @@ class SimAppsTest(AppTestCase):
         self.assertEqual(state["view"], "BATTERY_LOW")
         self.assertEqual(state["simapp_state"], FAILED)
         self.assertIn("left Apps: SYNC", state["simapp_text"])
-        self.assertEqual(self.apps_list(), [KILLS, KILL_DEAD, STATS])
+        self.assertEqual(self.apps_list(), BUILTIN_APPS)
 
     def test_install_while_an_app_runs_and_install_again(self):
         package = counter_app()
@@ -187,7 +187,7 @@ class SimAppsTest(AppTestCase):
         self.dev.long_press(2)
         self.dev.run(500)
         self.assertEqual(self.dev.state()["simapp_state"], DONE)
-        self.assertEqual(self.apps_list(), [KILLS, KILL_DEAD, STATS, 0x1000])
+        self.assertEqual(self.apps_list(), BUILTIN_APPS + [0x1000])
 
 
 if __name__ == "__main__":

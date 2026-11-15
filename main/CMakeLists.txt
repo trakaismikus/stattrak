@@ -10,6 +10,8 @@ set(SRC_FILES
   "battery.c"
   "ble_commands.c"
   "gfx_fx.c"
+  "gate.c"
+  "titan.c"
   
   "board/bsp_adc.c"
   "board/bsp_buzzer.c"
@@ -40,6 +42,8 @@ set(SRC_FILES
   "views/auto_off_view.c"
   "views/battery_low_view.c"
   "views/battery_critical_view.c"
+  "views/titan_view.c"
+  "views/titan_setup_view.c"
 )
 
 set(INC_DIRS
@@ -51,7 +55,7 @@ set(INC_DIRS
 
 idf_component_register(
   SRCS ${SRC_FILES}
-  PRIV_REQUIRES spi_flash nvs_flash bt app_update esp_ringbuf app_ble ble_ota gfx ssd1307 gui esp_adc stapp
+  PRIV_REQUIRES spi_flash nvs_flash bt app_update esp_ringbuf app_ble ble_ota gate_ble gfx ssd1307 gui esp_adc stapp
   INCLUDE_DIRS ${INC_DIRS})
 
 add_compile_definitions(GFX_SUPPORT_GLYPH_FONT=1)

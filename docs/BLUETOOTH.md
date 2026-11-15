@@ -152,6 +152,13 @@ So the update view, the accept view and the app sync start the radio softly
 0.4 s after it, for each of the three views and for the 10 s hold. Use the same start in each
 new view that switches Bluetooth on.
 
+### StatTrak as the phone side (TITAN)
+
+The TITAN app (branch `feat/titan-app`, [TITAN.md](TITAN.md)) uses Bluetooth the other way: StatTrak
+is the central, it searches for a GATE TITAN II Bluetooth and connects to it. It has its own
+component, `components/gate_ble/`, and does not use the update service. It starts with the same
+soft radio start, and only while the TITAN view is open. Do not start it in an other view.
+
 ## The other side: a web page or an app
 
 The device is a Bluetooth LE peripheral with the name `StatTrak`.

@@ -22,7 +22,7 @@ def lit(frame):
 
 class RadioStartTest(SimTestCase):
 
-    def watch_radio_start(self, steps=200):
+    def watch_radio_start(self, steps=200, key="ota_active"):
         """Run in 10 ms steps. Returns (step of the radio start or None, most lit pixels from the
         radio start to 0.4 s after it, most lit pixels before the radio start in the last 0.1 s)."""
         started = None
@@ -31,7 +31,7 @@ class RadioStartTest(SimTestCase):
         for step in range(steps):
             self.dev.run(10)
             frames.append(lit(self.dev.frame()))
-            if started is None and self.dev.state()["ota_active"]:
+            if started is None and self.dev.state()[key]:
                 started = step
             if started is not None and step - started <= 40:
                 worst = max(worst, frames[-1])
@@ -60,6 +60,23 @@ class RadioStartTest(SimTestCase):
         self.assertEqual(state["view"], "UPDATE")
         self.assertEqual(state["ota_active"], 1)
         self.assertGreater(lit(self.dev.frame()), MAX_LIT_AT_RADIO_START, "the update screen did not come")
+
+    def test_titan(self):
+        # The TITAN app (main/views/titan_view.c): its own radio (components/gate_ble), same soft start
+        self.dev.boot()
+        self.dev.click_both()
+        while self.dev.state()["launcher_sel"] != "TITAN":
+            self.dev.click(2)
+        self.dev.press(1)
+        self.dev.press(2)
+        self.dev.run(80)
+        self.dev.release(1)
+        self.dev.release(2)
+        started, worst, before = self.watch_radio_start(key="gate_on")
+        self.check(started, worst, before)
+        self.dev.run(1000)
+        self.assertEqual(self.dev.state()["view"], "TITAN")
+        self.assertGreater(lit(self.dev.frame()), 0, "the TITAN screen did not come")
 
     def test_app_sync(self):
         started, worst, before = self.open_from_settings("APP_SYNC")

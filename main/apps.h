@@ -24,7 +24,7 @@
 /* > Defines **************************************************************************************/
 #define APPS_MAX_INSTALLED    8
 #define APPS_MAX_BYTES        (24 * 1024)   // All installed packages together
-#define APPS_BUILTIN_COUNT    3
+#define APPS_BUILTIN_COUNT    4
 #define APPS_LIST_MAX         (APPS_BUILTIN_COUNT + APPS_MAX_INSTALLED)
 #define APPS_MENU_MAX         (APPS_LIST_MAX + 1)   // 12: the list + SETTINGS
 #define APPS_ERROR_LIMIT      3                     // App errors until the app is switched off
@@ -38,6 +38,7 @@
 #define APPS_ID__KILLS        1u
 #define APPS_ID__KILL_DEAD    2u
 #define APPS_ID__STATS        3u
+#define APPS_ID__TITAN        4u    // GATE TITAN II Bluetooth (main/views/titan_view.c)
 
 // Flags of an app (the LIST command sends them). Only HIDDEN is stored in the list.
 #define APPS_FLAG__HIDDEN     0x01

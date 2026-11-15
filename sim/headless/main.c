@@ -18,6 +18,9 @@
  *   ble cmd <id> [hex]       a phone sends a user command (main/ble_commands.h), id in hex
  *   ble response             print the oldest answer of the firmware to a user command
  *   nvs fail <0|1>           make all flash writes fail
+ *   gate add <serial> <pin> <rssi>   a fake TITAN II Bluetooth near the device (sim/host/host_gate.c)
+ *   gate range <serial> <0|1>        the Titan goes out of range (0) or comes back (1)
+ *   gate info <hex>                  the connected Titan sends INFO_0_API (8 to 20 bytes)
  *   simapp <file>            install an app package like the window / web simulator (sim_apps.h)
  *   simopen <file>           the same, and the simulator answers yes and opens the app
  *   state                    print the device state as key=value lines
@@ -50,6 +53,9 @@
 #include "board.h"
 #include "sim_apps.h"
 #include "stapp.h"
+#include "gate_ble.h"
+#include "titan.h"
+#include "titan_view.h"
 
 /* > External Variables (main/main.c) *************************************************************/
 extern eeprom_t g_eeprom;
@@ -160,6 +166,30 @@ static void _printState(void) {
   printf("settings_row=%u\n", (unsigned)SettingsView_getSelectedId());
   printf("simapp_state=%d\n", (int)SimApps_getState());
   printf("simapp_text=%s\n", SimApps_getText());
+
+  /* TITAN app (main/titan.c, main/views/titan_view.c) and the fake ETU */
+  printf("gate_on=%d\n", HostGate_isOn() ? 1 : 0);
+  printf("gate_connected=%d\n", HostGate_isConnected() ? 1 : 0);
+  printf("gate_authorized=%d\n", HostGate_isAuthorized() ? 1 : 0);
+  printf("gate_starts=%lu\n", (unsigned long)HostGate_getStartCount());
+  printf("gate_overlap=%lu\n", (unsigned long)HostGate_getOverlapCount());
+  printf("gate_sends=%lu\n", (unsigned long)HostGate_getSendCount());
+  printf("gate_other_commands=%lu\n", (unsigned long)HostGate_getOtherCommandCount());
+  printf("titan_screen=%s\n", TitanView_getScreenName());
+  printf("titan_link=%u\n", (unsigned)Titan_getLink());
+  printf("titan_paired=%s\n", Titan_getSerial());
+  printf("titan_rounds=%ld\n", (long)Titan_getRounds());
+  printf("titan_uncertain=%d\n", Titan_isUncertain() ? 1 : 0);
+  printf("titan_alert=%u\n", (unsigned)Titan_getAlert());
+  printf("titan_alerts=%u\n", (unsigned)Titan_getActiveAlerts());
+  printf("titan_mag=%u\n", (unsigned)Titan_getMagSize());
+  printf("titan_batt=%u\n", (unsigned)Titan_getBattery());
+  printf("titan_ammo_alert=%u\n", (unsigned)Titan_getAmmoAlert());
+  printf("titan_shots=%lu\n", (unsigned long)Titan_getSessionShots());
+  printf("titan_reloads=%u\n", (unsigned)Titan_getReloads());
+  printf("titan_found=%u\n", (unsigned)Titan_getFoundCount());
+  printf("titan_pin_entry=%s\n", TitanView_getPinEntry());
+  printf("titan_pin_pos=%u\n", (unsigned)TitanView_getPinPos());
 }
 
 static void _printFrame(void) {
@@ -282,6 +312,30 @@ static bool _readCommand(void) {
       const size_t size = fread(s_simApp, 1, sizeof(s_simApp), file);
       fclose(file);
       _reply(SimApps_start(s_simApp, (uint32_t)size, strcmp(cmd, "simopen") == 0) ? "ok" : "err not started");
+    }
+  } else if(strcmp(cmd, "gate") == 0) {
+    char arg1[48] = "", arg2[48] = "";
+    long rssi = 0;
+    const int count = sscanf(line, "%*s %15s %47s %47s %ld", sub, arg1, arg2, &rssi);
+    if(count == 4 && strcmp(sub, "add") == 0 && rssi >= -127 && rssi <= 0) {
+      _reply(HostGate_add(arg1, arg2, (int8_t)rssi) ? "ok" : "err serial and pin: 6 characters each, at most 4 units");
+    } else if(count >= 3 && strcmp(sub, "range") == 0 && (strcmp(arg2, "0") == 0 || strcmp(arg2, "1") == 0)) {
+      _reply(HostGate_setInRange(arg1, arg2[0] == '1') ? "ok" : "err unknown serial");
+    } else if(count >= 2 && strcmp(sub, "info") == 0) {
+      uint8_t data[GATE_BLE_DATA_MAX];
+      const size_t hexLen = strlen(arg1);
+      bool good = (hexLen % 2 == 0) && hexLen >= 16 && hexLen <= 2 * GATE_BLE_DATA_MAX;
+      for(size_t i = 0; good && i < hexLen / 2; i++) {
+        unsigned int byte = 0;
+        good = (sscanf(&arg1[2 * i], "%2x", &byte) == 1);
+        data[i] = (uint8_t)byte;
+      }
+      if(!good)
+        _reply("err usage: gate info <8 to 20 bytes as hex>");
+      else
+        _reply(HostGate_sendInfo(data, (uint8_t)(hexLen / 2)) ? "ok" : "err no Titan has the PIN connection now");
+    } else {
+      _reply("err usage: gate add <serial> <pin> <rssi> | gate range <serial> <0|1> | gate info <hex>");
     }
   } else if(strcmp(cmd, "state") == 0) {
     _printState();

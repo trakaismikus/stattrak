@@ -165,6 +165,22 @@ bool        HostOta_sendUserCommand(uint16_t cmdId, const uint8_t* data, uint8_t
 /* The oldest answer that the firmware sent. `data` must have place for 13 bytes. */
 bool        HostOta_takeUserResponse(uint16_t* cmdId, uint8_t* status, uint8_t* data, uint8_t* len);
 
+/* --- GATE ETU stand-in (replaces components/gate_ble/gate_ble.c): fake TITAN II Bluetooth units */
+bool        HostGate_add(const char* serial, const char* pin, int8_t rssi);   /* A Titan near the device */
+bool        HostGate_setInRange(const char* serial, bool inRange);           /* Out of range = disconnect */
+/* The Titan that StatTrak is connected to sends INFO_0_API (8 to 20 bytes). Kept as its state. */
+bool        HostGate_sendInfo(const uint8_t* data, uint8_t len);
+bool        HostGate_isOn(void);
+bool        HostGate_isConnected(void);
+bool        HostGate_isAuthorized(void);        /* The ETU took the PIN */
+uint32_t    HostGate_getStartCount(void);
+uint32_t    HostGate_getOverlapCount(void);     /* Radio and update service on at the same time (must stay 0) */
+void        HostGate_noteOverlap(void);         /* host_ota.c: Ota_init() while the TITAN radio is on */
+uint32_t    HostGate_getSendCount(void);
+uint8_t     HostGate_getLastCommand(void);      /* The command byte of the last frame to the ETU */
+uint32_t    HostGate_getOtherCommandCount(void);/* Frames that were not PIN (must stay 0: StatTrak only reads) */
+void        HostGate_reset(void);
+
 #ifdef __cplusplus
 }
 #endif

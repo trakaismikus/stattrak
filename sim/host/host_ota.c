@@ -172,6 +172,8 @@ int Ota_init(void) {
   s_nextName[0] = 0;
   if(s_active)
     s_doubleInitCount++;
+  if(HostGate_isOn())
+    HostGate_noteOverlap();   /* The update service must never start while the TITAN radio is on */
 
   s_active = true;
   s_transfer = false;

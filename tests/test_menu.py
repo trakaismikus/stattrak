@@ -44,7 +44,7 @@ class AppMenuTest(SimTestCase):
         self.dev.click(1)
         self.assertEqual(self.selected(), "SETTINGS")
         self.dev.click(1)
-        self.assertEqual(self.selected(), "STATS")
+        self.assertEqual(self.selected(), MAIN_VIEWS[-2])
 
     def test_settings_is_three_presses_away(self):
         # The way to "Firmware: UPDATE": both, button 1, both
@@ -67,7 +67,7 @@ class AppMenuTest(SimTestCase):
     def test_each_press_starts_the_3_seconds_again(self):
         self.dev.boot()
         self.dev.click_both()
-        for _ in range(4):
+        for _ in range(len(MAIN_VIEWS)):
             self.dev.run(2000)
             self.dev.click(2)
         self.assertEqual(self.dev.view, "LAUNCHER")
@@ -211,7 +211,7 @@ class AppMenuTest(SimTestCase):
         frame = self.dev.frame()
         # The bar in segments: row 29 has a line under each app, row 28 only under the selected one
         self.assertGreater(frame[29].count("#"), 4 * 20)
-        self.assertGreater(frame[28].count("#"), 20)
+        self.assertGreaterEqual(frame[28].count("#"), 100 // len(MAIN_VIEWS))
         self.assertLess(frame[28].count("#"), 40)
         # The title picture
         self.assertGreater(sum(row.count("#") for row in frame[2:26]), 100)

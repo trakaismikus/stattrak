@@ -18,7 +18,7 @@ SETTINGS_WITH_BATTERY = [
 SETTINGS_NO_BATTERY = [name for name in SETTINGS_WITH_BATTERY if name not in ("SHOW_BATTERY", "LOW_BAT")]
 
 # The apps of the app menu, in menu order (kApps in main/views/launcher_view.c).
-MAIN_VIEWS = ["TOTAL", "KILL_DEAD", "STATS", "SETTINGS"]
+MAIN_VIEWS = ["TOTAL", "KILL_DEAD", "STATS", "TITAN", "SETTINGS"]
 
 # Battery types (main/battery.h)
 BATTERY_NONE = 0

@@ -62,6 +62,8 @@ set(FIRMWARE_SOURCES
   ${MAIN_DIR}/ble_commands.c
   ${MAIN_DIR}/eeprom.c
   ${MAIN_DIR}/gfx_fx.c
+  ${MAIN_DIR}/gate.c
+  ${MAIN_DIR}/titan.c
 
   ${MAIN_DIR}/board/bsp_button.c
 
@@ -82,6 +84,8 @@ set(FIRMWARE_SOURCES
   ${MAIN_DIR}/views/settings_view.c
   ${MAIN_DIR}/views/space_view.c
   ${MAIN_DIR}/views/stats_view.c
+  ${MAIN_DIR}/views/titan_setup_view.c
+  ${MAIN_DIR}/views/titan_view.c
   ${MAIN_DIR}/views/total_view.c
   ${MAIN_DIR}/views/update_view.c
 
@@ -103,6 +107,7 @@ set(HOST_SOURCES
   ${HOST_DIR}/host_button.c
   ${HOST_DIR}/host_nvs.c
   ${HOST_DIR}/host_ota.c
+  ${HOST_DIR}/host_gate.c
   ${HOST_DIR}/sim_apps.c
 )
 
@@ -120,6 +125,7 @@ set(QUOTE_INCLUDE_DIRS
   ${COMPONENT_DIR}/ssd1307
   ${COMPONENT_DIR}/ble_ota
   ${COMPONENT_DIR}/app_ble
+  ${COMPONENT_DIR}/gate_ble
 )
 
 set(COMMON_OPTIONS "")

@@ -5,7 +5,13 @@ Product status of the StatTrak firmware. Finding numbers (A1, B7, ...) are from
 
 ## In progress
 
-Nothing at the moment.
+- **TITAN app: a shot counter for a GATE TITAN II Bluetooth (proof of concept).** Branch
+  `feat/titan-app` only, not for `main` yet: TRIDOS tests it on a real gun first, and then
+  decides if it goes into the official firmware or stays a branch to share. StatTrak connects
+  to the gun over Bluetooth, counts the shots (count up, or count down from a MAG SIZE), and
+  shows alerts (low gun battery, fire locked, low ammo, mag empty, link lost). Pairing with the
+  two buttons, a PIN letter wheel. [docs/TITAN.md](TITAN.md). Done: firmware, simulator tests.
+  Waits for: the live test on a gun (the list is in docs/TITAN.md).
 
 ## Next up
 

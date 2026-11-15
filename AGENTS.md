@@ -345,6 +345,8 @@ components/ssd1307/      display driver
 components/app_ble/      Bluetooth start. HIGH RISK
 components/ble_ota/      firmware update over Bluetooth. HIGH RISK
 components/stapp/        the app engine: checks an app package and runs it with limits (docs/APPS.md)
+components/gate_ble/     Bluetooth to a GATE TITAN II (StatTrak is the central). TITAN app only (docs/TITAN.md)
+main/titan.c, gate.c     the TITAN app logic and the GATE messages; main/views/titan_*_view.c the screens
 partitions.csv           flash layout. NEVER CHANGE
 sdkconfig.defaults       SDK settings. HIGH RISK
 designs/                 screen design files (docs/DESIGNS.md)

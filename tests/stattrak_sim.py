@@ -329,6 +329,24 @@ class Device:
         lines = self.command("ota accept")
         return "accepted=1" in lines
 
+    # --- Fake GATE TITAN II Bluetooth (sim/host/host_gate.c). It is gone after a power cycle.
+
+    def gate_add(self, serial, pin, rssi=-50):
+        """A Titan near the device, with its serial number and PIN (6 characters each)."""
+        self.command("gate add %s %s %d" % (serial, pin, int(rssi)))
+        return self
+
+    def gate_range(self, serial, in_range):
+        """The Titan goes out of range (False: it disconnects) or comes back (True)."""
+        self.command("gate range %s %d" % (serial, 1 if in_range else 0))
+        return self
+
+    def gate_info(self, fired=0, voltage_mv=8000, selector=2, trigger=0, locked=False, flags=0):
+        """The connected Titan sends INFO_0_API (GATE document; low byte first)."""
+        data = struct.pack("<BBBBHH", 1 if locked else 0, flags, selector, trigger, fired, voltage_mv)
+        self.command("gate info %s" % data.hex())
+        return self
+
     def ble_command(self, cmd_id, data=b"", wait_ms=100):
         """A phone sends a user command over Bluetooth (see main/ble_commands.h).
 

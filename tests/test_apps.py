@@ -43,6 +43,8 @@ STAPP_ERR_SYS = 12
 STAPP_ERR_STEPS = 16
 
 KILLS, KILL_DEAD, STATS = 1, 2, 3
+TITAN = 4                       # The TITAN app (main/apps.h, APPS_ID__TITAN)
+BUILTIN_APPS = [KILLS, KILL_DEAD, STATS, TITAN]
 
 
 def counter_app(app_id=0x1000, name="COUNTER", permissions=PERM_COUNTERS, settings=True, saved=0):
@@ -190,8 +192,8 @@ class StoppedTransferTest(AppTestCase):
 class BuiltinAppsTest(AppTestCase):
 
     def test_a_device_without_apps_has_the_three_builtin_apps(self):
-        self.assertEqual(self.apps_list(), [KILLS, KILL_DEAD, STATS])
-        self.assertEqual(self.menu(), ["1", "2", "3", "settings"])
+        self.assertEqual(self.apps_list(), BUILTIN_APPS)
+        self.assertEqual(self.menu(), ["1", "2", "3", "4", "settings"])
         # Nothing was written for the apps at start
         self.dev.power_cut()
         self.assertEqual(self.dev.read_blobs("apps"), {})
@@ -200,20 +202,20 @@ class BuiltinAppsTest(AppTestCase):
         self.dev.power_cut()
         self.dev.write_blobs({"list": b"\x07\x02garbage"})
         self.dev.boot()
-        self.assertEqual(self.apps_list(), [KILLS, KILL_DEAD, STATS])
+        self.assertEqual(self.apps_list(), BUILTIN_APPS)
 
     def test_a_list_entry_without_a_package_is_left_out(self):
         self.dev.power_cut()
         entries = [(KILLS, 0), (0x5555, 0), (KILL_DEAD, 0), (STATS, 0)]
         self.dev.write_blobs({"list": bytes([1, len(entries)]) + b"".join(struct.pack("<IB", i, f) for i, f in entries)})
         self.dev.boot()
-        self.assertEqual(self.apps_list(), [KILLS, KILL_DEAD, STATS])
+        self.assertEqual(self.apps_list(), BUILTIN_APPS)
 
     def test_a_list_without_the_builtin_apps_gets_them_back(self):
         self.dev.power_cut()
         self.dev.write_blobs({"list": bytes([1, 1]) + struct.pack("<IB", STATS, 0)})
         self.dev.boot()
-        self.assertEqual(self.apps_list(), [STATS, KILLS, KILL_DEAD])
+        self.assertEqual(self.apps_list(), [STATS, KILLS, KILL_DEAD, TITAN])
 
     def test_a_broken_package_in_flash_is_left_out(self):
         self.assert_installed(counter_app())
@@ -222,8 +224,8 @@ class BuiltinAppsTest(AppTestCase):
         package[60] ^= 0xFF   # The CRC does not fit any more
         self.dev.write_blobs({"p00001000": bytes(package)})
         self.dev.boot()
-        self.assertEqual(self.apps_list(), [KILLS, KILL_DEAD, STATS])
-        self.assertEqual(self.menu(), ["1", "2", "3", "settings"])
+        self.assertEqual(self.apps_list(), BUILTIN_APPS)
+        self.assertEqual(self.menu(), ["1", "2", "3", "4", "settings"])
 
 
 class InstallTest(AppTestCase):
@@ -232,10 +234,10 @@ class InstallTest(AppTestCase):
         result = self.install(counter_app())
         self.assertEqual(result["state"], INSTALLED, result)
         state = self.dev.state()
-        self.assertEqual(self.apps_list(), [KILLS, KILL_DEAD, STATS, 0x1000])
+        self.assertEqual(self.apps_list(), BUILTIN_APPS + [0x1000])
         self.assertEqual(state["app.4096.name"], "COUNTER")
         self.assertEqual(state["blob.apps.p00001000"], len(counter_app()))
-        self.assertEqual(self.menu(), ["1", "2", "3", "4096", "settings"])
+        self.assertEqual(self.menu(), ["1", "2", "3", "4", "4096", "settings"])
 
         self.leave_sync()
         self.open_app(0x1000)
@@ -289,7 +291,7 @@ class InstallTest(AppTestCase):
         result = self.install(finish(package))
         self.assertEqual((result["step"], result["status"]), ("end", BAD_PACKAGE), result)
         self.assertEqual(result["data"], bytes([STAPP_ERR_SYS]))
-        self.assertEqual(self.apps_list(), [KILLS, KILL_DEAD, STATS])
+        self.assertEqual(self.apps_list(), BUILTIN_APPS)
 
     def test_the_menu_shows_the_title_picture(self):
         self.assert_installed(counter_app())
@@ -308,14 +310,14 @@ class InstallTest(AppTestCase):
     def test_the_person_says_no(self):
         result = self.install(counter_app(), answer="no")
         self.assertEqual(result["state"], REFUSED)
-        self.assertEqual(self.apps_list(), [KILLS, KILL_DEAD, STATS])
+        self.assertEqual(self.apps_list(), BUILTIN_APPS)
         self.dev.power_cut()
         self.assertNotIn("p00001000", self.dev.read_blobs())
 
     def test_no_answer_in_30_seconds_is_no(self):
         result = self.install(counter_app(), answer="wait")
         self.assertEqual(result["state"], TIMEOUT)
-        self.assertEqual(self.apps_list(), [KILLS, KILL_DEAD, STATS])
+        self.assertEqual(self.apps_list(), BUILTIN_APPS)
 
     def test_the_question_is_on_the_display(self):
         result = self.install(counter_app(), answer=None)
@@ -334,7 +336,7 @@ class InstallTest(AppTestCase):
         self.dev.long_press(2)
         # Yes: the device takes the data now; nothing is installed before END
         self.assertEqual(self.cmd(APP_CMD_STATUS)[1], bytes([RECEIVING]))
-        self.assertEqual(self.apps_list(), [KILLS, KILL_DEAD, STATS])
+        self.assertEqual(self.apps_list(), BUILTIN_APPS)
 
     def test_no_data_before_the_question(self):
         self.dev.open_app_sync()
@@ -404,13 +406,13 @@ class InstallTest(AppTestCase):
     def test_the_name_must_be_the_name_of_the_question(self):
         result = self.install(counter_app(), name=b"OTHER APP")
         self.assertEqual((result["step"], result["status"]), ("end", BAD_PACKAGE), result)
-        self.assertEqual(self.apps_list(), [KILLS, KILL_DEAD, STATS])
+        self.assertEqual(self.apps_list(), BUILTIN_APPS)
         self.assertEqual(self.cmd(APP_CMD_STATUS)[1], bytes([IDLE]))
 
     def test_bad_crc(self):
         result = self.install(counter_app(), crc=0x12345678)
         self.assertEqual((result["step"], result["status"]), ("end", BAD_CRC), result)
-        self.assertEqual(self.apps_list(), [KILLS, KILL_DEAD, STATS])
+        self.assertEqual(self.apps_list(), BUILTIN_APPS)
         # The next install works
         self.assert_installed(counter_app())
 
@@ -420,7 +422,7 @@ class InstallTest(AppTestCase):
         result = self.install(bytes(package))
         self.assertEqual((result["step"], result["status"]), ("end", BAD_PACKAGE), result)
         self.assertEqual(result["data"], bytes([STAPP_ERR_MAGIC]))
-        self.assertEqual(self.apps_list(), [KILLS, KILL_DEAD, STATS])
+        self.assertEqual(self.apps_list(), BUILTIN_APPS)
 
     def test_the_id_must_be_the_id_of_the_package(self):
         self.dev.open_app_sync()
@@ -475,8 +477,8 @@ class InstallTest(AppTestCase):
             self.assert_installed(small_app(0x100 + i))
         result = self.install(small_app(0x200), open_sync=False)
         self.assertEqual((result["step"], result["status"]), ("begin", TOO_MANY))
-        self.assertEqual(len(self.apps_list()), 11)
-        self.assertEqual(len(self.menu()), 12)
+        self.assertEqual(len(self.apps_list()), 12)
+        self.assertEqual(len(self.menu()), 13)
 
     def test_info_list_and_name(self):
         self.assert_installed(counter_app())
@@ -493,8 +495,11 @@ class InstallTest(AppTestCase):
 
         status, data = self.cmd(APP_CMD_LIST, bytes([3]))
         app_id, version, size, flags, settings = struct.unpack_from("<IHHBB", data)
+        self.assertEqual((app_id, flags, data[10:13]), (TITAN, BUILTIN_FLAG, b"TIT"))
+        status, data = self.cmd(APP_CMD_LIST, bytes([4]))
+        app_id, version, size, flags, settings = struct.unpack_from("<IHHBB", data)
         self.assertEqual((app_id, version, size, flags, settings), (0x1000, 1, len(counter_app()), HAS_SETTINGS, 2))
-        self.assertEqual(self.cmd(APP_CMD_LIST, bytes([4]))[0], INDEX)
+        self.assertEqual(self.cmd(APP_CMD_LIST, bytes([5]))[0], INDEX)
 
         self.assertEqual(self.cmd(APP_CMD_NAME, struct.pack("<IB", 0x1000, 0)), (OK, b"COUNTER"))
         self.assertEqual(self.cmd(APP_CMD_NAME, struct.pack("<IB", KILL_DEAD, 0)), (OK, b"KILLS + DEAD"))
@@ -586,7 +591,7 @@ class ManageTest(AppTestCase):
     def test_delete(self):
         self.assert_installed(counter_app(saved=1))
         self.assertEqual(self.cmd(APP_CMD_DELETE, struct.pack("<I", 0x1000))[0], OK)
-        self.assertEqual(self.apps_list(), [KILLS, KILL_DEAD, STATS])
+        self.assertEqual(self.apps_list(), BUILTIN_APPS)
         self.assertEqual(self.cmd(APP_CMD_DELETE, struct.pack("<I", 0x1000))[0], ERROR)
         self.assertEqual(self.cmd(APP_CMD_DELETE, struct.pack("<I", KILLS))[0], BUILTIN)
         self.dev.power_cut()
@@ -595,18 +600,19 @@ class ManageTest(AppTestCase):
     def test_hide_and_show(self):
         self.assert_installed(counter_app())
         self.assertEqual(self.cmd(APP_CMD_SET_HIDDEN, struct.pack("<IB", KILL_DEAD, 1))[0], OK)
-        self.assertEqual(self.menu(), ["1", "3", "4096", "settings"])
+        self.assertEqual(self.menu(), ["1", "3", "4", "4096", "settings"])
         self.assertEqual(self.cmd(APP_CMD_LIST, bytes([1]))[1][8], BUILTIN_FLAG | HIDDEN)
         self.assertEqual(self.cmd(APP_CMD_SET_HIDDEN, struct.pack("<IB", KILL_DEAD, 0))[0], OK)
-        self.assertEqual(self.menu(), ["1", "2", "3", "4096", "settings"])
+        self.assertEqual(self.menu(), ["1", "2", "3", "4", "4096", "settings"])
         self.assertEqual(self.cmd(APP_CMD_SET_HIDDEN, struct.pack("<IB", KILL_DEAD, 2))[0], ERROR)
         self.assertEqual(self.cmd(APP_CMD_SET_HIDDEN, struct.pack("<IB", 0x7777, 1))[0], ERROR)
 
     def test_the_last_shown_app_cannot_be_hidden(self):
         self.assertEqual(self.cmd_in_sync(APP_CMD_SET_HIDDEN, struct.pack("<IB", KILLS, 1))[0], OK)
         self.assertEqual(self.cmd(APP_CMD_SET_HIDDEN, struct.pack("<IB", KILL_DEAD, 1))[0], OK)
-        self.assertEqual(self.cmd(APP_CMD_SET_HIDDEN, struct.pack("<IB", STATS, 1))[0], LAST_SHOWN)
-        self.assertEqual(self.menu(), ["3", "settings"])
+        self.assertEqual(self.cmd(APP_CMD_SET_HIDDEN, struct.pack("<IB", STATS, 1))[0], OK)
+        self.assertEqual(self.cmd(APP_CMD_SET_HIDDEN, struct.pack("<IB", TITAN, 1))[0], LAST_SHOWN)
+        self.assertEqual(self.menu(), ["4", "settings"])
 
     def cmd_in_sync(self, cmd_id, data):
         self.dev.open_app_sync()
@@ -623,24 +629,24 @@ class ManageTest(AppTestCase):
     def test_order(self):
         self.assert_installed(counter_app())
         self.assert_installed(small_app(0x300), open_sync=False)
-        self.assertEqual(self.set_order([0x300, STATS, 0x1000, KILLS, KILL_DEAD]), [OK, OK])
-        self.assertEqual(self.apps_list(), [0x300, STATS, 0x1000, KILLS, KILL_DEAD])
-        self.assertEqual(self.menu(), ["768", "3", "4096", "1", "2", "settings"])
+        self.assertEqual(self.set_order([0x300, STATS, 0x1000, KILLS, KILL_DEAD, TITAN]), [OK, OK])
+        self.assertEqual(self.apps_list(), [0x300, STATS, 0x1000, KILLS, KILL_DEAD, TITAN])
+        self.assertEqual(self.menu(), ["768", "3", "4096", "1", "2", "4", "settings"])
         # Wrong orders change nothing
         self.assertEqual(self.set_order([KILLS, KILL_DEAD, STATS]), [ERROR])          # Not all apps
-        self.assertEqual(self.set_order([KILLS, KILLS, STATS, 0x300, 0x1000]), [OK, ERROR])  # Twice
-        self.assertEqual(self.set_order([KILLS, KILL_DEAD, STATS, 0x300, 0x9999]), [OK, ERROR])  # Unknown
-        self.assertEqual(self.apps_list(), [0x300, STATS, 0x1000, KILLS, KILL_DEAD])
+        self.assertEqual(self.set_order([KILLS, KILLS, STATS, 0x300, 0x1000, TITAN]), [OK, ERROR])  # Twice
+        self.assertEqual(self.set_order([KILLS, KILL_DEAD, STATS, 0x300, 0x9999, TITAN]), [OK, ERROR])  # Unknown
+        self.assertEqual(self.apps_list(), [0x300, STATS, 0x1000, KILLS, KILL_DEAD, TITAN])
         # A part out of order
-        data = bytes([5]) + bytes(12) + bytes([1])
+        data = bytes([6]) + bytes(12) + bytes([1])
         self.assertEqual(self.cmd(APP_CMD_SET_ORDER, data)[0], ERROR)
         # Fable review F4: an unfinished order (connection lost after part 0), then a new one
-        self.assertEqual(self.set_order([KILLS, KILL_DEAD, STATS, 0x300, 0x1000])[:1], [OK])
-        data = bytes([5]) + struct.pack("<III", STATS, KILLS, KILL_DEAD) + bytes([0])
+        self.assertEqual(self.set_order([KILLS, KILL_DEAD, STATS, 0x300, 0x1000, TITAN])[:1], [OK])
+        data = bytes([6]) + struct.pack("<III", STATS, KILLS, KILL_DEAD) + bytes([0])
         self.assertEqual(self.cmd(APP_CMD_SET_ORDER, data)[0], OK)   # Part 0 again: a new order
-        data = bytes([5]) + struct.pack("<II", 0x300, 0x1000).ljust(12, b"\0") + bytes([1])
+        data = bytes([6]) + struct.pack("<III", 0x300, 0x1000, TITAN) + bytes([1])
         self.assertEqual(self.cmd(APP_CMD_SET_ORDER, data)[0], OK)
-        self.assertEqual(self.apps_list(), [STATS, KILLS, KILL_DEAD, 0x300, 0x1000])
+        self.assertEqual(self.apps_list(), [STATS, KILLS, KILL_DEAD, 0x300, 0x1000, TITAN])
 
     def test_settings_over_bluetooth(self):
         self.assert_installed(counter_app())
@@ -765,12 +771,12 @@ class AppErrorTest(AppTestCase):
             self.open_app(0x2000)
             self.assertEqual(self.dev.state()["app_error"], STAPP_ERR_STEPS)
         self.dev.click_both()
-        self.assertEqual(self.menu(), ["1", "2", "3", "settings"])
+        self.assertEqual(self.menu(), ["1", "2", "3", "4", "settings"])
         self.assertEqual(self.dev.state()["app.8192.flags"], HIDDEN | ERROR_FLAG)
         # It stays off after a power cycle
         self.dev.power_cut()
         self.dev.boot()
-        self.assertEqual(self.menu(), ["1", "2", "3", "settings"])
+        self.assertEqual(self.menu(), ["1", "2", "3", "4", "settings"])
         # Shown again by the app manager: a new chance
         self.dev.open_app_sync()
         self.assertEqual(self.cmd(APP_CMD_SET_HIDDEN, struct.pack("<IB", 0x2000, 0))[0], OK)
@@ -810,13 +816,13 @@ class SafetyTest(AppTestCase):
 
     def test_settings_and_the_update_view_with_all_apps_hidden(self):
         self.assert_installed(small_app(0x100))
-        for app_id in (KILLS, KILL_DEAD, STATS):
+        for app_id in (KILLS, KILL_DEAD, STATS, TITAN):
             self.assertEqual(self.cmd(APP_CMD_SET_HIDDEN, struct.pack("<IB", app_id, 1))[0], OK)
         self.assertEqual(self.cmd(APP_CMD_SET_HIDDEN, struct.pack("<IB", 0x100, 1))[0], LAST_SHOWN)
         # The flash says all are hidden (an other firmware, damaged flash): KILLS is shown
         self.dev.power_cut()
-        entries = [(KILLS, 1), (KILL_DEAD, 1), (STATS, 1), (0x100, 1)]
-        self.dev.write_blobs({"list": bytes([1, 4]) + b"".join(struct.pack("<IB", i, f) for i, f in entries)})
+        entries = [(KILLS, 1), (KILL_DEAD, 1), (STATS, 1), (TITAN, 1), (0x100, 1)]
+        self.dev.write_blobs({"list": bytes([1, 5]) + b"".join(struct.pack("<IB", i, f) for i, f in entries)})
         self.dev.boot()
         self.assertEqual(self.menu(), ["1", "settings"])
         self.open_update_view_from_menu()
@@ -839,8 +845,8 @@ class SafetyTest(AppTestCase):
 
         self.dev.boot()
         state = self.dev.state()
-        self.assertEqual(self.apps_list(), [KILLS, KILL_DEAD, STATS, 0x1000])
-        self.assertEqual(self.menu(), ["1", "2", "4096", "settings"])
+        self.assertEqual(self.apps_list(), BUILTIN_APPS + [0x1000])
+        self.assertEqual(self.menu(), ["1", "2", "4", "4096", "settings"])
         self.assertEqual(state["app.4096.settings"], "1,1")
         self.assertEqual(state["eeprom.game_kills"], 3)
 
@@ -862,7 +868,7 @@ class SafetyTest(AppTestCase):
         self.assertEqual(self.dev.view, "ASK")
         self.dev.long_press(2)             # Yes
         self.dev.run(1000)
-        self.assertEqual(self.apps_list(), [KILLS, KILL_DEAD, STATS])
+        self.assertEqual(self.apps_list(), BUILTIN_APPS)
 
 
 class RobustnessTest(AppTestCase):

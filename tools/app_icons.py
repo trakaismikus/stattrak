@@ -243,6 +243,7 @@ FIRMWARE_ICONS = {
     "skull": "kIconSkull",
     "bars": "kIconBars",
     "gear": "kIconGear",
+    "lightning": "kIconLightning",
 }
 
 
