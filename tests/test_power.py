@@ -110,7 +110,7 @@ class BatteryTest(SimTestCase):
         self.assertEqual(state["eeprom.total_kills"], 46)
 
     def test_low_battery_warning_is_shown_one_time(self):
-        # 3.7 V on a 1S LiPo is 16 %. The warning level is 20 % (setting value 3).
+        # 3.7 V on a 1S LiPo is 13 % (the lithium curve). The warning level is 20 % (setting value 3).
         self.boot_with(voltage=3700, battery_type=BATTERY_LIPO_1S, low_bat=3)
         self.dev.run(58 * 1000)
         self.assertEqual(self.dev.view, "TOTAL")
@@ -125,6 +125,13 @@ class BatteryTest(SimTestCase):
         self.assertEqual(state["eeprom.total_kills"], 0)
         self.dev.run(3 * MINUTE)
         self.assertEqual(self.dev.view, "TOTAL")
+
+    def test_low_battery_warning_at_0_percent(self):
+        # Sol review S1: 1 % at the start (3.518 V), then the battery goes down to 0 %
+        self.boot_with(voltage=3518, battery_type=BATTERY_LIPO_1S, low_bat=1)
+        self.dev.set_voltage(3400)
+        self.dev.run(70 * 1000)
+        self.assertEqual(self.dev.view, "BATTERY_LOW")
 
     def test_low_battery_warning_is_off_by_default(self):
         self.boot_with(voltage=3650, battery_type=BATTERY_LIPO_1S)

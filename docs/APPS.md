@@ -207,7 +207,7 @@ The arguments are pushed left to right. Each call pushes one result (0 if nothin
 | 18 | `setting(n)` | the selected value index of setting n |
 | 19 | `time()` | milliseconds since start |
 | 20 | `click(freq)` | permission "sound". 200..4000 Hz. Follows the Sound setting |
-| 21 | `battery()` | battery level 0..100, -1 for USB / none |
+| 21 | `battery()` | battery level 0..100 (a discharge curve of the battery type; it changes slowly, see `main/battery.c`), -1 for USB / none |
 | 22 | `random(n)` | 0 .. n-1 (n 1..65535) |
 | 23 | `save()` | save the saved variables now (the firmware also saves at close; at most once in 30 s) |
 | 24 | `redraw()` | nothing (the screen is drawn every 10 ms); kept for later |

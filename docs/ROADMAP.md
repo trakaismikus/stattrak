@@ -76,7 +76,9 @@ This repository (`trakaismikus/stattrak`) is private until these are done:
   (Settings > Background, only shown when such an app is installed), gets the kill and death
   events of the counter screens and keeps logging while you use other screens; CLIP MARKS and
   BATTERY LOG use it (two app engines, `main/views/app_host_view.c`; docs/APPS.md section 4.6).
-  A safety rule keeps the order of the setting values (a backup stores
+  A calmer, truer battery level: a discharge curve for lithium and NiMH cells in place of a
+  straight line, a voltage average of about 26 s and a dead band, so the % and the battery
+  symbol do not jump (`main/battery.c`). A safety rule keeps the order of the setting values (a backup stores
   positions). Specification: [DATA.md](DATA.md). Not tried on a device yet: the flash use of
   full app stores next to 24 KB of apps was only tested with a model of the NVS in the
   simulator.

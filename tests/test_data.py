@@ -354,6 +354,19 @@ class PreviewTest(DataTestCase):
         self.assertTrue(shows(self.dev.frame(), "APP SYNC"), "APP SYNC")
         self.assertEqual(self.cmd(APP_CMD_STATUS)[1][0], IDLE)
 
+    def test_first_preview_frame_shows_its_progress(self):
+        # Device test 2026-11-16: the bar of "Receiving" stayed at 0 % for a preview frame
+        self.open_sync()
+        pixels = bytes([0xFF] * 512)
+        self.cmd(XFER_BEGIN, struct.pack("<BHI", KIND_PREVIEW, 512, zlib.crc32(pixels) & 0xFFFFFFFF))
+        bar = lambda: self.dev.frame()[22][15:45]     # the row over the text: only the bar
+        self.assertEqual(bar(), "." * 30)
+        # The first half of the parts: 266 of 512 bytes = 51 %, the bar is 51 pixels long
+        self.dev.ble_commands([(APP_CMD_DATA, struct.pack("<H", o) + pixels[o:o + 14]) for o in range(0, 260, 14)])
+        self.assertEqual(bar(), "#" * 30)
+        self.assertEqual(self.dev.frame()[22][14:65], "#" * 51)
+        self.assertEqual(self.dev.frame()[22][66:100], "." * 34)
+
     def test_button_ends_preview(self):
         self.open_sync()
         pixels = bytes([0xFF] * 512)
