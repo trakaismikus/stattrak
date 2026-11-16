@@ -163,6 +163,10 @@ app_sync_result_t AppSync_data(uint16_t offset, const uint8_t* data, uint8_t len
     if(count > s_size - offset)
       count = s_size - offset;
     memcpy(&Apps_getWorkBuffer()[offset], data, count);
+    // The bar of "Receiving": the end of the furthest part (the parts come in order, the
+    // ones that are all 0 stay out)
+    if(offset + count > s_received)
+      s_received = offset + count;
     s_lastDataMs = Time_getMillis();
     if(expected)
       *expected = (uint16_t)(offset + count);

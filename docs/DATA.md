@@ -193,7 +193,7 @@ New system calls (engine version 2):
 | 27 | `log_count()` | data | the rows in the store |
 | 28 | `log_get(row, column)` | data | a value, 0 outside the rows / columns |
 | 29 | `log_clear()` | data | deletes all rows of this app. Not in `draw` |
-| 30 | `battery_mv()` | none | the battery voltage in millivolts, -1 for USB / no battery |
+| 30 | `battery_mv()` | none | the battery voltage in millivolts (the average of about 26 s), -1 for USB / no battery |
 | 31 | `background()` | none | 1 if the app runs as the background app now, else 0 |
 
 Script lines (`tools/app.py`): `data "NAME" "NAME" ...` (1 to 4 columns, sets the `data`

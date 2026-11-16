@@ -210,9 +210,13 @@ static bool _critical(uint8_t type, uint16_t millivolts) {
 }
 
 TEST(battery_level_of_a_1s_lipo) {
+  /* The lithium curve: flat in the middle, steep at the start and at the end */
   CHECK_EQ(_level(BATTERY_TYPE__LIPO_1S, 4200), 100);
-  CHECK_EQ(_level(BATTERY_TYPE__LIPO_1S, 3900), 50);
-  CHECK_EQ(_level(BATTERY_TYPE__LIPO_1S, 3600), 0);
+  CHECK_EQ(_level(BATTERY_TYPE__LIPO_1S, 4060), 90);
+  CHECK_EQ(_level(BATTERY_TYPE__LIPO_1S, 3820), 50);
+  CHECK_EQ(_level(BATTERY_TYPE__LIPO_1S, 3700), 13);   /* 3.68 V = 10 %, 3.74 V = 20 % */
+  CHECK_EQ(_level(BATTERY_TYPE__LIPO_1S, 3680), 10);
+  CHECK_EQ(_level(BATTERY_TYPE__LIPO_1S, 3500), 0);
   CHECK_EQ(_level(BATTERY_TYPE__LIPO_1S, 5000), 100);  /* Not more than 100 */
   CHECK_EQ(_level(BATTERY_TYPE__LIPO_1S, 3000), 0);    /* Not less than 0 */
   CHECK_EQ(_level(BATTERY_TYPE__LIPO_1S, 0), 0);
@@ -220,11 +224,56 @@ TEST(battery_level_of_a_1s_lipo) {
 }
 
 TEST(battery_level_of_other_types) {
-  CHECK_EQ(_level(BATTERY_TYPE__RCR123A, 3900), 50);
-  CHECK_EQ(_level(BATTERY_TYPE__LIPO_2S, 7800), 50);
-  CHECK_EQ(_level(BATTERY_TYPE__LIPO_3S, 11700), 50);
-  CHECK_EQ(_level(BATTERY_TYPE__NIMH_3S, 3600), 50);
-  CHECK_EQ(_level(BATTERY_TYPE__NIMH_8S, 9600), 50);
+  CHECK_EQ(_level(BATTERY_TYPE__RCR123A, 3820), 50);
+  CHECK_EQ(_level(BATTERY_TYPE__LIPO_2S, 7640), 50);
+  CHECK_EQ(_level(BATTERY_TYPE__LIPO_3S, 11460), 50);
+  CHECK_EQ(_level(BATTERY_TYPE__NIMH_3S, 3630), 50);
+  CHECK_EQ(_level(BATTERY_TYPE__NIMH_8S, 9680), 50);
+  CHECK_EQ(_level(BATTERY_TYPE__NIMH_8S, 11200), 100);
+  CHECK_EQ(_level(BATTERY_TYPE__NIMH_8S, 8000), 0);
+}
+
+/* Samples each 10 ms (the main loop) for `ms` at one voltage */
+static void _hold(uint16_t millivolts, uint32_t ms) {
+  HostBoard_setVoltage(millivolts);
+  for(uint32_t t = 0; t < ms; t += 10) {
+    Host_sleepMs(10);
+    Battery_read();
+  }
+}
+
+TEST(battery_level_is_calm_for_a_short_load) {
+  /* A dip of 30 mV for 3 s (the radio, the buzzer) is 10 % on the flat middle: no change */
+  CHECK_EQ(_level(BATTERY_TYPE__LIPO_1S, 3820), 50);
+  _hold(3790, 3000);
+  CHECK_EQ(Battery_readLevel(), 50);
+  /* Noise of one ADC step around the value: no change */
+  for(int i = 0; i < 100; i++)
+    _hold((i & 1) ? 3824 : 3816, 100);
+  CHECK_EQ(Battery_readLevel(), 50);
+  _hold(3820, 1000);
+  CHECK_EQ(Battery_readLevel(), 50);
+}
+
+TEST(battery_level_follows_a_lasting_change) {
+  CHECK_EQ(_level(BATTERY_TYPE__LIPO_1S, 3820), 50);
+  _hold(3790, 3 * 60 * 1000);     /* The battery is at 40 % now */
+  CHECK_EQ(Battery_readLevel(), 40);
+  CHECK(Battery_readVoltage() >= 3789 && Battery_readVoltage() <= 3791);
+  /* A small rise does not move it up again: 3796 mV = 42 % */
+  _hold(3796, 3 * 60 * 1000);
+  CHECK_EQ(Battery_readLevel(), 40);
+  /* A charger: it goes up */
+  _hold(3920, 3 * 60 * 1000);
+  CHECK_EQ(Battery_readLevel(), 70);
+}
+
+TEST(battery_critical_check_is_fast) {
+  /* The average is slow, the critical check uses the last sample (as before) */
+  CHECK(!_critical(BATTERY_TYPE__LIPO_1S, 3820));
+  _hold(3200, 20);
+  CHECK(Battery_isCritical());
+  CHECK(Battery_readLevel() > 40);
 }
 
 TEST(battery_without_a_type_is_always_full) {
