@@ -100,6 +100,26 @@ test("every page has the places for added parts, and the StatTrak button or a Co
   }
 });
 
+/* One footer for the pages that have one (css/main.css), with a place for added links in it */
+test("index.html and Get started have the same footer, with the place for added links", () => {
+  for (const page of ["index.html", "start/index.html"]) {
+    const html = read(page);
+    const footer = html.match(/<footer class="footer">([\s\S]*?)<\/footer>/);
+    assert.ok(footer, `${page}: no <footer class="footer">`);
+    assert.equal(html.split("<!-- site:footer -->").length, 2, `${page}: one <!-- site:footer -->`);
+    assert.match(footer[1], /<div class="footer__right">\s*<!-- site:footer -->\s*<a [^>]*class="footer__brand"/, page);
+    assert.match(html, /<meta name="description" content="[^"]{40,}"/, page);
+  }
+  assert.doesNotMatch(read("css/start.css"), /\.foot\b/, "a second footer style");
+  assert.match(read("designer/index.html"), /<meta name="description" content="[^"]{40,}"/);
+});
+
+/* The browser's own parts (scroll bars, file buttons, selects) are dark too */
+test("every page tells the browser that it is dark (color-scheme)", () => {
+  assert.match(read("css/colors_and_type.css"), /:root \{[^}]*color-scheme: dark;/);
+  assert.match(read("designer/index.html"), /:root \{\s*color-scheme: dark;/);
+});
+
 /* The header is the same on every page: the logo, the menu, the StatTrak button and the place
    for added parts. Only the marked tab and the paths to the other pages differ. */
 test("every page has the same header", () => {
