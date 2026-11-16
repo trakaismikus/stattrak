@@ -215,7 +215,10 @@ static void _updateLevel(void) {
     s_battery.level = rounded;
     return;
   }
+  // 0 % and 100 % always come through: the dead band must not keep 1 % (no "Low Bat: 0%"
+  // warning) or 99 % on a charger
   const int32_t middle = s_battery.level * 10;
-  if(tenths <= middle - LEVEL_DOWN_TENTHS || tenths >= middle + LEVEL_UP_TENTHS)
+  if(tenths <= middle - LEVEL_DOWN_TENTHS || tenths >= middle + LEVEL_UP_TENTHS ||
+     rounded == 0 || rounded == 100)
     s_battery.level = rounded;
 }

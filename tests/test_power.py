@@ -126,6 +126,13 @@ class BatteryTest(SimTestCase):
         self.dev.run(3 * MINUTE)
         self.assertEqual(self.dev.view, "TOTAL")
 
+    def test_low_battery_warning_at_0_percent(self):
+        # Sol review S1: 1 % at the start (3.518 V), then the battery goes down to 0 %
+        self.boot_with(voltage=3518, battery_type=BATTERY_LIPO_1S, low_bat=1)
+        self.dev.set_voltage(3400)
+        self.dev.run(70 * 1000)
+        self.assertEqual(self.dev.view, "BATTERY_LOW")
+
     def test_low_battery_warning_is_off_by_default(self):
         self.boot_with(voltage=3650, battery_type=BATTERY_LIPO_1S)
         self.dev.run(2 * MINUTE)

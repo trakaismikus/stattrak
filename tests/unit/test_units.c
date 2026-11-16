@@ -268,6 +268,16 @@ TEST(battery_level_follows_a_lasting_change) {
   CHECK_EQ(Battery_readLevel(), 70);
 }
 
+TEST(battery_level_reaches_0_and_100) {
+  /* Sol review S1: the dead band kept 1 % (the "Low Bat: 0%" warning never came) and 99 % */
+  CHECK_EQ(_level(BATTERY_TYPE__LIPO_1S, 3518), 1);
+  _hold(3400, 3 * 60 * 1000);
+  CHECK_EQ(Battery_readLevel(), 0);
+  CHECK_EQ(_level(BATTERY_TYPE__LIPO_1S, 4186), 99);
+  _hold(4200, 3 * 60 * 1000);
+  CHECK_EQ(Battery_readLevel(), 100);
+}
+
 TEST(battery_critical_check_is_fast) {
   /* The average is slow, the critical check uses the last sample (as before) */
   CHECK(!_critical(BATTERY_TYPE__LIPO_1S, 3820));
@@ -505,7 +515,8 @@ TEST(gfx_random_drawing_stays_inside_the_frame_buffer) {
 /* > Main *****************************************************************************************/
 
 int main(void) {
-  const host_config_t config = { .voltageMv = 4000 };
+  /* USB power: the battery tests move the time (Host_sleepMs) without the power latch */
+  const host_config_t config = { .voltageMv = 4000, .usbPower = true };
   Host_init(&config, NULL);
 
   RUN(eeprom_missing_keys_read_as_zero);
@@ -525,6 +536,10 @@ int main(void) {
   RUN(battery_without_a_type_is_always_full);
   RUN(battery_critical_limit);
   RUN(battery_type_that_does_not_exist_is_safe);
+  RUN(battery_level_is_calm_for_a_short_load);
+  RUN(battery_level_follows_a_lasting_change);
+  RUN(battery_level_reaches_0_and_100);
+  RUN(battery_critical_check_is_fast);
 
   RUN(cyclic_buf_keeps_the_order);
   RUN(cyclic_buf_wraps_around);
