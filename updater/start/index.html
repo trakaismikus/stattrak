@@ -10,8 +10,13 @@
   <link rel="stylesheet" href="../css/apps.css" />
   <link rel="stylesheet" href="../css/start.css" />
   <link rel="stylesheet" href="../css/site.css" />
+<script>
+/* Inside index.html (Get started and the Designer open there, js/utils.js SiteFrame): no own header */
+try { if (window.parent !== window && window.parent.AppsTab) document.documentElement.classList.add("in-frame"); } catch (e) { /* an other site */ }
+</script>
+<!-- site:head -->
 </head>
-<body>
+<body data-base="../">
   <!-- ================= SITE HEADER (the same on every page, css/site.css) ================= -->
   <header class="site-header">
     <div class="site-header__in">
@@ -19,11 +24,13 @@
       <nav class="site-nav" aria-label="StatTrak tools">
         <a class="tab tab--start tab--on" href="index.html" aria-current="page">Get started</a>
         <a class="tab" href="../index.html#firmware">Firmware</a>
-        <a class="tab" href="../index.html#apps">Apps</a>
+        <a class="tab" href="../index.html#device">My device</a>
+        <!-- site:nav -->
         <a class="tab" href="../designer/index.html">Designer</a>
       </nav>
-      <div class="site-header__meta topbar__meta">
-        <a class="topbar__link" href="https://tridos.design/products/stattrak-hit-counter" target="_blank" rel="noreferrer">Get a StatTrak</a>
+      <div class="site-header__meta">
+        <div class="devbar" id="devBar"></div>
+        <!-- site:meta -->
       </div>
     </div>
   </header>
@@ -45,7 +52,7 @@
             <span class="tool__desc">Put a new firmware on your StatTrak over Bluetooth.</span>
             <span class="tool__go">Open →</span>
           </a>
-          <a class="tool" href="../index.html#apps">
+          <a class="tool" href="../index.html#device">
             <span class="tool__icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
             <span class="tool__name">Apps</span>
             <span class="tool__desc">Install games and tools in a few seconds. Sort, hide and delete them.</span>
@@ -126,7 +133,7 @@
             <figure class="pic pic--dark"><img src="img/apps-screens.png" width="1600" height="268" loading="lazy" alt="Apps: SYNC on the device, the SLOTS app in the app menu, and the SLOTS game" /></figure>
             <ol class="list">
               <li><b>On the StatTrak:</b> Settings, then <code>Apps: SYNC</code>, hold the right button. The display shows <code>APP SYNC</code>.</li>
-              <li><b>On the computer:</b> open <a href="../index.html#apps">Apps</a>, click <b>Connect</b> and pick your StatTrak.</li>
+              <li><b>On the computer:</b> open <a href="../index.html#device">My device</a>, click <b>Connect</b> and pick your StatTrak.</li>
               <li>Click <b>Install</b> next to an app.</li>
               <li><b>Answer on the StatTrak.</b> It asks <code>INSTALL &lt;NAME&gt;?</code>. Hold the right button for yes, or the left button for no.</li>
             </ol>
@@ -186,7 +193,7 @@ I may not be a programmer. Use plain words.</pre>
                 <i>“A small game for the break between two rounds.”</i> The device has two buttons, a 128 × 32 display and a buzzer.
                 It has no clock and no internet.</li>
               <li><b>Look at the screens.</b> The AI tool runs your app in the simulator and shows you the pictures. Ask for changes until you like it.</li>
-              <li><b>Install it.</b> The AI tool gives you a file that ends in <code>.stapp</code>. Open <a href="../index.html#apps">Apps</a>,
+              <li><b>Install it.</b> The AI tool gives you a file that ends in <code>.stapp</code>. Open <a href="../index.html#device">My device</a>,
                 connect, click <b>From file</b> and pick the file.</li>
             </ol>
             <p class="small">For AI tools and developers: the app language and the rules are in <code>docs/APPS.md</code> of the firmware project.
@@ -256,5 +263,14 @@ I may not be a programmer. Use plain words.</pre>
       });
     });
   </script>
+<script src="../js/utils.js"></script>
+<script src="../js/ble.js"></script>
+<script src="../js/apps-protocol.js"></script>
+<script src="../js/data-protocol.js"></script>
+<script src="../js/apps-pictures.js"></script>
+<script src="../js/apps-data.js"></script>
+<script src="../js/apps.js"></script>
+<script src="../js/devbar.js"></script>
+<!-- site:body -->
 </body>
 </html>

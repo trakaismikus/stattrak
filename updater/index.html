@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="css/main.css" />
   <link rel="stylesheet" href="css/apps.css" />
   <link rel="stylesheet" href="css/site.css" />
+  <!-- site:head -->
 </head>
 <body>
   <!-- ================= SITE HEADER (the same on every page, css/site.css) ================= -->
@@ -17,19 +18,13 @@
       <nav class="site-nav" aria-label="StatTrak tools">
         <a class="tab tab--start" id="tabStart" href="start/index.html">Get started</a>
         <a class="tab tab--on" id="tabFirmware" href="#firmware" aria-current="page">Firmware</a>
-        <a class="tab" id="tabApps" href="#apps">Apps</a>
+        <a class="tab" id="tabApps" href="#device">My device</a>
+        <!-- site:nav -->
         <a class="tab" id="tabDesigner" href="designer/index.html">Designer</a>
       </nav>
-      <div class="site-header__meta topbar__meta">
-        <a class="topbar__link topbar__link--github" href="https://github.com/janiszah/stattrak-fw" target="_blank" rel="noreferrer">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
-        janiszah/stattrak-fw
-        </a>
-        <button class="btn btn--ghost" id="consoleBtn" type="button">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-        Console
-        <span class="btn__count" id="logCount">0</span>
-        </button>
+      <div class="site-header__meta">
+        <div class="devbar" id="devBar"></div>
+        <!-- site:meta -->
       </div>
     </div>
   </header>
@@ -125,18 +120,18 @@
                 </div>
               </div>
               <div class="btn-row">
-                <button class="btn btn--primary" id="step1NextBtn" type="button">
-                  Next
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-                </button>
                 <button class="btn btn--danger-ghost" id="disconnectBtn" type="button">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                   Disconnect
                 </button>
-                <button class="btn btn--ghost" id="confirmFwBtn" type="button" title="Use this when the device display shows “Verifying…” and this page did not confirm the firmware by itself.">
-                  Display shows “Verifying…”?
+                <button class="btn btn--primary" id="step1NextBtn" type="button">
+                  Next
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
                 </button>
               </div>
+              <p class="step1-help">
+                <button class="linkbtn" id="confirmFwBtn" type="button" title="Use this when the device display shows “Verifying…” and this page did not confirm the firmware by itself.">Display shows “Verifying…”?</button>
+              </p>
             </div>
 
           </div>
@@ -155,12 +150,12 @@
           <div class="step__body">
 
             <div class="fw-tabs" role="tablist">
-              <button role="tab" aria-selected="true" class="fw-tab fw-tab--active" data-tab="upload" type="button">Upload .bin</button>
-              <button role="tab" aria-selected="false" class="fw-tab" data-tab="hosted" type="button">Official releases</button>
+              <button role="tab" aria-selected="true" class="fw-tab fw-tab--active" data-tab="hosted" type="button">Official releases</button>
+              <button role="tab" aria-selected="false" class="fw-tab" data-tab="upload" type="button">Upload .bin</button>
             </div>
 
-            <!-- upload pane (default) -->
-            <div id="uploadPane">
+            <!-- upload pane: a file of your own -->
+            <div id="uploadPane" hidden>
               <div class="dropzone" id="dropzone" tabindex="0">
                 <div class="dropzone__icon">
                   <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -168,14 +163,14 @@
                 <h3 class="dropzone__title">Drop firmware image</h3>
                 <p class="dropzone__hint">or <strong>browse</strong> — <code>.bin</code> built from <code>stattrak-fw</code>, max 1 MB</p>
                 <p class="dropzone__note">
-                  <strong>First, download the firmware from the&nbsp;<em>Official releases</em> tab</strong> — the updater flashes a local file, so the <code>.bin</code> must already be on your computer.
+                  For an official firmware, use the <em>Official releases</em> tab: pick a release there, no download needed.
                 </p>
                 <input type="file" id="fileInput" accept=".bin" hidden />
               </div>
             </div>
 
-            <!-- hosted-releases pane -->
-            <div id="hostedPane" hidden>
+            <!-- the official releases (default): "Use this" loads the file (api/firmware.js) -->
+            <div id="hostedPane">
               <div class="release-list" id="releaseList">
                 <div class="release-empty">Loading releases from GitHub…</div>
               </div>
@@ -299,13 +294,15 @@
 
     </div>
 
-    <!-- ================= APPS TAB (js/apps.js) ================= -->
+    <!-- ================= MY DEVICE TAB (js/apps.js) ================= -->
     <div id="appsView" hidden>
       <div class="apps" id="appsMain"></div>
       <input type="file" id="appsFile" accept=".stapp" hidden />
       <input type="file" id="syncPicFile" accept="image/png,image/jpeg,.png,.jpg,.jpeg" hidden />
       <input type="file" id="syncBackupFile" accept=".json,application/json" hidden />
     </div>
+
+    <!-- site:views -->
 
     <!-- ================= FOOTER ================= -->
     <footer class="footer">
@@ -321,28 +318,6 @@
   <div class="modal-root" id="modalRoot" hidden></div>
 
   <!-- Templates consumed by js/main.js when mounting modals -->
-  <template id="consoleModalTpl">
-    <div class="modal-backdrop" data-dismiss>
-      <div class="modal-panel modal-panel--console" role="dialog" aria-label="Console">
-        <header class="modal__header">
-          <div style="display:inline-flex; align-items:center;">
-            <h3 class="modal__header-title">Console</h3>
-            <span class="modal__header-meta"><span data-log-count>0</span> lines · Live OTA log</span>
-          </div>
-          <div class="modal__header-actions">
-            <button class="btn btn--ghost" data-clear type="button">Clear</button>
-            <button class="file-card__remove" data-close type="button" aria-label="Close">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-          </div>
-        </header>
-        <div class="modal__body">
-          <div class="log" data-log-body></div>
-        </div>
-      </div>
-    </div>
-  </template>
-
   <template id="confirmModalTpl">
     <div class="modal-backdrop" data-dismiss>
       <div class="modal-panel modal-panel--danger" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
@@ -388,5 +363,7 @@
   <script src="js/main.js"></script>
   <script src="js/apps-data.js"></script>
   <script src="js/apps.js"></script>
+  <script src="js/devbar.js"></script>
+  <!-- site:body -->
 </body>
 </html>

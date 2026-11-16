@@ -34,8 +34,8 @@ This repository (`trakaismikus/stattrak`) is private until these are done:
 2. The public address of the web updater works: the DNS record for
    `stattrak.tridos.design`.
 3. The official firmware files are in the "Releases" of this repository. Then change
-   `GH_OWNER` and `GH_REPO` in `updater/js/main.js` and the link at the top of
-   `updater/index.html` from `janiszah/stattrak-fw` to this repository, and put a note into
+   `GH_OWNER` and `GH_REPO` in `updater/js/main.js` from `janiszah/stattrak-fw` to this
+   repository, and put a note into
    the old release repository.
 4. Check the firmware fonts and the picture (AUDIT, section D), and the use of the name
    "StatTrak".
@@ -83,6 +83,20 @@ This repository (`trakaismikus/stattrak`) is private until these are done:
   full app stores next to 24 KB of apps was only tested with a model of the NVS in the
   simulator.
 
+- **2026-11: My device and the StatTrak button.** The Apps tab is now **My device**
+  (`#device`; `#apps` still works). The header shows the connected StatTrak (its name, the
+  number of app updates; a panel with serial, firmware, storage, the updates, Disconnect), and
+  Connect from any tab. Installed apps with a newer catalog version show "Update available".
+  The site has places for added parts (an extra tab, a sign-in button) and tells added scripts
+  about the device with the event `stattrak:device`; the site itself sends nothing.
+  On a web server, Get started and the Screen Designer open inside the same page, so the
+  StatTrak connection stays when you change pages. My device: the name of StatTrak at the top
+  (a pencil opens the Bluetooth name), the boot image (the start picture), backup, app data and
+  device log above the app list, each one folds. The Screen Designer: "Show on StatTrak" sends
+  the selected screen once, over the connection of the header (in place of the live preview).
+  No console on the page (the log is in the developer tools of the browser).
+  Firmware tab: "Use this" next to an official release loads its file (through `api/firmware.js`),
+  no download and no drop. The "Show on StatTrak" state is a popup on the button (a dot shows it).
 - **2026-11: App Sync how-to and Screen Designer tools.** The Apps tab shows the whole way to
   App Sync on the current firmware (counter, app menu, Settings, "Apps: SYNC", hold the right
   button, each click shown) with the lit buttons, at the size of the firmware how-to; "Apps: SYNC"

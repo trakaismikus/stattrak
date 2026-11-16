@@ -37,8 +37,11 @@ function digestOf(firmwareOptions) {
   return "sha256:" + crypto.createHash("sha256").update(Buffer.from(bytes)).digest("hex");
 }
 
+/* options.releaseFiles: tag -> the options of FakeStatTrak.makeFirmware for the file that
+   api/firmware.js gives for that release (no entry = 404). window.__fetches: the addresses. */
 function initScript(deviceOptions, options) {
   const releases = options.releases || [];
+  const files = options.releaseFiles || {};
   return `
     (() => {
       const real = window.setTimeout.bind(window);
@@ -47,7 +50,17 @@ function initScript(deviceOptions, options) {
     ${FAKE_SOURCE}
     window.__device = new FakeStatTrak(${JSON.stringify(deviceOptions)});
     Object.defineProperty(navigator, "bluetooth", { value: window.__device.bluetooth(), configurable: true });
-    window.fetch = async () => new Response(${JSON.stringify(JSON.stringify(releases))}, { status: 200 });
+    window.__fetches = [];
+    window.fetch = async (url) => {
+      window.__fetches.push(String(url));
+      if (String(url).includes("api/firmware?")) {
+        const tag = new URL(String(url), location.href).searchParams.get("tag");
+        const files = ${JSON.stringify(files)};
+        if (!files[tag]) return new Response("not found", { status: 404 });
+        return new Response(FakeStatTrak.makeFirmware(files[tag]), { status: 200 });
+      }
+      return new Response(${JSON.stringify(JSON.stringify(releases))}, { status: 200 });
+    };
   `;
 }
 
@@ -65,7 +78,7 @@ async function open(t, deviceOptions, options) {
   // What a test that stops at a wait shows: the last lines of the page console, and the device
   page.diagnose = () => page.evaluate(`JSON.stringify({
     flashState: state.flashState, connState: state.connState, file: !!state.uploadedFile,
-    log: state.log.slice(-12).map((line) => line.m), device: window.__device.events.slice(-12),
+    device: window.__device.events.slice(-12),
   }, null, 1)`);
   await page.setInitScript(initScript(deviceOptions || {}, settings));
   await load(page);
@@ -535,6 +548,98 @@ test("the page tells if the file is an official release", { skip: SKIP }, async 
   assert.equal(await page.evaluate(`document.querySelector("[data-unofficial]").hidden`), false);
 });
 
+const RELEASE_2 = () => [{
+  id: 1, tag_name: "v2.0.0", name: "v2.0.0", draft: false, prerelease: false,
+  html_url: "https://example.invalid/release", published_at: "2026-11-01T00:00:00Z", body: "Test release",
+  assets: [{ name: "stattrak.bin", size: 10000, digest: digestOf({ version: "2.0.0" }) }],
+}];
+
+test("an official release: Use this loads its file, without a download and a drop", { skip: SKIP }, async (t) => {
+  const page = await open(t, {}, { releases: RELEASE_2(), releaseFiles: { "v2.0.0": { version: "2.0.0" } } });
+  await pair(page);
+  await click(page, "step1NextBtn");
+  // The official releases are the first tab, open at the start
+  assert.equal(await page.evaluate(`document.querySelector(".fw-tab").dataset.tab`), "hosted");
+  assert.equal(await page.evaluate(visible("hostedPane")), true);
+  await page.waitFor(`document.querySelector('[data-release="1"]')`);
+  assert.equal(await text(page, "releaseList").then((s) => /Use this/.test(s)), true);
+  await page.evaluate(`document.querySelector('[data-release="1"]').click()`);
+  await page.waitFor(`document.getElementById("fileCardMeta").textContent.includes("official release v2.0.0")`);
+  assert.ok(await page.evaluate(`window.__fetches.includes("api/firmware?tag=v2.0.0&file=stattrak.bin")`));
+  assert.equal(await page.evaluate(`document.querySelector('[data-release-row="1"]').classList.contains("release--on")`), true);
+  assert.match(await text(page, "fileCardMeta"), /version 2\.0\.0/);
+  await click(page, "step2NextBtn");
+  await click(page, "flashBtn");
+  assert.equal(await page.evaluate(`document.querySelector("[data-unofficial]").hidden`), true);
+});
+
+test("an official release: a file that is not the release is refused; no file: the manual way", { skip: SKIP }, async (t) => {
+  // The address gives an other file than the release (its SHA-256 is not the digest)
+  const page = await open(t, {}, { releases: RELEASE_2(), releaseFiles: { "v2.0.0": { version: "2.0.1" } } });
+  await pair(page);
+  await click(page, "step1NextBtn");
+  await page.waitFor(`document.querySelector('[data-release="1"]')`);
+  await page.evaluate(`document.querySelector('[data-release="1"]').click()`);
+  await page.waitFor(`document.querySelector(".release__err")`);
+  assert.match(await page.evaluate(`document.querySelector(".release__err").textContent`), /not the file of this release/);
+  assert.equal(await page.evaluate(visible("fileCard")), false);
+
+  // No file at the address (a page from a disk, or GitHub away): the way by hand
+  const other = await open(t, {}, { releases: RELEASE_2(), releaseFiles: {} });
+  await pair(other);
+  await click(other, "step1NextBtn");
+  await other.waitFor(`document.querySelector('[data-release="1"]')`);
+  await other.evaluate(`document.querySelector('[data-release="1"]').click()`);
+  await other.waitFor(`document.querySelector(".release__err")`);
+  assert.match(await other.evaluate(`document.querySelector(".release__err").textContent`), /Download it from GitHub, then drop it on Upload \.bin/);
+  assert.equal(await other.evaluate(`document.querySelector(".release__err a").getAttribute("href")`), "https://example.invalid/release");
+  assert.equal(await other.evaluate(visible("fileCard")), false);
+});
+
+test("an official release without a GitHub digest: no Use this (the file cannot be checked)", { skip: SKIP }, async (t) => {
+  const releases = RELEASE_2();
+  releases[0].assets[0].digest = null;
+  const page = await open(t, {}, { releases, releaseFiles: { "v2.0.0": { version: "2.0.1" } } });
+  await pair(page);
+  await click(page, "step1NextBtn");
+  await page.waitFor(`document.querySelector('[data-release-row="1"]')`);
+  assert.equal(await page.evaluate(`!!document.querySelector('[data-release="1"]')`), false);
+  assert.equal(await page.evaluate(`document.querySelector('[data-release-row="1"] a.btn').getAttribute("href")`), "https://example.invalid/release");
+  // Even when called: nothing is loaded, nothing is selected
+  await page.evaluate(`useRelease("1")`);
+  assert.equal(await page.evaluate("window.__fetches.some((u) => u.includes('api/firmware'))"), false);
+  assert.equal(await page.evaluate(visible("fileCard")), false);
+});
+
+test("an official release that loads while a file is selected: Next waits; the transfer sends only the file that the question named", { skip: SKIP }, async (t) => {
+  const releases = RELEASE_2().concat([{ id: 2, tag_name: "v2.1.0", name: "v2.1.0", draft: false, prerelease: false,
+    html_url: "https://example.invalid/r2", published_at: "2026-11-02T00:00:00Z", body: "Newer",
+    assets: [{ name: "stattrak.bin", size: 10000, digest: digestOf({ version: "2.1.0" }) }] }]);
+  const page = await open(t, {}, { releases, releaseFiles: { "v2.0.0": { version: "2.0.0" }, "v2.1.0": { version: "2.1.0" } } });
+  await pair(page);
+  await click(page, "step1NextBtn");
+  await page.waitFor(`document.querySelector('[data-release="1"]')`);
+  await page.evaluate(`document.querySelector('[data-release="1"]').click()`);
+  await page.waitFor(`document.getElementById("fileCardMeta").textContent.includes("official release v2.0.0")`);
+  // B loads slowly: while it loads, Next is hidden and does nothing
+  await page.evaluate(`(() => { const f = window.fetch; window.fetch = (u) => new Promise((ok) => setTimeout(() => ok(f(u)), 20000)); })()`);
+  await page.evaluate(`document.querySelector('[data-release="2"]').click()`);
+  await page.waitFor(`state.releaseLoading === "2"`);
+  assert.equal(await page.evaluate(visible("step2NextRow")), false);
+  await page.evaluate(`document.getElementById("step2NextBtn").click()`);
+  assert.equal(await page.evaluate("state.step2Confirmed"), false);
+  await page.waitFor(`state.releaseLoading === null && document.getElementById("fileCardMeta").textContent.includes("official release v2.1.0")`);
+  // A question names one file; the file changes before Yes: nothing is sent
+  await click(page, "step2NextBtn");
+  await click(page, "flashBtn");
+  const named = await page.evaluate(`document.querySelector("[data-fw-name]").textContent`);
+  assert.equal(named, "stattrak.bin");
+  await page.evaluate(`state.uploadedFile = Object.assign({}, state.uploadedFile, { bytes: new Uint8Array(state.uploadedFile.bytes) })`);
+  await page.evaluate(`document.querySelector("[data-confirm]").click()`);
+  await new Promise((r) => setTimeout(r, 300));
+  assert.equal(await device(page, "startCount"), 0, "a transfer started with an other file");
+});
+
 test("step 1 plays the way to the update mode of firmware 1.0.1 on the device picture", { skip: SKIP }, async (t) => {
   const page = await open(t);
   const dev = `document.querySelector("#step1Before st-device")`;
@@ -576,4 +681,22 @@ test("the page has no links without a target", { skip: SKIP }, async (t) => {
     return !href || href === "#";
   }).length`);
   assert.equal(dead, 0);
+});
+
+test("the firmware tab tells added scripts about the device: connected, flashed, disconnected", { skip: SKIP }, async (t) => {
+  const page = await open(t, { version: "1.0.1" });
+  await page.evaluate(`window.__events = []; window.addEventListener("stattrak:device", (e) => window.__events.push(e.detail))`);
+  await startUpdate(page, { version: "2.0.0" });
+  await page.waitFor(visible("successPanel"));
+  const events = await page.evaluate("window.__events");
+  assert.deepEqual(events[0], { event: "connected", serial: "34B7DA010203", fw: "1.0.1", previousFw: "", name: "" });
+  const flashed = events.find((e) => e.event === "flashed");
+  assert.deepEqual(flashed, { event: "flashed", serial: "34B7DA010203", fw: "2.0.0", previousFw: "1.0.1", name: "" });
+  assert.equal(await page.evaluate("SiteEvents.device.fw"), "2.0.0");
+  // The StatTrak button of the header shows the device of the firmware tab
+  assert.match(await page.evaluate(`document.querySelector("#devBar .devbtn").textContent`), /StatTrak/);
+  await click(page, "doneBtn");
+  assert.equal((await page.evaluate("window.__events")).at(-1).event, "disconnected");
+  assert.equal(await page.evaluate("SiteEvents.device"), null);
+  assert.match(await page.evaluate(`document.querySelector("#devBar .devbtn").textContent`), /Connect/);
 });

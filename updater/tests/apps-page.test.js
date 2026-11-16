@@ -59,7 +59,7 @@ function initScript(deviceOptions) {
 async function open(t, deviceOptions) {
   const page = await browser.newPage();
   page.diagnose = () => page.evaluate(`JSON.stringify({ conn: AppsTab.state.conn, inst: AppsTab.state.inst, err: AppsTab.state.err,
-    log: state.log.slice(-10).map((l) => l.m), device: window.__device.events.slice(-10) }, null, 1)`);
+    device: window.__device.events.slice(-10) }, null, 1)`);
   await page.setInitScript(initScript(deviceOptions || {}));
   await page.goto(site.url + "/index.html");
   await page.evaluate(`BleOta.RECONNECT_GIVE_UP_MS = ${300000 / SPEED}; StatTrakApps.QUESTION_WAIT_MS = ${40000 / SPEED};
@@ -107,11 +107,17 @@ test("connect: the apps of the device in menu order, SETTINGS last, the storage 
   assert.deepEqual(await texts(page, "#appsList .row .lbl"), ["Shown", "Hidden", "Shown", "Shown"]);
   assert.deepEqual(await texts(page, "#appsList .tag"), ["Built-in", "Built-in", "Built-in", "Installed · 1.1 KB", "Always last"]);
   assert.match(await texts(page, ".status .store span").then((t) => t[0]), /^1\.1 KB \/ 24 KB$/);
-  // Installed apps are not in the catalog; the others are, with their permissions
+  // Installed apps are not in the catalog; the others are, with their permissions.
+  // The catalog loads by itself: on a slow computer it can come after the device list.
+  await page.waitFor(`document.querySelectorAll(".cat").length > 0`);
   assert.deepEqual(await texts(page, ".cat .row__name"), ["BATTERY LOG", "CLIP MARKS", "HEADSHOT %", "REACTION", "RUNNER", "SLOTS", "WALLPAPER"]);
-  // The Bluetooth name of the device
-  assert.match(await page.evaluate(`document.querySelector(".namebox").textContent`), /StatTrak shows the name StatTrak in Apps: SYNC \(the standard name\)/);
-  assert.equal(await page.evaluate(`!!document.querySelector('[data-act="name-reset"]')`), false);
+  // The name of the device at the top (no version), a pencil for the Bluetooth name
+  assert.equal(await page.evaluate(`document.querySelector(".status__dev").textContent`), "StatTrak");
+  await act(page, '[data-act="name-edit"]');
+  assert.match(await page.evaluate(`document.querySelector("#modalRoot .namebox").textContent`), /StatTrak shows the name StatTrak in Apps: SYNC \(the standard name\)/);
+  assert.equal(await page.evaluate(`!!document.querySelector('[data-name="reset"]')`), false);
+  await act(page, '#modalRoot [data-name="close"]');
+  assert.equal(await page.evaluate(`document.getElementById("modalRoot").hidden`), true);
   assert.match(await page.evaluate(`${catRow("HEADSHOT %")}.textContent`), /Changes your kill counts/);
   // Built-in apps have no delete button; only apps with known settings have a gear
   assert.equal(await page.evaluate(`!!${inRow("KILLS", '[data-act="del"]')}`), false);
@@ -421,11 +427,12 @@ test("a format 2 app on a firmware that reads format 1 only: 'Update the firmwar
 /* Types into the name field as a person does */
 const typeName = (page, value) => page.evaluate(`(() => { const input = document.getElementById("appsName"); input.value = ${JSON.stringify(value)};
   input.dispatchEvent(new Event("input", { bubbles: true })); })()`);
-const submitName = (page) => page.evaluate(`document.querySelector('[data-act="name-save"]').click()`);
+const submitName = (page) => page.evaluate(`document.querySelector('[data-name="save"]').click()`);
 
 test("the Bluetooth name: the rules, Save, and Back to StatTrak", { skip: SKIP }, async (t) => {
   const page = await open(t, {});
   await connect(page);
+  await act(page, '[data-act="name-edit"]');
   const nameMsg = () => page.evaluate(`document.getElementById("appsNameMsg").textContent`);
   assert.equal(await page.evaluate(`document.getElementById("appsName").maxLength`), 12);
   // Empty, a space at the start, too long, a letter that is not ASCII: a message, nothing is sent
@@ -454,13 +461,23 @@ test("the Bluetooth name: the rules, Save, and Back to StatTrak", { skip: SKIP }
   assert.equal(await page.evaluate(`document.activeElement.textContent`), "OK");
   await act(page, "#modalRoot [data-ok]");
   assert.equal(await page.evaluate(`document.getElementById("modalRoot").hidden && document.getElementById("modalRoot").innerHTML === ""`), true);
+  // The top of My device shows the new name
+  assert.equal(await page.evaluate(`document.querySelector(".status__dev").textContent`), "Red 7");
+  await act(page, '[data-act="name-edit"]');
   assert.equal(await nameMsg(), "");
-  assert.match(await page.evaluate(`document.querySelector(".namebox").textContent`), /StatTrak shows the name StatTrak \| Red 7 in Apps: SYNC\./);
+  assert.match(await page.evaluate(`document.querySelector("#modalRoot .namebox").textContent`), /StatTrak shows the name StatTrak \| Red 7 in Apps: SYNC\./);
   // This start of Apps: SYNC keeps its name
   assert.equal(await device(page, "bleName()"), "StatTrak");
-  await act(page, '[data-act="name-reset"]');
-  await page.waitFor(`window.__device.deviceName === "" && !document.querySelector('[data-act="name-reset"]')`);
-  assert.match(await page.evaluate(`document.querySelector(".namebox").textContent`), /StatTrak shows the name StatTrak in Apps: SYNC \(the standard name\)/);
+  await act(page, '[data-name="reset"]');
+  await page.waitFor(`window.__device.deviceName === "" && !!document.querySelector("#modalRoot .modal-panel--info")`);
+  await act(page, "#modalRoot [data-ok]");
+  assert.equal(await page.evaluate(`document.querySelector(".status__dev").textContent`), "StatTrak");
+  await act(page, '[data-act="name-edit"]');
+  assert.match(await page.evaluate(`document.querySelector("#modalRoot .namebox").textContent`), /StatTrak shows the name StatTrak in Apps: SYNC \(the standard name\)/);
+  assert.equal(await page.evaluate(`!!document.querySelector('[data-name="reset"]')`), false);
+  // Escape closes the popup
+  await page.evaluate(`document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))`);
+  assert.equal(await page.evaluate(`document.getElementById("modalRoot").hidden`), true);
 });
 
 test("a renamed StatTrak (StatTrak | <part>) is found, and shows its name", { skip: SKIP }, async (t) => {
@@ -468,8 +485,10 @@ test("a renamed StatTrak (StatTrak | <part>) is found, and shows its name", { sk
   await connect(page);
   assert.deepEqual(await device(page, "requests[0].filters"), [{ namePrefix: "StatTrak" }, { services: ["03b80e5a-ede8-4b33-a751-6ce34ec4c700"] }]);
   assert.equal(await device(page, "webDevice.name"), "StatTrak | RED 7");
-  assert.match(await page.evaluate(`document.querySelector(".namebox").textContent`), /StatTrak shows the name StatTrak \| RED 7 in Apps: SYNC\./);
-  assert.equal(await page.evaluate(`!!document.querySelector('[data-act="name-reset"]')`), true);
+  assert.equal(await page.evaluate(`document.querySelector(".status__dev").textContent`), "RED 7");
+  await act(page, '[data-act="name-edit"]');
+  assert.match(await page.evaluate(`document.querySelector("#modalRoot .namebox").textContent`), /StatTrak shows the name StatTrak \| RED 7 in Apps: SYNC\./);
+  assert.equal(await page.evaluate(`!!document.querySelector('[data-name="reset"]')`), true);
   assert.deepEqual(await texts(page, "#appsList .row__name"), ["KILLS", "KILLS + DEAD", "STATS", "ROUND TIMER", "SETTINGS"]);
 });
 

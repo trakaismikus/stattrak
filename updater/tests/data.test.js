@@ -248,7 +248,7 @@ test("the table: on the device now / in the file", async () => {
   same(row("Brightness"), { part: "settings", label: "Brightness", device: "80%", file: "100%", same: false });
   same(row("Total kills"), { part: "stats", label: "Total kills", device: "5", file: "5", same: true });
   same(row("TIMER"), { part: "apps", label: "TIMER", device: "Not installed", file: "Shown", same: false });
-  same(row("Start picture"), { part: "startPicture", label: "Start picture", device: "None", file: "None", same: true });
+  same(row("Boot image"), { part: "startPicture", label: "Boot image", device: "None", file: "None", same: true });
   same(row("Bluetooth name"), { part: "deviceName", label: "Bluetooth name", device: "StatTrak", file: "StatTrak", same: true });
 });
 

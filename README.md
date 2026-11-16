@@ -170,7 +170,7 @@ The Web Updater puts a firmware file on your StatTrak over Bluetooth. It is a we
   </tr>
   <tr>
     <td><b>1. Connect.</b> On the StatTrak: Settings, then <code>Firmware: UPDATE</code>, hold the right button. The display shows <code>FIRMWARE UPDATE</code> and <code>Waiting...</code>. On the page: <b>Pair device</b>, then pick <code>StatTrak</code>.</td>
-    <td><b>2. Select the file.</b> Drop your firmware file on the page (the AI tool makes it: <code>out/stattrak-...bin</code>), or download an official release from the <b>Official releases</b> tab, go back to <b>Upload .bin</b> and drop that file there. The page refuses a file that is not a StatTrak firmware. Click <b>Next</b>.</td>
+    <td><b>2. Select the file.</b> For an official firmware: <b>Use this</b> next to a release on the <b>Official releases</b> tab (no download needed). For your own firmware: drop the file on <b>Upload .bin</b> (the AI tool makes it: <code>out/stattrak-...bin</code>). The page refuses a file that is not a StatTrak firmware. Click <b>Next</b>.</td>
   </tr>
   <tr>
     <td><img src="docs/images/updater-flash.png" alt="Step 3: the transfer is running"></td>
@@ -266,26 +266,29 @@ app in the menu, so you can always get to the firmware update.
 | **SLOTS** | A slot machine. Three the same wins, with confetti and a song on the buzzer. |
 | **WALLPAPER** | Looks like the big KILLS counter, but shows your own number. |
 
-### Backup, app data, start picture
+### Boot image, backup, app data, device log
 
-These parts of the Apps tab need firmware 1.2.0-b2 or newer.
+These parts of My device need firmware 1.2.0-b2 or newer. They are above your app list; click a
+part to open it.
 
 - **Backup.** *Download backup* saves your stats, your settings, the app menu, the settings and
-  saved values of each app, the Bluetooth name and the start picture in one file. *Restore from
+  saved values of each app, the Bluetooth name and the boot image in one file. *Restore from
   file* puts them back, on this StatTrak or on a new one. You pick the parts (for example only
   the settings, to copy them to a friend's StatTrak). The StatTrak asks "RESTORE BACKUP?" first.
   The app files are not in the backup: install the apps first, the page tells you which.
 - **App data.** Apps like BATTERY LOG and CLIP MARKS keep rows of numbers on the StatTrak
   (4 KB for each app). *Download CSV* gives you a file for a spreadsheet or a video editor.
   *Delete data* asks on the StatTrak first.
-- **Start picture.** Choose a PNG or JPG: the StatTrak shows it for 2 seconds when you switch it
+- **Boot image.** Choose a PNG or JPG: the StatTrak shows it for 2 seconds when you switch it
   on, then your first app slides in. Make one in the Screen Designer and use *Download PNG*
-  there. Without a start picture, the StatTrak starts with your first app at once.
+  there. Without a boot image, the StatTrak starts with your first app at once.
 - **Device log.** Why the StatTrak started the last 64 times (switched on, restart, brown-out,
   crash) and the battery level. It helps when you report a fault.
 
-In the Screen Designer, **Live preview** shows the screen that you draw on your StatTrak, while
-you draw. Open `Apps: SYNC` on the StatTrak first.
+In the Screen Designer, **Show on StatTrak** puts the screen that you draw on your StatTrak.
+Connect your StatTrak first (the StatTrak button at the top right, the device in `Apps: SYNC`).
+The screen stays on the StatTrak until you press a button on it or send the next one. Your
+StatTrak stays connected when you go from My device to the Designer and back.
 
 ### Make your own app
 

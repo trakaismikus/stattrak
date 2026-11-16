@@ -145,7 +145,7 @@ const BackupFile = (() => {
     sound: ["Sound", ["OFF", "ON"]],
   };
   const PARTS = ["stats", "settings", "apps", "deviceName", "startPicture"];
-  const PART_LABELS = { stats: "Stats", settings: "Settings", apps: "Apps setup", deviceName: "Bluetooth name", startPicture: "Start picture" };
+  const PART_LABELS = { stats: "Stats", settings: "Settings", apps: "Apps setup", deviceName: "Bluetooth name", startPicture: "Boot image" };
   const NAME_PREFIX = "StatTrak | ";
   const MAX_RESTORE = 4096;
 
@@ -284,8 +284,8 @@ const BackupFile = (() => {
     const picText = (p) => (!p ? "None" : p.show ? "Shown at power-on" : "Kept, not shown");
     const dp = device.startPicture, fp = file.startPicture;
     const picSame = (!dp && !fp) || (!!dp && !!fp && dp.show === fp.show && sameArray(Array.from(dp.pixels), Array.from(fp.pixels)));
-    if (file.startPictureBad) add("startPicture", "Start picture", picText(dp), "Damaged in the file (not restored)", false);
-    else add("startPicture", "Start picture", picText(dp), picText(fp) + (dp && fp && !picSame && dp.show === fp.show ? " (an other picture)" : ""), picSame);
+    if (file.startPictureBad) add("startPicture", "Boot image", picText(dp), "Damaged in the file (not restored)", false);
+    else add("startPicture", "Boot image", picText(dp), picText(fp) + (dp && fp && !picSame && dp.show === fp.show ? " (an other picture)" : ""), picSame);
     // Apps: the order of the apps that both have, then each app
     // The order after a restore: the apps of the file first (appOrder)
     const order = appOrder(file, device);
