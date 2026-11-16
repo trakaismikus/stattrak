@@ -115,6 +115,27 @@ test("index.html and Get started have the same footer, with the place for added 
 });
 
 /* The browser's own parts (scroll bars, file buttons, selects) are dark too */
+test("every page has the favicon: an .ico for all browsers, the SVG, and the picture for a phone", () => {
+  for (const page of PAGES) {
+    const icons = [...read(page).matchAll(/<link rel="(icon|apple-touch-icon)" href="([^"]+)"/g)].map((m) => [m[1], fromRoot(page, m[2])]);
+    assert.deepEqual(icons, [["icon", "favicon.ico"], ["icon", "favicon.svg"], ["apple-touch-icon", "apple-touch-icon.png"]], page);
+  }
+  // favicon.ico: 16, 32 and 48 px, each a PNG of that size (tests/make-favicon.js makes it from favicon.svg)
+  const ico = fs.readFileSync(path.join(SITE, "favicon.ico"));
+  assert.deepEqual([ico.readUInt16LE(0), ico.readUInt16LE(2), ico.readUInt16LE(4)], [0, 1, 3]);
+  [16, 32, 48].forEach((size, i) => {
+    const entry = 6 + 16 * i, at = ico.readUInt32LE(entry + 12);
+    assert.deepEqual([ico[entry], ico[entry + 1]], [size, size]);
+    assert.equal(ico.subarray(at, at + 8).toString("latin1"), "\x89PNG\r\n\x1a\n");
+    assert.deepEqual([ico.readUInt32BE(at + 16), ico.readUInt32BE(at + 20)], [size, size]);
+    assert.ok(at + ico.readUInt32LE(entry + 8) <= ico.length);
+  });
+  const phone = fs.readFileSync(path.join(SITE, "apple-touch-icon.png"));
+  assert.deepEqual([phone.readUInt32BE(16), phone.readUInt32BE(20)], [180, 180]);
+  // The SVG is the drawing that the other two come from: one square, the StatTrak orange
+  assert.match(fs.readFileSync(path.join(SITE, "favicon.svg"), "utf8"), /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#FF7A1F"\/>/);
+});
+
 test("every page tells the browser that it is dark (color-scheme)", () => {
   assert.match(read("css/colors_and_type.css"), /:root \{[^}]*color-scheme: dark;/);
   assert.match(read("designer/index.html"), /:root \{\s*color-scheme: dark;/);

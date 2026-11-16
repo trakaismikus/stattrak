@@ -141,6 +141,9 @@ link to `index.html#device`.
 
 Use these; do not write the same thing again in a page or in an added script.
 
+- **The favicon** (the small picture in the browser tab) is the same three lines in the `<head>`
+  of every page: `favicon.ico`, `favicon.svg`, `apple-touch-icon.png`. A page of an added site
+  links the same files.
 - **The footer** is `<footer class="footer">` (`css/main.css`) on `index.html` and on Get
   started. The Designer is a tool that fills the window: it has none.
 - **The header** is the same on every page: the logo, the menu, the StatTrak button
@@ -233,6 +236,8 @@ or an install runs, all buttons are locked.
 | File | What it is |
 | --- | --- |
 | `index.html`, `css/` | The page |
+| `favicon.svg` | The favicon: a black leaning S on the StatTrak orange. The drawing that the two files below come from |
+| `favicon.ico`, `apple-touch-icon.png` | The favicon for browsers that do not take an SVG (16, 32, 48 px) and for the home screen of a phone (180 px). Made by `node tests/make-favicon.js`: run it after a change of `favicon.svg` |
 | `js/ble.js` | The Bluetooth code: connect, commands, firmware transfer |
 | `js/firmware.js` | Checks of the firmware file |
 | `api/firmware.js` | The file of an official release from our own address (Vercel Edge Function; only `.bin` files of the release repository, at most 1 MB) |
