@@ -370,10 +370,17 @@ test("designer: Show on StatTrak only while StatTrak is connected; one press = o
   assert.ok(await page.evaluate("window.__device.xferDataCount < 37"), "empty parts were sent");
   assert.equal(await page.evaluate("window.__device.syncState"), 6);
   assert.equal(await text(page, "#showState"), "StatTrak shows this screen until you press a button on StatTrak.");
+  // The text is a popup: not on the screen until the mouse or the keyboard is on the button; a
+  // green dot on the button says it
+  const shown = () => page.evaluate(`getComputedStyle(document.getElementById("showState")).visibility`);
+  assert.equal(await shown(), "hidden");
+  assert.equal(await page.evaluate(`getComputedStyle(document.querySelector("#showWrap .show-dot")).backgroundColor`), "rgb(111, 207, 94)");
+  assert.equal(await page.evaluate(`document.getElementById("showBtn").getAttribute("aria-describedby")`), "showState");
 
   // An other screen: nothing is sent by itself; the state says that StatTrak shows the older one
   await act(page, '.tile[data-i="1"]');
   await page.waitFor(`/older version/.test(document.getElementById("showState").textContent)`);
+  assert.equal(await page.evaluate(`document.getElementById("showWrap").classList.contains("is-old")`), true);
   assert.equal(await page.evaluate("window.__device.previewCount"), 1);
   await act(page, "#showBtn");
   await page.waitFor(`window.__device.previewCount === 2 && /shows this screen/.test(document.getElementById("showState").textContent)`);

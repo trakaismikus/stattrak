@@ -99,14 +99,24 @@ code { font-family: var(--font-mono); font-size: 0.85em; }
 .topbar__spacer { flex: 1; }
 .topbar__acts { display: flex; gap: 8px; align-items: center; }
 .topbar__div { width: 1px; height: 28px; background: var(--stroke-1); margin: 0 4px; }
-/* Show on StatTrak: the state under the tool bar, at the right */
+/* Show on StatTrak: a dot on the button says the state; the text shows only while the mouse is
+   on the button (or the keyboard focus is there), under it */
+.show-wrap { position: relative; display: inline-flex; }
+.show-wrap .btn { position: relative; }
+.show-dot { position: absolute; top: 6px; right: 6px; width: 7px; height: 7px; border-radius: 50%; display: none; pointer-events: none; }
+.show-wrap.is-on .show-dot { display: block; background: var(--st-success); }
+.show-wrap.is-old .show-dot { display: block; background: var(--accent); }
+.show-wrap.is-err .show-dot { display: block; background: var(--st-kill-red); }
 .live-state {
-  position: absolute; top: calc(100% + 8px); right: 16px; z-index: 5; max-width: 420px;
+  position: absolute; top: calc(100% + 10px); right: 0; z-index: 5; width: max-content; max-width: 340px;
   background: var(--st-ink-800); border: 1px solid var(--stroke-2); border-radius: var(--r-sm);
   padding: 7px 12px; font-size: 14px; line-height: 1.3; box-shadow: var(--shadow-2);
   display: flex; align-items: center; gap: 8px;
+  visibility: hidden; opacity: 0; pointer-events: none; transition: opacity var(--dur-fast, 120ms) ease;
 }
+.show-wrap:hover .live-state, .show-wrap:has(:focus-visible) .live-state { visibility: visible; opacity: 1; }
 .live-state::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: 0 0 auto; }
+.live-state.is-hint::before { display: none; }
 .live-state.is-on::before { background: var(--st-success); }
 .live-state.is-err { border-color: rgba(226,52,52,0.6); }
 .live-state.is-err::before { background: var(--st-kill-red); }
@@ -454,16 +464,19 @@ try { if (window.parent !== window && window.parent.AppsTab) document.documentEl
       Download PNG
     </button>
     <span class="topbar__div"></span>
-    <button class="btn btn--ghost" id="showBtn" type="button" hidden title="Show the selected screen on StatTrak. It stays there until you press a button on StatTrak.">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg>
-      <span id="showLbl">Show on StatTrak</span>
-    </button>
+    <span class="show-wrap" id="showWrap" hidden>
+      <button class="btn btn--ghost" id="showBtn" type="button" hidden aria-describedby="showState">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m7 7 10 10-5 5V2l5 5L7 17"/></svg>
+        <span id="showLbl">Show on StatTrak</span>
+        <span class="show-dot" aria-hidden="true"></span>
+      </button>
+      <div class="live-state" id="showState" role="status" hidden></div>
+    </span>
     <button class="btn btn--primary btn--lg" id="sendBtn" type="button">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg>
       Send to AI
     </button>
   </div>
-  <div class="live-state" id="showState" role="status" hidden></div>
 </div>
 
 <!-- ================= WORKBENCH ================= -->
@@ -2104,17 +2117,20 @@ function showHost() {
   const w = (typeof SiteFrame !== 'undefined' && SiteFrame.host) || window;
   return w.AppsTab || null;
 }
+const SHOW_HINT = 'Shows the selected screen on StatTrak until you press a button on StatTrak.';
 function showState(text, kind) {
   const el = $('#showState');
   el.hidden = !text;
   el.textContent = text || '';
   el.className = 'live-state' + (kind ? ' is-' + kind : '');
+  $('#showWrap').className = 'show-wrap' + (kind && kind !== 'hint' ? ' is-' + kind : '');
 }
 const SHOW_OLD_FW = 'Update the firmware of StatTrak: it cannot show a screen from here.';
 function showButton() {
   const t = showHost(), b = $('#showBtn');
   const on = !!t && t.state.conn === 'on';
   b.hidden = !on;
+  $('#showWrap').hidden = !on;
   if (!on) {
     // No StatTrak: no button, no state
     Show.shown = null;
@@ -2126,13 +2142,14 @@ function showButton() {
   b.disabled = Show.sending || can !== true || t.api.busy();
   $('#showLbl').textContent = Show.sending ? 'Sending…' : 'Show on StatTrak';
   if (can === false && !Show.sending) showState(SHOW_OLD_FW, 'err');
+  else if (!Show.sending && !Show.shown && $('#showState').hidden) showState(SHOW_HINT, 'hint');
 }
 /* After each change of the screen: does StatTrak still show this screen? */
 function showChanged(buf) {
   if (!Show || Show.sending || !Show.shown) return;
   const now = Array.prototype.join.call(buf || pixelsOf(S()), '');
   if (now === Show.shown) showState('StatTrak shows this screen until you press a button on StatTrak.', 'on');
-  else showState('StatTrak shows an older version. Press Show on StatTrak to send this one.');
+  else showState('StatTrak shows an older version. Press Show on StatTrak to send this one.', 'old');
 }
 async function showSend() {
   const t = showHost();

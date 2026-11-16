@@ -312,25 +312,16 @@ st-device[data-press="B"] .st-dev__btn {
   font: inherit; color: inherit;
   text-decoration: none;
 }
-.release:hover {
-  border-color: var(--accent);
-  background: var(--st-ink-800);
-}
-.release:hover .release__download {
-  color: var(--accent);
-  border-color: var(--accent);
-}
+.release:hover { border-color: var(--stroke-2); }
+.release--on { border-color: var(--st-success); }
 .release__main { min-width: 0; }
-.release__download {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 6px 10px;
-  border: 1px solid var(--stroke-2);
-  border-radius: var(--r-sm);
+.release__act { justify-self: end; }
+.release__chosen {
   font-family: var(--font-stencil); font-weight: 800; font-style: italic;
-  font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em;
-  color: var(--fg1);
-  transition: color var(--dur-fast), border-color var(--dur-fast);
+  font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--st-success);
 }
+.release__err { margin: 6px 0 0; font-size: 14px; color: var(--st-kill-red); }
+.release__err a { color: var(--fg1); }
 .release__name {
   font-family: var(--font-stencil); font-weight: 800; font-style: italic;
   font-size: 18px; text-transform: uppercase;
@@ -674,8 +665,8 @@ st-device[data-press="B"] .st-dev__btn {
   .connect-row { grid-template-columns: 1fr; }
   .flash-summary { grid-template-columns: 1fr; }
   .flash-summary__arrow { transform: rotate(90deg); justify-self: center; }
-  .release { grid-template-columns: auto 1fr auto; }
-  .release__meta:last-child { display: none; }
+  .release { grid-template-columns: 1fr auto; }
+  .release__meta { display: none; }
   .step__body { padding-left: 20px; padding-right: 20px; }
   .footer { flex-direction: column; gap: 10px; align-items: flex-start; }
   .footer a { margin-left: 0; margin-right: 16px; }

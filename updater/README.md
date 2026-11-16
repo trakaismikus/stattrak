@@ -31,10 +31,15 @@ A transfer that is complete is not an update that is complete. The page follows 
 through all steps:
 
 1. **Pair.** The device shows its update screen. The page reads the firmware version and the device ID.
-2. **Select a file.** The page refuses a file that is not a StatTrak firmware (wrong chip, a
-   bootloader, an other project, too large). It also tells if the file is one of the official
-   releases: it compares the SHA-256 of the file with the release files on GitHub (the repository
-   is set at the top of `js/main.js`).
+2. **Select a file.** The tab "Official releases" (open at the start) lists the releases on
+   GitHub (the repository is set at the top of `js/main.js` and in `api/firmware.js`). "Use this"
+   loads the file of a release through our own address `api/firmware.js` (a Vercel Edge Function:
+   GitHub does not let a web page read its release files directly). The page takes the file only
+   when its SHA-256 is the digest of that release. From a disk, or a server without the function,
+   the row says so and links to the release: download it and drop it on "Upload .bin". The tab
+   "Upload .bin" takes a file of your own. The page refuses a file that is not a StatTrak firmware
+   (wrong chip, a bootloader, an other project, too large), and tells if a dropped file is one of
+   the official releases (the same SHA-256 check).
 3. **Transfer.** First the page confirms a firmware of an earlier transfer that still waits on
    the device. Thus a "yes" after the transfer can only come from the new firmware. Then the file goes to the device in sectors of 4096 bytes, each with a checksum.
    A sector that arrives damaged is sent again, 3 times at most. If the transfer stops, the page
@@ -225,6 +230,7 @@ or an install runs, all buttons are locked.
 | `index.html`, `css/` | The page |
 | `js/ble.js` | The Bluetooth code: connect, commands, firmware transfer |
 | `js/firmware.js` | Checks of the firmware file |
+| `api/firmware.js` | The file of an official release from our own address (Vercel Edge Function; only `.bin` files of the release repository, at most 1 MB) |
 | `js/main.js` | The steps of the page |
 | `js/apps-protocol.js` | The app commands (`StatTrakApps`: install, list, Bluetooth name, the device chooser of the Apps tab) and the check of a `.stapp` file (`StappFile`) |
 | `js/data-protocol.js` | The commands of `../docs/DATA.md` (`StatTrakData`: CONFIG_INFO and CONFIG_ENTRY, saved values, the transfers restore / start picture / preview frame, app data, device log), the backup file and the restore data (`BackupFile`), the CSV files (`DataCsv`), the frame buffer format (`FrameBuffer`). Also used by the Screen Designer |

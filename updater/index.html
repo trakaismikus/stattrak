@@ -150,12 +150,12 @@
           <div class="step__body">
 
             <div class="fw-tabs" role="tablist">
-              <button role="tab" aria-selected="true" class="fw-tab fw-tab--active" data-tab="upload" type="button">Upload .bin</button>
-              <button role="tab" aria-selected="false" class="fw-tab" data-tab="hosted" type="button">Official releases</button>
+              <button role="tab" aria-selected="true" class="fw-tab fw-tab--active" data-tab="hosted" type="button">Official releases</button>
+              <button role="tab" aria-selected="false" class="fw-tab" data-tab="upload" type="button">Upload .bin</button>
             </div>
 
-            <!-- upload pane (default) -->
-            <div id="uploadPane">
+            <!-- upload pane: a file of your own -->
+            <div id="uploadPane" hidden>
               <div class="dropzone" id="dropzone" tabindex="0">
                 <div class="dropzone__icon">
                   <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -163,14 +163,14 @@
                 <h3 class="dropzone__title">Drop firmware image</h3>
                 <p class="dropzone__hint">or <strong>browse</strong> — <code>.bin</code> built from <code>stattrak-fw</code>, max 1 MB</p>
                 <p class="dropzone__note">
-                  <strong>First, download the firmware from the&nbsp;<em>Official releases</em> tab</strong> — the updater flashes a local file, so the <code>.bin</code> must already be on your computer.
+                  For an official firmware, use the <em>Official releases</em> tab: pick a release there, no download needed.
                 </p>
                 <input type="file" id="fileInput" accept=".bin" hidden />
               </div>
             </div>
 
-            <!-- hosted-releases pane -->
-            <div id="hostedPane" hidden>
+            <!-- the official releases (default): "Use this" loads the file (api/firmware.js) -->
+            <div id="hostedPane">
               <div class="release-list" id="releaseList">
                 <div class="release-empty">Loading releases from GitHub…</div>
               </div>

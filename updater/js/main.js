@@ -11,8 +11,10 @@ const GH_REPO  = "stattrak-fw";
 const state = {
   connState: "idle",        // idle | scanning | connected
   device: null,             // { name, id, fw }
-  fwTab: "upload",          // upload (default) | hosted
-  releases: [],             // [{ id, name, tag, size, date, desc, htmlUrl }]
+  fwTab: "hosted",          // hosted (default: the official releases) | upload
+  releaseLoading: null,     // id of the release whose file loads now (api/firmware.js)
+  releaseError: null,       // { id, text }: that release could not load here
+  releases: [],             // [{ id, name, tag, file, size, date, desc, htmlUrl }]
   releasesStatus: "loading",// loading | ready | error
   releaseAssets: [],        // [{ release, digest }] of all official .bin files
   uploadedFile: null,       // { name, size, bytes: Uint8Array, version, hash }
@@ -291,8 +293,9 @@ function renderStep2() {
   $("hostedPane").hidden = state.fwTab !== "hosted";
   $("uploadPane").hidden = state.fwTab !== "upload";
 
-  // release list — hosted tab shows GitHub release links; selection
-  // happens in the Upload tab after the user downloads a .bin manually.
+  // The official releases: "Use this" loads the file of the release through our own address
+  // (api/firmware.js), no download and no drop. Without that address (from a disk) the row
+  // says so and links to GitHub.
   const list = $("releaseList");
   if (state.releasesStatus === "loading") {
     list.innerHTML = '<div class="release-empty">Loading releases from GitHub…</div>';
@@ -301,23 +304,31 @@ function renderStep2() {
   } else if (state.releases.length === 0) {
     list.innerHTML = '<div class="release-empty">No releases published yet.</div>';
   } else {
-    const dlIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+    const busy = state.releaseLoading !== null;
+    const official = state.uploadedFile ? officialStatus() : { status: "unknown" };
     list.innerHTML = state.releases
-      .map(
-        (r) => `
-      <a class="release" href="${escapeHtml(r.htmlUrl || "#")}" target="_blank" rel="noreferrer">
+      .map((r) => {
+        const loading = state.releaseLoading === r.id;
+        const chosen = official.status === "official" && official.release === r.name;
+        const err = state.releaseError && state.releaseError.id === r.id ? state.releaseError.text : "";
+        const act = !r.file ? '<span class="release__meta">No .bin file</span>'
+          : chosen ? '<span class="release__chosen">Selected</span>'
+          : `<button class="btn btn--primary btn--sm" type="button" data-release="${escapeHtml(r.id)}"${busy ? " disabled" : ""}>${loading ? "Loading…" : "Use this"}</button>`;
+        return `
+      <div class="release${chosen ? " release--on" : ""}" data-release-row="${escapeHtml(r.id)}">
         <div class="release__main">
           <h3 class="release__name">
             ${escapeHtml(r.name)}
             <span class="chip chip--${r.tag}">${r.tag}</span>
           </h3>
           <p class="release__desc">${escapeHtml(r.desc || "")}</p>
+          ${err ? `<p class="release__err" role="alert">${escapeHtml(err)} <a href="${escapeHtml(r.htmlUrl || "#")}" target="_blank" rel="noreferrer">Release on GitHub</a></p>` : ""}
         </div>
         <div class="release__meta">${r.size != null ? fmtBytes(r.size) : "—"}</div>
         <div class="release__meta">${r.date}</div>
-        <div class="release__download">${dlIcon} Download</div>
-      </a>`
-      )
+        <div class="release__act">${act}</div>
+      </div>`;
+      })
       .join("");
   }
 
@@ -411,6 +422,7 @@ async function loadReleases() {
           id: r.id.toString(),
           name: r.tag_name || r.name,
           tag,
+          file: binAsset?.name || null,
           size: binAsset?.size ?? null,
           htmlUrl: r.html_url,
           date: (r.published_at || "").slice(0, 10),
@@ -818,6 +830,30 @@ function unmountModal() {
   root.hidden = true;
 }
 
+// --- An official release: its file through our own address (api/firmware.js) ---------------
+async function useRelease(id) {
+  const r = state.releases.find((x) => x.id === id);
+  if (!r || !r.file || state.releaseLoading !== null) return;
+  state.releaseLoading = r.id;
+  state.releaseError = null;
+  render();
+  let bytes = null;
+  try {
+    const res = await fetch(`${SiteUI.base()}api/firmware?tag=${encodeURIComponent(r.name)}&file=${encodeURIComponent(r.file)}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    bytes = new Uint8Array(await res.arrayBuffer());
+  } catch (err) {
+    pushLog(`> release file ${r.name} not loaded: ${err.message}`, "warn");
+  }
+  state.releaseLoading = null;
+  if (!bytes) {
+    state.releaseError = { id: r.id, text: "This page could not load the file. Download it from GitHub, then drop it on Upload .bin." };
+    render();
+    return;
+  }
+  acceptBytes(r.file, bytes, r.name);
+}
+
 // --- File import ------------------------------------------------------
 function handleFile(file) {
   if (!file) return;
@@ -835,42 +871,63 @@ function handleFile(file) {
     return;
   }
   const reader = new FileReader();
-  reader.onload = async (ev) => {
-    const bytes = new Uint8Array(ev.target.result);
+  reader.onload = (ev) => acceptBytes(file.name, new Uint8Array(ev.target.result), null);
+  reader.readAsArrayBuffer(file);
+}
 
-    // A wrong file is refused here, not after some minutes of transfer
-    const info = FirmwareFile.inspect(bytes);
-    if (!info.ok) {
-      state.uploadedFile = null;
-      state.step2Confirmed = false;
-      state.notice = { kind: "error", title: "This file cannot be used", body: `${file.name}: ${info.problem}` };
-      pushLog(`> refused local file: ${file.name}. ${info.problem}`, "warn");
-      render();
-      return;
-    }
+/* A firmware file from the disk (release = null) or from an official release (its tag) */
+async function acceptBytes(name, bytes, release) {
+  // A wrong file is refused here, not after some minutes of transfer
+  const info = bytes.length > FirmwareFile.MAX_SIZE
+    ? { ok: false, problem: `The file has ${bytes.length} bytes. The largest firmware is ${FirmwareFile.MAX_SIZE} bytes.` }
+    : FirmwareFile.inspect(bytes);
+  if (!info.ok) {
+    state.uploadedFile = null;
+    state.step2Confirmed = false;
+    state.notice = { kind: "error", title: "This file cannot be used", body: `${name}: ${info.problem}` };
+    pushLog(`> refused file: ${name}. ${info.problem}`, "warn");
+    render();
+    return;
+  }
 
-    const uploaded = {
-      name: file.name,
-      size: bytes.length,
-      bytes,
-      version: info.version || "custom",
-      hash: null,
-    };
+  const uploaded = {
+    name,
+    size: bytes.length,
+    bytes,
+    version: info.version || "custom",
+    hash: null,
+    release,
+  };
+  // A release file is chosen only after its SHA-256 is the digest of the release (below)
+  if (!release) {
     state.uploadedFile = uploaded;
     state.notice = null;
     state.fwTab = "upload";
-    pushLog(`> loaded local file: ${file.name} (${fmtBytes(bytes.length)})`, "ok");
+    pushLog(`> loaded local file: ${name} (${fmtBytes(bytes.length)})`, "ok");
     render();
+  }
 
-    // The hash shows if the file is one of the official releases
-    try {
-      uploaded.hash = await FirmwareFile.sha256Hex(bytes);
-    } catch (err) {
-      console.error(err);
+  // The hash shows if the file is one of the official releases
+  try {
+    uploaded.hash = await FirmwareFile.sha256Hex(bytes);
+  } catch (err) {
+    console.error(err);
+  }
+  if (release) {
+    const match = FirmwareFile.matchRelease(uploaded.hash, state.releaseAssets.filter((a) => a.release === release));
+    if (match.status === "unofficial" || !uploaded.hash) {
+      const r = state.releases.find((x) => x.name === release);
+      state.releaseError = { id: r ? r.id : null, text: "The file from GitHub is not the file of this release. Try again." };
+      pushLog(`> refused release file ${release}: not the same as the release`, "warn");
+      render();
+      return;
     }
-    if (state.uploadedFile === uploaded) render();
-  };
-  reader.readAsArrayBuffer(file);
+    state.uploadedFile = uploaded;
+    state.step2Confirmed = false;
+    state.notice = null;
+    pushLog(`> loaded release ${release}: ${name} (${fmtBytes(bytes.length)})`, "ok");
+  }
+  if (state.uploadedFile === uploaded) render();
 }
 
 // --- Wiring -----------------------------------------------------------
@@ -909,6 +966,12 @@ function wireEvents() {
       state.step2Confirmed = false;
       render();
     });
+  });
+
+  // An official release: its file loads through our own address
+  $("releaseList").addEventListener("click", (event) => {
+    const b = event.target.closest("[data-release]");
+    if (b && !b.disabled) useRelease(b.dataset.release);
   });
 
   // dropzone

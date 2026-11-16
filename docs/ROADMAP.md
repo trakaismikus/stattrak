@@ -93,6 +93,8 @@ This repository (`trakaismikus/stattrak`) is private until these are done:
   device log above the app list, each one folds. The Screen Designer: "Show on StatTrak" sends
   the selected screen once, over the connection of the header (in place of the live preview).
   No console on the page (the log is in the developer tools of the browser).
+  Firmware tab: "Use this" next to an official release loads its file (through `api/firmware.js`),
+  no download and no drop. The "Show on StatTrak" state is a popup on the button (a dot shows it).
 - **2026-11: App Sync how-to and Screen Designer tools.** The Apps tab shows the whole way to
   App Sync on the current firmware (counter, app menu, Settings, "Apps: SYNC", hold the right
   button, each click shown) with the lit buttons, at the size of the firmware how-to; "Apps: SYNC"

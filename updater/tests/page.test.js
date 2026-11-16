@@ -37,8 +37,11 @@ function digestOf(firmwareOptions) {
   return "sha256:" + crypto.createHash("sha256").update(Buffer.from(bytes)).digest("hex");
 }
 
+/* options.releaseFiles: tag -> the options of FakeStatTrak.makeFirmware for the file that
+   api/firmware.js gives for that release (no entry = 404). window.__fetches: the addresses. */
 function initScript(deviceOptions, options) {
   const releases = options.releases || [];
+  const files = options.releaseFiles || {};
   return `
     (() => {
       const real = window.setTimeout.bind(window);
@@ -47,7 +50,17 @@ function initScript(deviceOptions, options) {
     ${FAKE_SOURCE}
     window.__device = new FakeStatTrak(${JSON.stringify(deviceOptions)});
     Object.defineProperty(navigator, "bluetooth", { value: window.__device.bluetooth(), configurable: true });
-    window.fetch = async () => new Response(${JSON.stringify(JSON.stringify(releases))}, { status: 200 });
+    window.__fetches = [];
+    window.fetch = async (url) => {
+      window.__fetches.push(String(url));
+      if (String(url).includes("api/firmware?")) {
+        const tag = new URL(String(url), location.href).searchParams.get("tag");
+        const files = ${JSON.stringify(files)};
+        if (!files[tag]) return new Response("not found", { status: 404 });
+        return new Response(FakeStatTrak.makeFirmware(files[tag]), { status: 200 });
+      }
+      return new Response(${JSON.stringify(JSON.stringify(releases))}, { status: 200 });
+    };
   `;
 }
 
@@ -533,6 +546,54 @@ test("the page tells if the file is an official release", { skip: SKIP }, async 
   await click(page, "step2NextBtn");
   await click(page, "flashBtn");
   assert.equal(await page.evaluate(`document.querySelector("[data-unofficial]").hidden`), false);
+});
+
+const RELEASE_2 = () => [{
+  id: 1, tag_name: "v2.0.0", name: "v2.0.0", draft: false, prerelease: false,
+  html_url: "https://example.invalid/release", published_at: "2026-11-01T00:00:00Z", body: "Test release",
+  assets: [{ name: "stattrak.bin", size: 10000, digest: digestOf({ version: "2.0.0" }) }],
+}];
+
+test("an official release: Use this loads its file, without a download and a drop", { skip: SKIP }, async (t) => {
+  const page = await open(t, {}, { releases: RELEASE_2(), releaseFiles: { "v2.0.0": { version: "2.0.0" } } });
+  await pair(page);
+  await click(page, "step1NextBtn");
+  // The official releases are the first tab, open at the start
+  assert.equal(await page.evaluate(`document.querySelector(".fw-tab").dataset.tab`), "hosted");
+  assert.equal(await page.evaluate(visible("hostedPane")), true);
+  await page.waitFor(`document.querySelector('[data-release="1"]')`);
+  assert.equal(await text(page, "releaseList").then((s) => /Use this/.test(s)), true);
+  await page.evaluate(`document.querySelector('[data-release="1"]').click()`);
+  await page.waitFor(`document.getElementById("fileCardMeta").textContent.includes("official release v2.0.0")`);
+  assert.ok(await page.evaluate(`window.__fetches.includes("api/firmware?tag=v2.0.0&file=stattrak.bin")`));
+  assert.equal(await page.evaluate(`document.querySelector('[data-release-row="1"]').classList.contains("release--on")`), true);
+  assert.match(await text(page, "fileCardMeta"), /version 2\.0\.0/);
+  await click(page, "step2NextBtn");
+  await click(page, "flashBtn");
+  assert.equal(await page.evaluate(`document.querySelector("[data-unofficial]").hidden`), true);
+});
+
+test("an official release: a file that is not the release is refused; no file: the manual way", { skip: SKIP }, async (t) => {
+  // The address gives an other file than the release (its SHA-256 is not the digest)
+  const page = await open(t, {}, { releases: RELEASE_2(), releaseFiles: { "v2.0.0": { version: "2.0.1" } } });
+  await pair(page);
+  await click(page, "step1NextBtn");
+  await page.waitFor(`document.querySelector('[data-release="1"]')`);
+  await page.evaluate(`document.querySelector('[data-release="1"]').click()`);
+  await page.waitFor(`document.querySelector(".release__err")`);
+  assert.match(await page.evaluate(`document.querySelector(".release__err").textContent`), /not the file of this release/);
+  assert.equal(await page.evaluate(visible("fileCard")), false);
+
+  // No file at the address (a page from a disk, or GitHub away): the way by hand
+  const other = await open(t, {}, { releases: RELEASE_2(), releaseFiles: {} });
+  await pair(other);
+  await click(other, "step1NextBtn");
+  await other.waitFor(`document.querySelector('[data-release="1"]')`);
+  await other.evaluate(`document.querySelector('[data-release="1"]').click()`);
+  await other.waitFor(`document.querySelector(".release__err")`);
+  assert.match(await other.evaluate(`document.querySelector(".release__err").textContent`), /Download it from GitHub, then drop it on Upload \.bin/);
+  assert.equal(await other.evaluate(`document.querySelector(".release__err a").getAttribute("href")`), "https://example.invalid/release");
+  assert.equal(await other.evaluate(visible("fileCard")), false);
 });
 
 test("step 1 plays the way to the update mode of firmware 1.0.1 on the device picture", { skip: SKIP }, async (t) => {
