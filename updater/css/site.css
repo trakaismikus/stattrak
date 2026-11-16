@@ -10,7 +10,7 @@
 /* index.html: the frame of #start and #designer fills the window under the header. The header
    has one row or two (below), so the frame takes the height that is left: a fixed "100% - 65 px"
    cut the last 35 px of Get started on a phone. */
-body.frame-on { overflow: hidden; display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+body.frame-on { overflow: hidden; display: flex; flex-direction: column; height: 100vh; height: 100dvh; min-height: 0; }
 body.frame-on .app { display: none; }
 body.frame-on .site-header { flex: 0 0 auto; }
 .page-frame { flex: 1 1 auto; min-height: 0; }
@@ -52,7 +52,14 @@ body.frame-on .site-header { flex: 0 0 auto; }
 @media (max-width: 1000px) {
   .site-header__in { height: auto; flex-wrap: wrap; gap: 0 16px; }
   .site-header__brand { height: 52px; }
-  /* The right side stays on the logo row, so the menu is at the same place on every page */
+  /* The right side stays on the logo row, so the menu is at the same place on every page: it
+     takes the room next to the logo, and its buttons get shorter there (a long name ends with
+     "…") before the header gets a third row or the page gets wider than the window */
+  .site-header__meta { flex: 1 1 0; min-width: 0; justify-content: flex-end; }
+  .site-header__meta > * { min-width: 0; }
+  .site-header__meta > .devbar { flex-shrink: 20; }      /* the device name gets shorter first */
+  .devbtn { max-width: 100%; overflow: hidden; }
+  .devbtn__name { min-width: 0; }
   .site-nav { order: 3; width: 100%; gap: 0; margin: 0 -8px; }
   .site-nav .tab { font-size: 16px; padding: 10px 8px 14px; }
 }
