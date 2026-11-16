@@ -311,7 +311,9 @@ function renderStep2() {
         const loading = state.releaseLoading === r.id;
         const chosen = official.status === "official" && official.release === r.name;
         const err = state.releaseError && state.releaseError.id === r.id ? state.releaseError.text : "";
+        // Without the SHA-256 of GitHub (digest) the page cannot check the file: the manual way
         const act = !r.file ? '<span class="release__meta">No .bin file</span>'
+          : !r.digest ? `<a class="btn btn--ghost btn--sm" href="${escapeHtml(r.htmlUrl || "#")}" target="_blank" rel="noreferrer">On GitHub</a>`
           : chosen ? '<span class="release__chosen">Selected</span>'
           : `<button class="btn btn--primary btn--sm" type="button" data-release="${escapeHtml(r.id)}"${busy ? " disabled" : ""}>${loading ? "Loading…" : "Use this"}</button>`;
         return `
@@ -348,7 +350,7 @@ function renderStep2() {
   }
 
   // next button
-  $("step2NextRow").hidden = !selectedFirmware() || state.step2Confirmed;
+  $("step2NextRow").hidden = !selectedFirmware() || state.step2Confirmed || state.releaseLoading !== null;
 }
 
 function renderStep3() {
@@ -423,6 +425,7 @@ async function loadReleases() {
           name: r.tag_name || r.name,
           tag,
           file: binAsset?.name || null,
+          digest: binAsset?.digest || null,
           size: binAsset?.size ?? null,
           htmlUrl: r.html_url,
           date: (r.published_at || "").slice(0, 10),
@@ -575,9 +578,14 @@ function failFlash(title, body, kind = "error") {
   render();
 }
 
-async function onFlashConfirm() {
+async function onFlashConfirm(namedBytes) {
   const fw = selectedFirmware();
   if (!fw || !bleOta) return;
+  // The file changed after the question named it: nothing is sent
+  if (namedBytes && fw.bytes !== namedBytes) {
+    pushLog("> the selected file changed after the question: nothing sent.", "warn");
+    return;
+  }
   const bytes = fw.bytes;
   if (!bytes) {
     pushLog("> no firmware bytes available.", "warn");
@@ -795,7 +803,7 @@ async function confirmWaitingFirmware(manual, pending) {
 
 function openConfirm() {
   const fw = selectedFirmware();
-  if (!fw) return;
+  if (!fw || state.releaseLoading !== null) return;
   state.confirmOpen = true;
   const root = $("modalRoot");
   const tpl = $("confirmModalTpl");
@@ -812,7 +820,7 @@ function openConfirm() {
   root.querySelector("[data-cancel]").addEventListener("click", closeConfirm);
   root.querySelector("[data-confirm]").addEventListener("click", async () => {
     closeConfirm();
-    await onFlashConfirm();
+    await onFlashConfirm(fw.bytes);
   });
   root.querySelector(".modal-backdrop").addEventListener("click", (e) => {
     if (e.target.matches("[data-dismiss]")) closeConfirm();
@@ -833,7 +841,7 @@ function unmountModal() {
 // --- An official release: its file through our own address (api/firmware.js) ---------------
 async function useRelease(id) {
   const r = state.releases.find((x) => x.id === id);
-  if (!r || !r.file || state.releaseLoading !== null) return;
+  if (!r || !r.file || !r.digest || state.releaseLoading !== null || state.confirmOpen) return;
   state.releaseLoading = r.id;
   state.releaseError = null;
   render();
@@ -845,13 +853,18 @@ async function useRelease(id) {
   } catch (err) {
     pushLog(`> release file ${r.name} not loaded: ${err.message}`, "warn");
   }
-  state.releaseLoading = null;
   if (!bytes) {
+    state.releaseLoading = null;
     state.releaseError = { id: r.id, text: "This page could not load the file. Download it from GitHub, then drop it on Upload .bin." };
     render();
     return;
   }
-  acceptBytes(r.file, bytes, r.name);
+  try {
+    await acceptBytes(r.file, bytes, r.name);
+  } finally {
+    state.releaseLoading = null;
+    render();
+  }
 }
 
 // --- File import ------------------------------------------------------
@@ -915,7 +928,7 @@ async function acceptBytes(name, bytes, release) {
   }
   if (release) {
     const match = FirmwareFile.matchRelease(uploaded.hash, state.releaseAssets.filter((a) => a.release === release));
-    if (match.status === "unofficial" || !uploaded.hash) {
+    if (match.status !== "official") {
       const r = state.releases.find((x) => x.name === release);
       state.releaseError = { id: r ? r.id : null, text: "The file from GitHub is not the file of this release. Try again." };
       pushLog(`> refused release file ${release}: not the same as the release`, "warn");
@@ -1003,6 +1016,7 @@ function wireEvents() {
   });
 
   $("step2NextBtn").addEventListener("click", () => {
+    if (state.releaseLoading !== null) return;
     state.step2Confirmed = true;
     render();
   });

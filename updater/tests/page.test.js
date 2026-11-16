@@ -596,6 +596,50 @@ test("an official release: a file that is not the release is refused; no file: t
   assert.equal(await other.evaluate(visible("fileCard")), false);
 });
 
+test("an official release without a GitHub digest: no Use this (the file cannot be checked)", { skip: SKIP }, async (t) => {
+  const releases = RELEASE_2();
+  releases[0].assets[0].digest = null;
+  const page = await open(t, {}, { releases, releaseFiles: { "v2.0.0": { version: "2.0.1" } } });
+  await pair(page);
+  await click(page, "step1NextBtn");
+  await page.waitFor(`document.querySelector('[data-release-row="1"]')`);
+  assert.equal(await page.evaluate(`!!document.querySelector('[data-release="1"]')`), false);
+  assert.equal(await page.evaluate(`document.querySelector('[data-release-row="1"] a.btn').getAttribute("href")`), "https://example.invalid/release");
+  // Even when called: nothing is loaded, nothing is selected
+  await page.evaluate(`useRelease("1")`);
+  assert.equal(await page.evaluate("window.__fetches.some((u) => u.includes('api/firmware'))"), false);
+  assert.equal(await page.evaluate(visible("fileCard")), false);
+});
+
+test("an official release that loads while a file is selected: Next waits; the transfer sends only the file that the question named", { skip: SKIP }, async (t) => {
+  const releases = RELEASE_2().concat([{ id: 2, tag_name: "v2.1.0", name: "v2.1.0", draft: false, prerelease: false,
+    html_url: "https://example.invalid/r2", published_at: "2026-11-02T00:00:00Z", body: "Newer",
+    assets: [{ name: "stattrak.bin", size: 10000, digest: digestOf({ version: "2.1.0" }) }] }]);
+  const page = await open(t, {}, { releases, releaseFiles: { "v2.0.0": { version: "2.0.0" }, "v2.1.0": { version: "2.1.0" } } });
+  await pair(page);
+  await click(page, "step1NextBtn");
+  await page.waitFor(`document.querySelector('[data-release="1"]')`);
+  await page.evaluate(`document.querySelector('[data-release="1"]').click()`);
+  await page.waitFor(`document.getElementById("fileCardMeta").textContent.includes("official release v2.0.0")`);
+  // B loads slowly: while it loads, Next is hidden and does nothing
+  await page.evaluate(`(() => { const f = window.fetch; window.fetch = (u) => new Promise((ok) => setTimeout(() => ok(f(u)), 20000)); })()`);
+  await page.evaluate(`document.querySelector('[data-release="2"]').click()`);
+  await page.waitFor(`state.releaseLoading === "2"`);
+  assert.equal(await page.evaluate(visible("step2NextRow")), false);
+  await page.evaluate(`document.getElementById("step2NextBtn").click()`);
+  assert.equal(await page.evaluate("state.step2Confirmed"), false);
+  await page.waitFor(`state.releaseLoading === null && document.getElementById("fileCardMeta").textContent.includes("official release v2.1.0")`);
+  // A question names one file; the file changes before Yes: nothing is sent
+  await click(page, "step2NextBtn");
+  await click(page, "flashBtn");
+  const named = await page.evaluate(`document.querySelector("[data-fw-name]").textContent`);
+  assert.equal(named, "stattrak.bin");
+  await page.evaluate(`state.uploadedFile = Object.assign({}, state.uploadedFile, { bytes: new Uint8Array(state.uploadedFile.bytes) })`);
+  await page.evaluate(`document.querySelector("[data-confirm]").click()`);
+  await new Promise((r) => setTimeout(r, 300));
+  assert.equal(await device(page, "startCount"), 0, "a transfer started with an other file");
+});
+
 test("step 1 plays the way to the update mode of firmware 1.0.1 on the device picture", { skip: SKIP }, async (t) => {
   const page = await open(t);
   const dev = `document.querySelector("#step1Before st-device")`;
