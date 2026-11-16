@@ -60,6 +60,9 @@ This repository (`trakaismikus/stattrak`) is private until these are done:
 
 ## Shipped
 
+- **2026-11-16: a favicon for the web site.** A black leaning S on the StatTrak orange, in the
+  browser tab of every page (`updater/favicon.svg`; `favicon.ico` and `apple-touch-icon.png` are
+  made from it by `node tests/make-favicon.js`).
 - **2026-11: backup, app data, device log, start picture, live preview, background app
   (firmware 1.2.0-b2).**
   On the Apps tab: a backup file of the stats, the settings, the app menu, the app settings and
