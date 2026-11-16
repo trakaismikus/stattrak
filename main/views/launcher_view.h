@@ -27,6 +27,11 @@ void      Launcher_update(uint32_t now);
 
 // The view and the app id of the selected app (for the simulator and the tests)
 view_id_t Launcher_getSelectedView(void);
+
+// The first view at power-on: the start picture (if the person set one) or the first app of the menu
+view_id_t Launcher_getStartView(void);
+// The start picture ends: the first app slides in from above (as the menu opens an app)
+void      Launcher_openFirstApp(void);
 uint32_t  Launcher_getSelectedAppId(void);
 
 #endif // _LAUNCHER_VIEW_H

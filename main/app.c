@@ -26,6 +26,10 @@
 #include "ota.h"
 #include "ble_commands.h"
 #include "bt_start.h"
+#include "data_store.h"
+#include "app_data.h"
+#include "device_log.h"
+#include "start_pic.h"
 
 #include <assert.h>
 
@@ -110,6 +114,7 @@ static uint16_t s_brightnessDimValue;
 static uint8_t s_shutdownReq = 0;
 
 static uint32_t s_lastActivityTime = 0;
+static uint32_t s_awakeTime = 0;           // The last loop with an "awake" app open (auto-off waits)
 
 static bool     s_lowBatteryShown = false;
 static uint32_t s_lowBatteryTime;
@@ -128,23 +133,50 @@ void App_init(void) {
     Eeprom_writeMissingDefaults(kEntryDefaults);
   }
 
-  // Replace stored values that this firmware version cannot use
-  _sanitizeEntries();
+  // The app list and the installed apps (flash namespace "apps")
+  Apps_init();
+
+  // App data, the device log and the start picture (flash namespace "data", docs/DATA.md)
+  DataStore_init();
+  DeviceLog_init();
+  StartPic_init();
 
   // Read all settings and apply
+  App_reloadSettings();
+
+  s_lowBatteryShown = false;
+
+  // The app of Settings > Background starts (docs/APPS.md section 4.6)
+  AppHost_backgroundRefresh();
+}
+
+// The flash values of ENTRY_LIST, for the backup (docs/DATA.md section 5). The keys are in main.c.
+extern const char* kEepromEntryKeys[];
+
+uint8_t App_getEntryCount(void) {
+  return (uint8_t)ENTRY_ID_COUNT;
+}
+
+const char* App_getEntryKey(uint8_t index) {
+  return (index < ENTRY_ID_COUNT) ? kEepromEntryKeys[index] : NULL;
+}
+
+uint32_t App_getEntryMax(uint8_t index) {
+  return (index < ENTRY_ID_COUNT) ? kEntryMaxValues[index] : 0;
+}
+
+// The settings from flash into use (at start, and after a restore of a backup)
+void App_reloadSettings(void) {
+  // Replace stored values that this firmware version cannot use
+  _sanitizeEntries();
   Battery_setType(Eeprom_read(ENTRY_ID__BATTERY_TYPE));
 
   SettingsView_init();
-
-  // The app list and the installed apps (flash namespace "apps")
-  Apps_init();
 
   s_brightnessSetValue = (SSD1307_MAX_BRIGHTNESS * Eeprom_read(ENTRY_ID__BRIGHTNESS)) / BRIGHTNESS_SETTING_COUNT;
   s_brightnessDimValue = (s_brightnessSetValue * Eeprom_read(ENTRY_ID__DIM_LEVEL)) / 10;
   s_brightness = s_brightnessSetValue;
   Ssd1307_setBrightness(s_brightness);
-
-  s_lowBatteryShown = false;
 }
 
 
@@ -165,6 +197,7 @@ void App_update(void) {
   AppHost_update(now);
   AppSync_update(now);
   BtStart_update(now);   // The radio start of a Bluetooth screen (main/views/bt_start.h)
+  DeviceLog_update(now); // The entry of this start, 5 s after it
 
   // While firmware is being received, count it as activity, so auto off and dim start after it
   if(Ota_isBusy(otaState)) {
@@ -206,9 +239,15 @@ void App_update(void) {
   }
 
   // Auto power off
+  // An app with the permission "awake" (a log of many hours) keeps the device on while it is open
+  // (not as activity: the dim still works)
+  if(AppHost_keepsAwake())
+    s_awakeTime = now;
   const uint32_t autoOffTime = TABLE_GET(kAutoOffTimes, Eeprom_read(ENTRY_ID__AUTO_OFF));
   if(autoOffTime != 0) {
-    const uint32_t idleTime = now - s_lastActivityTime;
+    const uint32_t sinceActivity = now - s_lastActivityTime;
+    const uint32_t sinceAwake = now - s_awakeTime;
+    const uint32_t idleTime = (sinceAwake < sinceActivity) ? sinceAwake : sinceActivity;
     if(idleTime > autoOffTime) {
       App_requestShutdown();
     } else if(idleTime >= (autoOffTime - TIME_MIN(5)) &&
@@ -315,6 +354,12 @@ void App_updateSetting(uint8_t id, uint32_t value) {
       AppView_set(VIEW_ID__APP_SYNC);
       break;
 
+    case SETTING_ID__BACKGROUND:
+      // value = the place in the list of the row (OFF, then the apps that can run in the background)
+      Apps_setBackground(SettingsView_getBackgroundApp(value));
+      AppHost_backgroundRefresh();
+      break;
+
     default: break;
   }
 
@@ -378,7 +423,10 @@ static void _factoryReset(bool confirm) {
   // TODO: Do Factory reset
   if(confirm) {
     // The app storage is in the same flash: close it before the erase (App_init opens it again)
+    AppHost_backgroundForget();
     Apps_deinit();
+    DataStore_deinit();
+    AppData_forget();     // The app data and the start picture go; App_init writes the device log back
     Eeprom_format(kEntryDefaults);
 
     // TODO: reset!

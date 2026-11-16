@@ -107,7 +107,9 @@ static void _installed(void) {
   s_state = SIM_APPS__INSTALLED;
   // Open only from "Apps: SYNC": a warning or auto-off that starts now must not be replaced
   if(s_open && AppView_get() == VIEW_ID__APP_SYNC && AppView_getNext() == VIEW_ID__APP_SYNC) {
-    // As the app menu does when it opens an app
+    // As the OPEN button of Apps: SYNC does (app_sync_view.c)
+    AppHost_backgroundPause(false);
+    AppHost_backgroundRefresh();
     AppHost_setApp(s_id);
     AppView_set(VIEW_ID__APP_HOST);
     snprintf(s_text, sizeof(s_text), "%s is installed and open. LEFT + RIGHT: app menu.", s_name);

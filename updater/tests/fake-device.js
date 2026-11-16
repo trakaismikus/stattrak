@@ -14,6 +14,10 @@
  *   the device advertises (components/app_ble/app_ble.c).
  * `userCommands: true` (firmware 1.1.0): user commands get an answer, status 1 for an
  *   unknown command. Without it (firmware 1.0.1) a user command gets no answer.
+ * `data: true` (firmware 1.2.0-b2) gives the commands 0x0120 .. 0x012A of docs/DATA.md: the flash
+ *   values, the saved values of the apps, the transfers (restore, start picture, preview frame),
+ *   the app data, the device log. Test hooks: setAppData, setDeviceLog, setStartPicture,
+ *   setConfigValue, configValue; holdButton2 / holdButton1 answer the questions of the device.
  *
  * This is a model. It is not a proof that a real device does the same.
  */
@@ -100,7 +104,16 @@
         loseDataAnswerAt: null,              // DATA at this offset: the device uses it, the answer does not arrive
         refusePackage: null,                 // END: the package check fails with this reason (stapp_result_t)
         flashFails: false,                   // Apps_install: the flash write fails
+        data: false,                         // the commands of docs/DATA.md (firmware 1.2.0-b2)
+        configValues: {},                    // { key: value } of the flash values at the start
+        appValues: {},                       // { id: [saved values] } at the start
+        appData: {},                         // { id: { columns: [names], rows: [[values]] } } at the start
+        deviceLog: [],                       // [{ reason, battery, flags, boot }] at the start, newest first
+        startPicture: null,                  // 512 bytes (frame buffer format) at the start
+        startPictureShow: true,              // the start picture shows at power-on
+        freeFlash: 20000,                    // free NVS bytes (CONFIG_INFO)
       }, options || {});
+      if (this.options.data) this.options.apps = true;
       if (this.options.apps) this.options.userCommands = true;
 
       this.version = this.options.version;
@@ -709,7 +722,14 @@
   const STAPP_MIN_SIZE = STAPP_HANDLERS_OFFSET + 2 * STAPP_HANDLERS_V1 + 4;   // 308
   const FLAG_HIDDEN = 1, FLAG_BUILTIN = 2, FLAG_SETTINGS = 4, FLAG_ERROR = 8;
   // app_sync_view.h
-  const SYNC_IDLE = 0, SYNC_RECEIVING = 1, SYNC_WAITING = 2, SYNC_INSTALLED = 3, SYNC_REFUSED = 4, SYNC_TIMEOUT = 5;
+  const SYNC_IDLE = 0, SYNC_RECEIVING = 1, SYNC_WAITING = 2, SYNC_INSTALLED = 3, SYNC_REFUSED = 4, SYNC_TIMEOUT = 5,
+    SYNC_PREVIEW = 6;
+  // docs/DATA.md 5.1: the kinds of a transfer (STATUS byte 1)
+  const XFER_PACKAGE = 0, XFER_RESTORE = 1, XFER_START_PIC = 2, XFER_PREVIEW = 3, XFER_DATA_CLEAR = 4;
+  // docs/DATA.md 5.2
+  const CFG_INFO = 0x0120, CFG_ENTRY = 0x0121, CFG_APP_VALUES = 0x0122, CFG_XFER_BEGIN = 0x0123, CFG_START_PIC = 0x0124,
+    CFG_PREVIEW_STOP = 0x0125, CFG_DATA_INFO = 0x0126, CFG_DATA_COLUMN = 0x0127, CFG_DATA_READ = 0x0128,
+    CFG_DATA_CLEAR = 0x0129, CFG_LOG_READ = 0x012A;
   const BUILTIN = [[1, "KILLS"], [2, "KILLS + DEAD"], [3, "STATS"]];
   // stapp_result_t
   const STAPP_ERR_SIZE = 1, STAPP_ERR_MAGIC = 2, STAPP_ERR_VERSION = 3, STAPP_ERR_CRC = 4, STAPP_ERR_HEADER = 5;
@@ -805,6 +825,7 @@
     this.syncFailed = false;
     this.openedApp = null;                  // the app that OPEN opened
     this._syncReset();
+    this._dataInit();
     // SET_ORDER comes in parts
     this.order = [];
     this.orderCount = 0;
@@ -830,6 +851,7 @@
   // app_sync_view.c _reset()
   P._syncReset = function () {
     this.syncState = SYNC_IDLE;
+    this.syncKind = XFER_PACKAGE;   // STATUS byte 1: what the state is about (docs/DATA.md 5.1)
     this.syncBegun = false;
     this.syncReceived = 0;
     this.syncSize = 0;
@@ -847,8 +869,11 @@
     this._checkScreen();
     const texts = {
       [SYNC_RECEIVING]: () => "Receiving " + (this.syncSize > 0 ? Math.floor((this.syncReceived * 100) / this.syncSize) : 0) + "%",
-      [SYNC_WAITING]: () => "INSTALL " + this.syncName + "?",
-      [SYNC_INSTALLED]: () => "APP INSTALLED",
+      [SYNC_WAITING]: () => ({ [XFER_RESTORE]: "RESTORE BACKUP?", [XFER_DATA_CLEAR]: "DELETE " + this.syncName + " DATA?" })[this.syncKind] ||
+        "INSTALL " + this.syncName + "?",
+      [SYNC_INSTALLED]: () => ({ [XFER_RESTORE]: "BACKUP RESTORED", [XFER_START_PIC]: "START PICTURE", [XFER_DATA_CLEAR]: "DATA DELETED" })[this.syncKind] ||
+        "APP INSTALLED",
+      [SYNC_PREVIEW]: () => "PREVIEW",
       [SYNC_REFUSED]: () => "REFUSED",
       [SYNC_TIMEOUT]: () => "REFUSED",
     };
@@ -910,6 +935,12 @@
 
   P.buttonDown = function (button) {
     if (this.screen !== "appsync") return;
+    if (this.syncState === SYNC_PREVIEW) {
+      // A button ends the preview frame (the press does nothing else)
+      this._syncReset();
+      this.events.push("preview stopped by a button");
+      return;
+    }
     this._checkScreen();
     this.syncHolding[button - 1] = true;
   };
@@ -923,6 +954,13 @@
     if (this.screen !== "appsync") return;
     this._checkScreen();
     if (!this.syncHolding[button - 1]) return;
+    if (this.syncState === SYNC_INSTALLED && this.syncKind !== XFER_PACKAGE) {
+      // "BACKUP RESTORED" and OK (or an other end screen of docs/DATA.md): back to waiting
+      this.syncState = SYNC_IDLE;
+      this.syncKind = XFER_PACKAGE;
+      this._syncDisplay();
+      return;
+    }
     if (button === 2) {
       if (this.syncState === SYNC_WAITING) {
         this._syncAnswer(true);
@@ -979,14 +1017,23 @@
     this.syncHolding = [false, false];
     if (!yes) {
       this.syncState = SYNC_REFUSED;
-      this.events.push("app refused");
+      this.events.push(this.syncKind === XFER_PACKAGE ? "app refused" : "refused kind " + this.syncKind);
+      this._syncDisplay();
+      return;
+    }
+    if (this.syncKind === XFER_DATA_CLEAR) {
+      // DELETE <NAME> DATA? yes: the rows are deleted
+      const store = this.dataStores.get(this.syncId);
+      if (store) store.values = [];
+      this.syncState = SYNC_INSTALLED;
+      this.events.push("data cleared " + this.syncName);
       this._syncDisplay();
       return;
     }
     // Yes: now the page sends the data
     this.syncReceived = 0;
     this.syncState = SYNC_RECEIVING;
-    this.events.push("app yes " + this.syncName);
+    this.events.push(this.syncKind === XFER_PACKAGE ? "app yes " + this.syncName : "yes kind " + this.syncKind);
     this._syncDataTimeout();
     this._syncDisplay();
   };
@@ -1088,6 +1135,9 @@
     if (cmdId >= APP_INFO && cmdId <= APP_DEVICE_NAME && this.options.apps) {
       this.appCommands.push(cmdId);
       this._appCommand(cmdId, d, response, answer);
+    } else if (cmdId >= CFG_INFO && cmdId <= CFG_LOG_READ && this.options.data) {
+      this.appCommands.push(cmdId);
+      this._dataCommand(cmdId, d, response, answer);
     }
 
     const lose = this.options.loseAppAnswers[cmdId];
@@ -1189,6 +1239,7 @@
         return answer(ST_OK);
       }
       case APP_DATA: {
+        if (this.syncKind !== XFER_PACKAGE) return this._xferData(d, r, answer);
         // AppSync_data(): only after "yes"
         const offset = get16(d, 0);
         put16(r, 0, this.syncReceived);
@@ -1203,6 +1254,7 @@
         return answer(ST_OK, 2);
       }
       case APP_END: {
+        if (this.syncKind !== XFER_PACKAGE) return this._xferEnd(r, answer);
         // AppSync_end()
         put16(r, 0, this.syncReceived);
         if (this.syncState !== SYNC_RECEIVING) return answer(ST_ERROR);
@@ -1234,8 +1286,10 @@
         return answer(ST_OK);
       }
       case APP_STATUS:
+        // u8 state, u8 kind (docs/DATA.md 5.1). Old pages read only the first byte.
         r[0] = this.syncState;
-        return answer(ST_OK, 1);
+        r[1] = this.syncKind;
+        return answer(ST_OK, this.options.data ? 2 : 1);
       case APP_DELETE: {
         // Apps_delete()
         const id = get32(d, 0);
@@ -1244,6 +1298,7 @@
         if (!this.installed.has(id) || index < 0) return answer(ST_ERROR);
         this.appList.splice(index, 1);
         this.installed.delete(id);
+        if (this.dataStores) this.dataStores.delete(id);   // Deleting an app deletes its app data
         this.appWrites++;
         this.events.push("app deleted " + id.toString(16));
         return answer(ST_OK);
@@ -1340,10 +1395,401 @@
     return ST_OK;
   };
 
+  /* ---- Backup, app data, device log, start picture, preview (docs/DATA.md) ----------- */
+
+  // main/app.h ENTRY_LIST: the flash values in their order (key, default, largest valid value)
+  const CONFIG_ENTRIES = [
+    ["init", 1, 1], ["total_kills", 0, 0xFFFFFFFF], ["total_deaths", 0, 0xFFFFFFFF], ["game_kills", 0, 0xFFFFFFFF],
+    ["game_deaths", 0, 0xFFFFFFFF], ["battery_type", 0, 7], ["show_battery", 0, 1], ["brightness", 8, 10],
+    ["dim_screen", 3, 7], ["dim_level", 2, 9], ["auto_off", 0, 5], ["counter", 0, 1], ["sound", 1, 1], ["low_bat", 0, 4],
+  ];
+  const DATA_APP_VALUES = 1024, DATA_ALL_VALUES = 2048;     // 4096 bytes for each app, 8192 bytes for all
+  const LOG_MAX = 64, PICTURE_BYTES = 512, RESTORE_MAX = 4096, RESTORE_MIN = 6;
+  const BAD_BACKUP_MAGIC = 1, BAD_BACKUP_VERSION = 2, BAD_BACKUP_SECTION = 3;
+  const getI32 = (b, o) => get32(b, o) | 0;
+
+  P._dataInit = function () {
+    const o = this.options;
+    this.config = CONFIG_ENTRIES.map(([key, value, max]) => ({ key, value: key in o.configValues ? o.configValues[key] >>> 0 : value, max }));
+    this.dataStores = new Map();             // id -> { columns: [names], values: [i32] }
+    for (const [id, store] of Object.entries(o.appData)) this.setAppData(Number(id), store.columns, store.rows);
+    for (const [id, values] of Object.entries(o.appValues)) {
+      const app = this.installed.get(Number(id));
+      if (app) app.values = values.map((v) => v | 0);
+    }
+    this.deviceLog = o.deviceLog.slice(0, LOG_MAX).map((e) => Object.assign({ reason: 1, battery: 255, flags: 0, boot: 0 }, e));
+    this.startPic = o.startPicture ? Uint8Array.from(o.startPicture) : null;
+    this.startPicShow = o.startPictureShow;
+    this.previewFrame = null;               // the frame that the display shows (state 6)
+    this.previewCount = 0;
+    this.restores = [];                     // the restore data of each restore (for the tests)
+    this.xferDataCount = 0;                 // DATA commands of the last transfer
+  };
+
+  // The saved values of an installed app: header byte 33 = the saved variable count
+  P._appValues = function (app) {
+    if (!app.values || app.values.length !== app.pkg[33]) app.values = new Array(app.pkg[33]).fill(0);
+    return app.values;
+  };
+
+  /* Test hooks */
+  P.setAppData = function (id, columns, rows) {
+    const values = [];
+    for (const row of rows || []) for (let c = 0; c < columns.length; c++) values.push((row[c] || 0) | 0);
+    this.dataStores.set(id, { columns: columns.slice(), values });
+  };
+  P.appData = function (id) {
+    const store = this.dataStores.get(id);
+    if (!store) return null;
+    const rows = [];
+    for (let i = 0; i + store.columns.length <= store.values.length; i += store.columns.length) rows.push(store.values.slice(i, i + store.columns.length));
+    return rows;
+  };
+  P.setDeviceLog = function (entries) { this.deviceLog = entries.slice(0, LOG_MAX); };
+  P.setStartPicture = function (bytes, show) {
+    this.startPic = bytes ? Uint8Array.from(bytes) : null;
+    this.startPicShow = show !== false;
+  };
+  P.setConfigValue = function (key, value) { this.config.find((e) => e.key === key).value = value >>> 0; };
+  P.configValue = function (key) { const e = this.config.find((x) => x.key === key); return e ? e.value : undefined; };
+  P.appSettings = function (id) { const app = this.installed.get(id); return app ? app.settings.slice() : null; };
+  P.savedValues = function (id) { const app = this.installed.get(id); return app ? this._appValues(app).slice() : null; };
+  P.setSavedValues = function (id, values) { this.installed.get(id).values = values.map((v) => v | 0); };
+
+  P._startPicState = function () { return !this.startPic ? 0 : (this.startPicShow ? 1 : 2); };
+  P._dataUsedValues = function () { let n = 0; for (const s of this.dataStores.values()) n += s.values.length; return n; };
+
+  // A question of the device (the same wait and buttons as "INSTALL <NAME>?")
+  P._ask = function (kind, name) {
+    this.syncKind = kind;
+    this.syncName = name;
+    this.syncHolding = [false, false];
+    this.syncState = SYNC_WAITING;
+    this.events.push("question kind " + kind);
+    this._syncDisplay();
+    clearTimeout(this.syncQuestionTimer);
+    this.syncQuestionTimer = this._later(this.options.appQuestionMs, () => {
+      if (this.syncState !== SYNC_WAITING) return;
+      this.syncState = SYNC_TIMEOUT;
+      this.events.push("question timeout");
+      this._syncDisplay();
+    });
+  };
+
+  // ble_commands.c: _handleData() (docs/DATA.md 5.2)
+  P._dataCommand = function (cmdId, d, r, answer) {
+    if (this.screen !== "appsync") return answer(ST_NOT_IN_SYNC);
+    const op = d[0];
+    const changes = cmdId === CFG_XFER_BEGIN || cmdId === CFG_PREVIEW_STOP || cmdId === CFG_DATA_CLEAR ||
+      (cmdId === CFG_START_PIC && op >= 1 && op <= 3);
+    if (changes && this.syncState === SYNC_WAITING) return answer(ST_WAITING);
+
+    switch (cmdId) {
+      case CFG_INFO: {
+        r[0] = 1;
+        r[1] = this.config.length;
+        r[2] = 0x1F;                                   // backup, app data, device log, start picture, preview
+        r[3] = this._startPicState();
+        put16(r, 4, this._dataUsedValues() * 4);
+        put16(r, 6, DATA_ALL_VALUES * 4);
+        put16(r, 8, DATA_APP_VALUES * 4);
+        put16(r, 10, Math.min(65535, this.options.freeFlash));
+        r[12] = this.deviceLog.length;
+        return answer(ST_OK, 13);
+      }
+      case CFG_ENTRY: {
+        const entry = this.config[d[0]];
+        if (!entry) return answer(ST_INDEX);
+        if (d[1] === 0) {
+          put32(r, 0, entry.value);
+          put32(r, 4, entry.max);
+          r[8] = entry.key.length;
+          return answer(ST_OK, 9);
+        }
+        if (d[1] > 2) return answer(ST_ERROR);
+        const part = d[1] === 1 ? entry.key.slice(0, 13) : entry.key.slice(13, 15);
+        for (let i = 0; i < part.length; i++) r[i] = part.charCodeAt(i);
+        return answer(ST_OK, part.length);
+      }
+      case CFG_APP_VALUES: {
+        const app = this.installed.get(get32(d, 0));
+        if (!app) return answer(ST_ERROR);
+        const values = this._appValues(app), first = d[4];
+        r[0] = values.length;
+        let n = 0;
+        for (; n < 3 && first + n < values.length; n++) put32(r, 1 + 4 * n, values[first + n]);
+        return answer(ST_OK, 1 + 4 * n);
+      }
+      case CFG_XFER_BEGIN: {
+        const kind = d[0], size = get16(d, 1), crc = get32(d, 3);
+        const sizeOk = kind === XFER_RESTORE ? size >= RESTORE_MIN && size <= RESTORE_MAX :
+          (kind === XFER_START_PIC || kind === XFER_PREVIEW) && size === PICTURE_BYTES;
+        if (!sizeOk) return answer(ST_ERROR);
+        this._syncReset();
+        this.syncFailed = false;
+        this.syncKind = kind;
+        this.syncSize = size;
+        this.syncCrc = crc;
+        this.syncBuffer.fill(0);
+        this.xferDataCount = 0;
+        if (kind === XFER_RESTORE) {
+          this._ask(kind, "");
+        } else {
+          this.syncState = SYNC_RECEIVING;
+          if (kind === XFER_START_PIC) this._syncDataTimeout();
+          this._syncDisplay();
+        }
+        return answer(ST_OK);
+      }
+      case CFG_START_PIC: {
+        if (op > 4) return answer(ST_ERROR);
+        if (!this.startPic && (op === 1 || op === 2 || op === 4)) return answer(ST_ERROR);
+        if (op === 4) {
+          const offset = get16(d, 1);
+          if (offset > PICTURE_BYTES) return answer(ST_ERROR);
+          const part = this.startPic.subarray(offset, offset + 12);
+          r.set(part, 0);
+          return answer(ST_OK, part.length);
+        }
+        if (op === 1 || op === 2) this.startPicShow = op === 1;
+        if (op === 3 && this.startPic) { this.startPic = null; this.events.push("start picture deleted"); }
+        if (op !== 0) this.appWrites++;
+        r[0] = this._startPicState();
+        return answer(ST_OK, 1);
+      }
+      case CFG_PREVIEW_STOP:
+        if (this.syncState === SYNC_PREVIEW || (this.syncKind === XFER_PREVIEW && this.syncState === SYNC_RECEIVING)) {
+          this._syncReset();
+          this.events.push("preview stopped");
+        }
+        this.previewFrame = null;
+        return answer(ST_OK);
+      case CFG_DATA_INFO: {
+        const id = get32(d, 0);
+        if (!this.appList.some((e) => e.id === id)) return answer(ST_ERROR);
+        const store = this.dataStores.get(id);
+        if (!store) { r[0] = 0; return answer(ST_OK, 6); }
+        const columns = store.columns.length;
+        const rows = Math.floor(store.values.length / columns);
+        const left = DATA_ALL_VALUES - this._dataUsedValues() + store.values.length;
+        const fit = Math.floor(Math.min(DATA_APP_VALUES, left) / columns);
+        r[0] = columns;
+        put16(r, 1, rows);
+        put16(r, 3, fit);
+        r[5] = rows >= fit ? 1 : 0;
+        return answer(ST_OK, 6);
+      }
+      case CFG_DATA_COLUMN: {
+        const store = this.dataStores.get(get32(d, 0));
+        if (!store || d[4] >= store.columns.length) return answer(ST_ERROR);
+        const name = store.columns[d[4]].slice(0, 12);
+        for (let i = 0; i < name.length; i++) r[i] = name.charCodeAt(i);
+        return answer(ST_OK, name.length);
+      }
+      case CFG_DATA_READ: {
+        const store = this.dataStores.get(get32(d, 0));
+        if (!store) return answer(ST_ERROR);
+        const first = get16(d, 4);
+        let n = 0;
+        for (; n < 3 && first + n < store.values.length; n++) put32(r, 1 + 4 * n, store.values[first + n]);
+        r[0] = n;
+        return answer(ST_OK, 1 + 4 * n);
+      }
+      case CFG_DATA_CLEAR: {
+        const id = get32(d, 0);
+        const store = this.dataStores.get(id);
+        if (!store || store.values.length === 0) return answer(ST_ERROR);
+        this._syncReset();
+        this.syncId = id;
+        this._ask(XFER_DATA_CLEAR, this._appName(id) || "");
+        return answer(ST_OK);
+      }
+      case CFG_LOG_READ: {
+        const first = d[0];
+        r[0] = this.deviceLog.length;
+        let n = 0;
+        for (; n < 3 && first + n < this.deviceLog.length; n++) {
+          const e = this.deviceLog[first + n];
+          r.set([e.reason, e.battery, e.flags, e.boot], 1 + 4 * n);
+        }
+        return answer(ST_OK, 1 + 4 * n);
+      }
+    }
+    return answer(ST_UNKNOWN);
+  };
+
+  // DATA (0x0114) of a transfer of docs/DATA.md 5.1
+  P._xferData = function (d, r, answer) {
+    const offset = get16(d, 0);
+    put16(r, 0, this.syncReceived);
+    if (this.syncState !== SYNC_RECEIVING) return answer(ST_ERROR, 2);
+    this.xferDataCount++;
+    if (this.syncKind === XFER_PREVIEW) {
+      // Any order; the parts that do not come stay 0
+      if (offset >= this.syncSize) return answer(ST_OFFSET, 2);
+      const count = Math.min(14, this.syncSize - offset);
+      this.syncBuffer.set(d.subarray(2, 2 + count), offset);
+      put16(r, 0, offset + count);
+      return answer(ST_OK, 2);
+    }
+    if (offset !== this.syncReceived) return answer(ST_OFFSET, 2);
+    const count = Math.min(14, this.syncSize - this.syncReceived);
+    this.syncBuffer.set(d.subarray(2, 2 + count), this.syncReceived);
+    this.syncReceived += count;
+    this._syncDataTimeout();
+    this._syncDisplay();
+    put16(r, 0, this.syncReceived);
+    return answer(ST_OK, 2);
+  };
+
+  // END (0x0115) of a transfer of docs/DATA.md 5.1
+  P._xferEnd = function (r, answer) {
+    put16(r, 0, this.syncReceived);
+    if (this.syncState !== SYNC_RECEIVING) return answer(ST_ERROR);
+    const kind = this.syncKind;
+    if (kind !== XFER_PREVIEW && this.syncReceived !== this.syncSize) return answer(ST_OFFSET, 2);
+    const data = this.syncBuffer.slice(0, this.syncSize);
+    const failed = (status, len) => {
+      this._syncReset();
+      this.syncFailed = true;
+      this._syncDisplay();
+      this.events.push("transfer failed kind " + kind);
+      return answer(status, len);
+    };
+    if (crc32(data) !== this.syncCrc) return failed(ST_BAD_CRC);
+    clearTimeout(this.syncDataTimer);
+    if (kind === XFER_PREVIEW) {
+      this.previewFrame = data;
+      this.previewCount++;
+      this.syncState = SYNC_PREVIEW;
+      this.events.push("preview frame");
+      this._syncDisplay();
+      return answer(ST_OK);
+    }
+    if (this.options.flashFails) return failed(ST_ERROR);
+    if (kind === XFER_START_PIC) {
+      this.startPic = data;
+      this.startPicShow = true;
+      this.appWrites++;
+      this.events.push("start picture saved");
+      this.syncState = SYNC_INSTALLED;
+      this._syncDisplay();
+      return answer(ST_OK);
+    }
+    // XFER_RESTORE: first the walk of all sections, then the writes
+    const reason = this._checkRestore(data);
+    if (reason) { r[0] = reason; return failed(ST_BAD_PACKAGE, 1); }
+    this.restores.push(data);
+    const counts = this._applyRestore(data);
+    r[0] = Math.min(255, counts.written);
+    r[1] = Math.min(255, counts.skipped);
+    this.events.push(`backup restored ${counts.written} written ${counts.skipped} skipped`);
+    this.syncState = SYNC_INSTALLED;
+    this._syncDisplay();
+    return answer(ST_OK, 2);
+  };
+
+  P._checkRestore = function (b) {
+    if (cText(b, 0, 4) !== "STBK") return BAD_BACKUP_MAGIC;
+    if (b[4] !== 1) return BAD_BACKUP_VERSION;
+    let p = 5;
+    while (p < b.length) {
+      if (p + 3 > b.length || p + 3 + get16(b, p + 1) > b.length) return BAD_BACKUP_SECTION;
+      p += 3 + get16(b, p + 1);
+    }
+    return 0;
+  };
+
+  P._applyRestore = function (b) {
+    let written = 0, skipped = 0;
+    const ok = (n) => { written += n === undefined ? 1 : n; };
+    const skip = () => { skipped++; };
+    for (let p = 5; p < b.length; p += 3 + get16(b, p + 1)) {
+      const type = b[p], length = get16(b, p + 1), s = b.subarray(p + 3, p + 3 + length);
+      if (type === 1) {
+        // VALUE: u8 key length, key, u32 value
+        const n = s[0];
+        if (length !== 1 + n + 4 || n < 1 || n > 15) { skip(); continue; }
+        const key = cText(s, 1, n), value = get32(s, 1 + n);
+        const entry = this.config.find((e) => e.key === key);
+        if (!entry || key === "init" || value > entry.max) { skip(); continue; }
+        entry.value = value;
+        ok();
+      } else if (type === 2) {
+        // APP_ORDER: u8 count, count x (u32 id, u8 hidden)
+        const count = s[0];
+        const items = [];
+        for (let i = 0; i < count && 1 + 5 * i + 5 <= length; i++) items.push({ id: get32(s, 1 + 5 * i), hidden: s[5 + 5 * i] === 1 });
+        const ids = items.map((x) => x.id);
+        const exact = length === 1 + 5 * count && count === this.appList.length && new Set(ids).size === count &&
+          ids.every((id) => this.appList.some((e) => e.id === id));
+        if (!exact) { skip(); continue; }
+        this.appList = ids.map((id) => this.appList.find((e) => e.id === id));
+        // The hidden flags: shown apps first, then hidden ones; the last shown app is never hidden
+        for (const x of items) if (!x.hidden) this.appList.find((e) => e.id === x.id).flags &= ~FLAG_HIDDEN;
+        for (const x of items) {
+          if (!x.hidden) continue;
+          const entry = this.appList.find((e) => e.id === x.id);
+          if (entry.flags & FLAG_HIDDEN) continue;
+          if (this._shownCount() <= 1) { skip(); continue; }
+          entry.flags |= FLAG_HIDDEN;
+        }
+        this.appWrites++;
+        ok();
+      } else if (type === 3) {
+        // APP_SETTINGS: u32 id, u8 count, count x u8
+        const app = length >= 5 ? this.installed.get(get32(s, 0)) : null;
+        if (!app || s[4] !== app.valueCounts.length || length !== 5 + s[4]) { skip(); continue; }
+        for (let i = 0; i < s[4]; i++) {
+          if (s[5 + i] >= app.valueCounts[i]) { skip(); continue; }
+          app.settings[i] = s[5 + i];
+          ok();
+        }
+      } else if (type === 4) {
+        // APP_VALUES: u32 id, u8 count, count x i32
+        const app = length >= 5 ? this.installed.get(get32(s, 0)) : null;
+        if (!app || s[4] !== app.pkg[33] || length !== 5 + 4 * s[4]) { skip(); continue; }
+        app.values = [];
+        for (let i = 0; i < s[4]; i++) app.values.push(getI32(s, 5 + 4 * i));
+        ok(s[4]);
+      } else if (type === 5) {
+        // DEVICE_NAME: u8 length (0..12), the name part
+        const n = s[0];
+        const name = length === 1 + n && n <= APPS_DEVICE_NAME_MAX ? cText(s, 1, n) : null;
+        if (name === null || name.length !== n || (name !== "" && !isDeviceNameValid(name))) { skip(); continue; }
+        this.deviceName = name;
+        ok();
+      } else if (type === 6) {
+        // START_PIC: u8 show (0 delete, 1 on, 2 off), then 512 bytes (not for 0)
+        const show = s[0];
+        if (show === 0 && length === 1) { this.startPic = null; ok(); continue; }
+        if ((show !== 1 && show !== 2) || length !== 1 + PICTURE_BYTES) { skip(); continue; }
+        this.startPic = s.slice(1, 1 + PICTURE_BYTES);
+        this.startPicShow = show === 1;
+        ok();
+      } else {
+        skip();
+      }
+    }
+    return { written, skipped };
+  };
+
+  /* The pixels of a frame (512 bytes: 4 pages of 128 bytes, bit 0 = the top pixel of the page) as
+     32 rows of "#" and "." (for the tests) */
+  FakeStatTrak.frameRows = function (frame) {
+    const rows = [];
+    for (let y = 0; y < 32; y++) {
+      let row = "";
+      for (let x = 0; x < 128; x++) row += (frame[(y >> 3) * 128 + x] >> (y & 7)) & 1 ? "#" : ".";
+      rows.push(row);
+    }
+    return rows;
+  };
+
   /* A package for the tests. The checks of the page and of this model accept it.
      format 1: 8 handlers, the data area starts at 304; format 2: 10 handlers, at 308. */
   FakeStatTrak.makeApp = function (options) {
-    const o = Object.assign({ name: "TEST APP", id: 0x12345678, version: 1, permissions: 0, settings: [], size: 0, format: 1 }, options || {});
+    const o = Object.assign({ name: "TEST APP", id: 0x12345678, version: 1, permissions: 0, settings: [], size: 0, format: 1, saved: 0 }, options || {});
     const handlers = o.format >= 2 ? STAPP_HANDLERS_V2 : STAPP_HANDLERS_V1;
     const dataStart = STAPP_HANDLERS_OFFSET + 2 * handlers;
     let settingsBytes = [];
@@ -1365,6 +1811,8 @@
     put16(b, 12, o.version);
     put16(b, 14, size);
     putText(b, 16, o.name);
+    b[32] = o.saved;                      // global variables: the saved ones only
+    b[33] = o.saved;                      // saved variable count
     b[34] = o.settings.length;
     put16(b, 38, dataStart);
     put16(b, 44, dataStart + settingsBytes.length);

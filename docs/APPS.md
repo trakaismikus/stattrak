@@ -22,7 +22,7 @@ This page is the specification. It is for AI coding tools and developers.
 | App host | `main/views/app_host_view.c` | Runs the selected installed app as a view. |
 | App settings | `main/views/app_settings_view.c` | The settings of one app (hold the right button on its title picture in the app menu). |
 | App sync | `main/views/app_sync_view.c` + setting "Apps: SYNC" | Bluetooth on for the app manager, firmware update refused, install question. |
-| Bluetooth commands | `main/ble_commands.c` | `0x0110` to `0x011A` (section 6). |
+| Bluetooth commands | `main/ble_commands.c` | `0x0110` to `0x011C` (section 6); the data commands `0x0120` to `0x012A` are in [DATA.md](DATA.md). |
 | Compiler | `tools/app.py` | `.sts` source -> `.stapp` package, with the same check as the engine. |
 | Catalog | `apps/` -> `updater/apps/catalog.json` + `updater/apps/*.stapp` | The apps that the web updater offers. |
 
@@ -42,7 +42,13 @@ This page is the specification. It is for AI coding tools and developers.
 | Steps for one event | 4000 instructions (draw included). More = app error. |
 | Stack | 32 values. Call depth 8. |
 
-## 3. Package format (versions 1 and 2)
+## 3. Package format (versions 1, 2 and 3)
+
+Format 3 (firmware 1.2.0-b2, engine version 2) adds a data store, the permission `awake` and
+the calls `log()`, `log_count()`, `log_get()`, `log_clear()`, `battery_mv()`: see
+[DATA.md](DATA.md) section 6. It also adds the background app: the permission `background`, the
+events `kill` and `death` (the handler table has 12 entries, the data area starts at 312) and the
+call `background()`: see section 4.6. The compiler writes format 3 only for an app that uses them.
 
 Little-endian. All offsets are from the start of the package.
 
@@ -71,8 +77,9 @@ Title picture: 240 bytes right after the header (offset 48): 80 x 24, Gfx_drawBi
   (3 pages of 80 bytes, bit 0 = top pixel of the page)
 Handler table: right after the title picture (offset 288): code offsets (relative to the code
   start) of: open, draw, press1, press2, long1, long2, tick, close (format 1: 8 x u16), then
-  down1, down2 (format 2: 10 x u16). 0xFFFF = none. The compiler writes format 2 only for an app
-  with a down1 or down2 handler; other apps stay format 1 (older firmware can install them).
+  down1, down2 (format 2: 10 x u16), then kill, death (format 3: 12 x u16). 0xFFFF = none. The
+  compiler writes format 2 only for an app with a down1 or down2 handler; other apps stay format
+  1 (older firmware can install them).
 Settings block: for each setting:
   char[12] name (0-padded), u8 value count (2..6), u8 default (< count),
   then value count x char[8] (0-padded)
@@ -88,8 +95,8 @@ All blocks must be inside the package, must not overlap the header, the picture 
 ### 3.1 The check, rule by rule
 
 `Stapp_check` (C) and `tools/app.py check` (Python) check these rules in this order. The first
-broken rule gives the result. "Data area" = from offset 304 (format 1) or 308 (format 2), after
-the handler table, to the
+broken rule gives the result. "Data area" = from offset 304 (format 1), 308 (format 2) or 312
+(format 3), after the handler table, to the
 start of the CRC.
 
 | Step | Rule | Result if broken |
@@ -200,11 +207,13 @@ The arguments are pushed left to right. Each call pushes one result (0 if nothin
 | 18 | `setting(n)` | the selected value index of setting n |
 | 19 | `time()` | milliseconds since start |
 | 20 | `click(freq)` | permission "sound". 200..4000 Hz. Follows the Sound setting |
-| 21 | `battery()` | battery level 0..100, -1 for USB / none |
+| 21 | `battery()` | battery level 0..100 (a discharge curve of the battery type; it changes slowly, see `main/battery.c`), -1 for USB / none |
 | 22 | `random(n)` | 0 .. n-1 (n 1..65535) |
 | 23 | `save()` | save the saved variables now (the firmware also saves at close; at most once in 30 s) |
 | 24 | `redraw()` | nothing (the screen is drawn every 10 ms); kept for later |
 | 25 | `tone(freq, ms)` | permission "sound". One note: 200..4000 Hz for 10..1000 ms. It does not wait; a new note or click replaces the note that plays. Follows the Sound setting |
+| 26 .. 30 | `log`, `log_count`, `log_get`, `log_clear`, `battery_mv` | engine version 2, format 3: [DATA.md](DATA.md) section 6 |
+| 31 | `background()` | engine version 2. 1 if this app is the background app now (Settings > Background), else 0. Section 4.6 |
 
 Drawing calls work only in the draw handler. In other handlers they do nothing.
 
@@ -240,10 +249,39 @@ Each `draw` may draw at most about 8 full screens of pixels; more = app error `t
 | `press1`, `press2` | short press: about 0.2 s after the release (the firmware waits to see if a second press comes) |
 | `down1`, `down2` | the button goes down: at once, no wait (format 2). Use it in fast games. Also the first button of a "both buttons" press comes here before the app menu opens |
 | `long1`, `long2` | long press start and each 500 ms while held |
-| `tick` | each 100 ms while the app is open |
+| `tick` | each 100 ms while the app is open (the background app: all the time, section 4.6) |
 | `close` | the app is left (both buttons) |
+| `kill`, `death` | format 3, only the background app: the game kills / game deaths went up (section 4.6) |
 
 Both buttons are never sent to an app: short = app menu, long = power off.
+
+### 4.6 The background app
+
+One installed app can run in the background: the person chooses it on the device in
+Settings > Background (the row after "Apps"). The row is there only when an installed app has the
+permission `background`; its values are OFF and the names of these apps. OFF is the default. The
+choice is kept in flash (NVS key `bgapp` of the namespace `apps`); a delete of the app and a factory
+reset erase it.
+
+- The background app opens at each start of the device (its `open` event) and runs until the
+  power goes off. It never draws. It gets `tick` each 100 ms, and `kill` / `death` when the game
+  kills / game deaths go up: by a button of a built-in counter screen (KILLS, KILLS + DEAD), or by
+  `add_counter()` of an other app. Not for its own `add_counter()`, and not for a -1. One event
+  for each change.
+- When the person opens the background app from the app menu, the screen shows the same running
+  app: no new `open`, the same variables. Leaving it does not close it (no `close`).
+- It stops (`close`) while Apps: SYNC or the update mode is open, and starts again (`open`) after
+  them. An install can replace it there. OPEN after an install starts it first, so the screen shows
+  the background one.
+- Only one app runs in the background: the device has RAM for two engines (the app on the screen
+  and the background app, about 9 KB with their data stores). A second app with the permission
+  waits in the list of the setting.
+- `awake` keeps the device on only while the app is on the screen. In the background the app
+  runs while the device is on; auto-off still switches it off.
+- `add_counter()` works only in the button events, so not in `kill`, `death` or `tick`.
+- An app error (for example too many steps in `kill`) stops only the background app; the
+  error counts like an error on the screen (3 errors switch the app off).
+- A script with `on kill` or `on death` needs the line `permission background`.
 
 ## 5. Storage (NVS namespace `apps`)
 
@@ -256,6 +294,9 @@ Both buttons are never sent to an app: short = app menu, long = power off.
 | `e<id 8 hex>` | error count (a 1-byte blob). 3 = the app is switched off: it is hidden, also when it was the last shown app (the menu then shows KILLS), and LIST sets the error flag. SET_HIDDEN 0 sets the count back to 0 |
 
 Saved values are written when the app closes, at power-off and by `save()` (at most once in 30 s). A factory reset deletes all apps.
+
+The data store of an app (`log()` rows) is in the namespace `data` ([DATA.md](DATA.md)). A
+delete of the app deletes it; a new version of the app keeps it.
 
 A missing or broken `list` = the default list (the 3 built-in apps, shown). An entry whose
 package is missing or fails the check is left out of the menu. At least one app before SETTINGS
@@ -284,7 +325,7 @@ display (any command that changes apps answers 11 until the person answers), 12 
 | `0x011B` | ASK | 16 bytes: the name field of the package (offset 16) | after BEGIN: the display shows "INSTALL <NAME>?" (STATUS 2). Status 2 without BEGIN or for a bad name. END later refuses a package with an other name or id (status 10) |
 | `0x0114` | DATA | u16 offset, 14 bytes | only after "yes" (STATUS 1). Answer: u16 next expected offset (also when it is ok). Status 8 = wrong offset: send again from the expected offset |
 | `0x0115` | END | | checks the CRC and the package, then writes it to flash: status 9 bad CRC, 10 bad package (u8 reason = `stapp_result_t`), 8 missing data (u16 expected offset), 2 the flash write failed. Status 0 = installed: the display shows "APP INSTALLED", SYNC MORE and OPEN |
-| `0x0116` | STATUS | | u8 install state: 0 idle, 1 receiving (the person said yes: send DATA), 2 waiting for the person, 3 installed, 4 refused, 5 timeout (30 s; the display shows "REFUSED") |
+| `0x0116` | STATUS | | u8 install state (byte 2, firmware 1.2.0-b2: u8 kind, [DATA.md](DATA.md) 5.1): 0 idle, 1 receiving (the person said yes: send DATA), 2 waiting for the person, 3 installed, 4 refused, 5 timeout (30 s; the display shows "REFUSED") |
 | `0x0117` | DELETE | u32 id | deletes the package and its values. Status 12 for a built-in app, 2 for an unknown id |
 | `0x0118` | SET_ORDER | u8 count, 3 x u32 id, u8 part | every part has this layout (16 bytes); part numbers go from 0 in order; ids after the end are 0. The order must have each app of the list one time. Applied when the last part is in |
 | `0x0119` | SET_HIDDEN | u32 id, u8 hidden (0 / 1) | hidden 0 also sets the error count back to 0. Status 13 = the last shown app cannot be hidden |
@@ -366,13 +407,13 @@ Each of these is one line. `#` starts a comment until the end of the line.
 | `picture icon NAME "LINE 1" "LINE 2"` | An icon and two lines in the 5x5 font. |
 | `picture text "TEXT"` / `picture text "LINE 1" "LINE 2"` | Text only, in the middle. |
 | `picture bitmap "file.png"` | A PNG file (next to the script), at most 80 x 24, in the middle. A pixel is on if it is light and not transparent. |
-| `permission counters` / `permission sound` / `permission counters, sound` | The permissions. A call that needs a missing permission is a compile error. |
+| `permission counters` / `permission sound` / `permission counters, sound` | The permissions: `counters`, `sound`, `awake` ([DATA.md](DATA.md) section 6), `background` (section 4.6). A call that needs a missing permission is a compile error. |
 | `setting KEY "NAME" "VALUE" "VALUE" ... [default N or "VALUE"]` | A setting (2 to 6 values). `KEY` is the name in the script: `setting(KEY)`. `default` is the number of the value (0 = the first, the default) or the value text. |
 | `const NAME = N` | A fixed number. |
 | `saved NAME [= N]` | A variable that is kept in flash. |
 | `var NAME [= N]` | A variable of the app. |
 | `bitmap NAME "file.png"` or `bitmap NAME { "#..#" "...." }` | A bitmap (at most 128 x 32): a PNG file, or rows of `#` (on) and `.` (off), one or more per line. `NAME` is its id in `bitmap(x, y, NAME, c)`. |
-| `on EVENT { ... }` | A handler: `open draw press1 press2 long1 long2 tick close down1 down2`. |
+| `on EVENT { ... }` | A handler: `open draw press1 press2 long1 long2 tick close down1 down2 kill death`. |
 | `func NAME(A, B) { ... }` | A function. Its parameters and variables are hidden globals. |
 
 When no `picture` line is there, the picture is the name in the title font, in the middle.
@@ -475,9 +516,9 @@ the firmware):
    python tools/app.py run apps/headshot/headshot.sts counter:game_kills=12 press2 png:out/hs.png
    ```
 
-   Actions: `press1 press2 long1 long2 down1 down2 tick`, `wait:MS` (a draw each 10 ms, a tick each 100 ms),
-   `frame` (print the screen), `png:FILE`, `counter:NAME=N`, `setting:N=V` (value number),
-   `random:SEED`. It prints the clicks too. This engine is a Python copy for previews; the
+   Actions: `press1 press2 long1 long2 down1 down2 tick kill death`, `wait:MS` (a draw each 10 ms,
+   a tick each 100 ms), `frame` (print the screen), `png:FILE`, `counter:NAME=N`, `setting:N=V`
+   (value number), `random:SEED`, `background:1` (`background()` gives 1). It prints the clicks too. This engine is a Python copy for previews; the
    simulator runs the real one (`python tools/sim.py boot app:...`).
 
    Play it by hand on the real firmware, in the browser:

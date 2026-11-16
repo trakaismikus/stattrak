@@ -32,6 +32,7 @@
 #include "app_settings_view.h"
 #include "time.h"
 #include "bsp_button.h"
+#include "start_pic.h"
 
 /* > Defines **************************************************************************************/
 #define OPEN_MS           260   // App up, menu up from below
@@ -55,6 +56,7 @@ static void _draw(void);
 static bool _eventHandler(uint16_t event);
 
 static void _buildMenu(void);
+static view_id_t _firstApp(void);
 static void _move(int8_t step);
 static void _openSelected(void);
 static void _openSettings(void);
@@ -138,6 +140,18 @@ void Launcher_update(uint32_t now) {
     _openSelected();
 }
 
+view_id_t Launcher_getStartView(void) {
+  // The start picture first (only when the person set one and it is on), else the first app
+  if(StartPic_getState() == START_PIC_STATE__ON)
+    return VIEW_ID__INTRO;
+  return _firstApp();
+}
+
+void Launcher_openFirstApp(void) {
+  const view_id_t view = _firstApp();
+  AppView_setFrom(view, APP_VIEW_FROM__TOP, CLOSE_MS);
+}
+
 view_id_t Launcher_getSelectedView(void) {
   return (s_count > 0) ? s_items[_wrap(s_selected)].view : VIEW_ID__TOTAL;
 }
@@ -188,6 +202,16 @@ static void _buildMenu(void) {
   s_count = (int8_t)Apps_getMenu(s_items, APPS_MENU_MAX - 1);
   // SETTINGS is always the last app: the way to "Firmware: UPDATE". Never remove or move this line.
   s_items[s_count++] = (apps_item_t){ VIEW_ID__SETTINGS, APPS_ID__NONE };
+}
+
+// The first app of the menu (the selected one from now on). An installed app is set in the app host.
+static view_id_t _firstApp(void) {
+  _buildMenu();
+  s_selected = 0;
+  const apps_item_t* item = &s_items[0];
+  if(item->view == VIEW_ID__APP_HOST)
+    AppHost_setApp(item->id);
+  return item->view;
 }
 
 static void _draw(void) {

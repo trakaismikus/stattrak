@@ -92,6 +92,8 @@ const click = (page, expression) => page.evaluate(`(${expression}).click()`);
 async function connect(page) {
   await act(page, '[data-act="connect"]');
   await page.waitFor(has("#appsList"));
+  // The catalog comes from a file and can come after the device list (more so on a busy computer)
+  try { await page.waitFor(has(".cat"), 5000); } catch (error) { /* a test without a catalog */ }
 }
 
 /* The page shows the question of the device ("Answer on StatTrak") */
@@ -106,7 +108,7 @@ test("connect: the apps of the device in menu order, SETTINGS last, the storage 
   assert.deepEqual(await texts(page, "#appsList .tag"), ["Built-in", "Built-in", "Built-in", "Installed · 1.1 KB", "Always last"]);
   assert.match(await texts(page, ".status .store span").then((t) => t[0]), /^1\.1 KB \/ 24 KB$/);
   // Installed apps are not in the catalog; the others are, with their permissions
-  assert.deepEqual(await texts(page, ".cat .row__name"), ["HEADSHOT %", "REACTION", "RUNNER", "SLOTS", "WALLPAPER"]);
+  assert.deepEqual(await texts(page, ".cat .row__name"), ["BATTERY LOG", "CLIP MARKS", "HEADSHOT %", "REACTION", "RUNNER", "SLOTS", "WALLPAPER"]);
   // The Bluetooth name of the device
   assert.match(await page.evaluate(`document.querySelector(".namebox").textContent`), /StatTrak shows the name StatTrak in Apps: SYNC \(the standard name\)/);
   assert.equal(await page.evaluate(`!!document.querySelector('[data-act="name-reset"]')`), false);

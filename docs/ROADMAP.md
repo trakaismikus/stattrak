@@ -60,6 +60,29 @@ This repository (`trakaismikus/stattrak`) is private until these are done:
 
 ## Shipped
 
+- **2026-11: backup, app data, device log, start picture, live preview, background app
+  (firmware 1.2.0-b2).**
+  On the Apps tab: a backup file of the stats, the settings, the app menu, the app settings and
+  saved values, the Bluetooth name and the start picture, and a restore that asks "RESTORE
+  BACKUP?" on the device first and checks each value (`main/backup.c`). A data store for each
+  app (4 KB each, 8 KB for all; full = stop; the settings and the counters always keep 5 KB of
+  flash), with `log()` in the app scripts (package format 3, engine version 2), CSV download and
+  a delete that the device asks first (`main/app_data.c`). Two example apps: BATTERY LOG and
+  CLIP MARKS. A device log of the last 64 starts (why, battery, new firmware;
+  `main/device_log.c`). A start picture that the person chooses (none by default: the device
+  starts with the first app of the menu), with on / off and delete on the page
+  (`main/start_pic.c`, `main/views/intro_view.c`). "Live preview" and "Download PNG" in the
+  Screen Designer. A background app: one app with the permission "background" runs all the time
+  (Settings > Background, only shown when such an app is installed), gets the kill and death
+  events of the counter screens and keeps logging while you use other screens; CLIP MARKS and
+  BATTERY LOG use it (two app engines, `main/views/app_host_view.c`; docs/APPS.md section 4.6).
+  A calmer, truer battery level: a discharge curve for lithium and NiMH cells in place of a
+  straight line, a voltage average of about 26 s and a dead band, so the % and the battery
+  symbol do not jump (`main/battery.c`). A safety rule keeps the order of the setting values (a backup stores
+  positions). Specification: [DATA.md](DATA.md). Not tried on a device yet: the flash use of
+  full app stores next to 24 KB of apps was only tested with a model of the NVS in the
+  simulator.
+
 - **2026-11: App Sync how-to and Screen Designer tools.** The Apps tab shows the whole way to
   App Sync on the current firmware (counter, app menu, Settings, "Apps: SYNC", hold the right
   button, each click shown) with the lit buttons, at the size of the firmware how-to; "Apps: SYNC"

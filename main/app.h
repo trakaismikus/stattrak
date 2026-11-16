@@ -111,7 +111,7 @@ typedef enum entry_id_enum {
 #define SETTING_LIST \
   SETTING(GAME_RESET,   Game,         "Game",       0, false,  SETTING_STR_VALUES("RESET")) \
   SETTING(COUNTER,      Counter,      "Counter",    1, true,   SETTING_STR_VALUES("TOTAL", "GAME")) \
-  SETTING(APP_SYNC,     Apps,         "Apps",       0, false,  SETTING_STR_VALUES("SYNC")) \
+  SETTING(APP_SYNC,     Apps,         "Apps",       0, false,  SETTING_STR_VALUES("SYNC"))   SETTING(BACKGROUND,   Background,   "Background", 0, true,   SETTING_STR_VALUES("OFF")) \
   SETTING(BATTERY_TYPE, Battery,      "Battery",    1, true,   SETTING_STR_VALUES("NONE", "USB", "1xRCR123A","3.7V(1S)", "7.4V(2S)", "11.1V(3S)", "3xAA/AAA", "9.6V(NiMH)")) \
   SETTING(AUTO_OFF,     AutoOff,      "Auto Off",   1, false,  SETTING_STR_VALUES("OFF", "30 min", "1 h", "2 h", "6 h", "12 h")) \
   SETTING(SHOW_BATTERY, ShowBat,      "Show Bat",   1, true,   SETTING_STR_VALUES("OFF", "ON")) \
@@ -181,6 +181,12 @@ enum entry_max_enum {
 
 void App_init(void);
 void App_update(void);
+void App_reloadSettings(void);   // The settings from flash into use (after a restore of a backup)
+
+// The flash values of ENTRY_LIST (for the backup): count, key (NULL out of range), largest value
+uint8_t     App_getEntryCount(void);
+const char* App_getEntryKey(uint8_t index);
+uint32_t    App_getEntryMax(uint8_t index);
 
 void App_updateSetting(uint8_t id, uint32_t value);
 void App_updateActivity(uint32_t time);

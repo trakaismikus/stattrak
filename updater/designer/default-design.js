@@ -64,7 +64,7 @@ window.STATTRAK_DEFAULT_DESIGN = {
         { "type": "pixels", "x": 2, "y": 24, "rows": ["#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#.#"], "note": "a dotted line" },
         { "type": "text", "x": 32, "y": 27, "text": "BATTERY", "font": "3x5", "align": "right" },
         { "type": "text", "x": 34, "y": 27, "text": ":", "font": "5x5", "align": "left" },
-        { "type": "text", "x": 45, "y": 27, "text": "66% (4.00V)", "font": "3x5", "align": "left", "note": "the battery level and voltage; USB or NONE for those battery types" }
+        { "type": "text", "x": 45, "y": 27, "text": "83% (4.00V)", "font": "3x5", "align": "left", "note": "the battery level and voltage; USB or NONE for those battery types" }
       ]
     },
     {

@@ -33,6 +33,7 @@ static void _update(uint8_t* buf);
 /* > Local Variables ******************************************************************************/
 static bool     s_latched = false;
 static uint16_t s_voltageMv = 0;
+static uint8_t  s_resetReason = 0;
 
 /* The device has two buffers (g_oled_buf[2][...]). Guard bytes on each side show a write outside. */
 static struct {
@@ -61,6 +62,7 @@ static uint16_t s_lastFreq = 0;
 bool HostBoard_isLatched(void)                    { return s_latched; }
 void HostBoard_setVoltage(uint16_t millivolts)    { s_voltageMv = millivolts; }
 uint16_t HostBoard_getVoltage(void)               { return s_voltageMv; }
+void HostBoard_setResetReason(uint8_t reason)     { s_resetReason = reason; }
 
 const uint8_t* HostOled_getFrame(void)            { return s_shownFrame; }
 uint32_t HostOled_getFrameCount(void)             { return s_frameCount; }
@@ -99,6 +101,10 @@ void Board_powerOff(void) {
 
   /* On the device the power goes away here. */
   Host_end(HOST_END__POWER_OFF, "Board_powerOff");
+}
+
+uint8_t Board_getResetReason(void) {
+  return (s_resetReason == 0) ? 1 /* DEVICE_LOG_REASON__POWER_ON */ : s_resetReason;
 }
 
 uint16_t Board_readVoltage(void) {

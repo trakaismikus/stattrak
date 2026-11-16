@@ -151,7 +151,8 @@ class ExampleApps(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             catalog = app.build_catalog(os.path.join(REPO_ROOT, "apps"), folder)
             names = [entry["name"] for entry in catalog["apps"]]
-            self.assertEqual(names, ["HEADSHOT %", "REACTION", "ROUND TIMER", "RUNNER", "SLOTS", "WALLPAPER"])
+            self.assertEqual(names, ["BATTERY LOG", "CLIP MARKS", "HEADSHOT %", "REACTION", "ROUND TIMER", "RUNNER", "SLOTS",
+                                 "WALLPAPER"])
             for entry in catalog["apps"]:
                 with open(os.path.join(folder, entry["file"]), "rb") as handle:
                     data = handle.read()
@@ -160,7 +161,7 @@ class ExampleApps(unittest.TestCase):
                 self.assertEqual(entry["id"], "%08x" % info["id"])
                 self.assertEqual(entry["size"], len(data))
                 self.assertEqual(len(app.base64.b64decode(entry["picture"])), 240)
-            timer = catalog["apps"][2]
+            timer = catalog["apps"][names.index("ROUND TIMER")]
             self.assertEqual(timer["settings"][0]["name"], "ROUND TIME")
             self.assertEqual(timer["settings"][0]["default"], 1)
             self.assertTrue(os.path.isfile(os.path.join(folder, "catalog.json")))
@@ -201,7 +202,7 @@ class Check(unittest.TestCase):
 
     def test_bad_version(self):
         data = bytearray(self.good)
-        data[5] = 2           # needs a newer engine
+        data[5] = 3           # needs a newer engine
         self.assertResult(with_crc(data), "bad version")
 
     def test_bad_crc(self):
@@ -460,10 +461,56 @@ class Compiler(unittest.TestCase):
         data[4] = 2
         struct.pack_into("<H", data, 14, len(data))
         self.assertEqual(app.result_text(app.check(with_crc(data))[0]), "bad size")
-        # Format 3 does not exist
+        # Format 4 does not exist
         data = bytearray(new)
-        data[4] = 3
+        data[4] = 4
         self.assertEqual(app.result_text(app.check(with_crc(data))[0]), "bad version")
+
+    def test_data_and_awake_make_a_format_3_package(self):
+        # docs/DATA.md section 6: data columns, awake, engine 2 calls
+        source = ('app "LOG"\ndata "TIME" "MV"\npermission awake\n'
+                  'on press1 { log(time(), battery_mv()) }\non draw { num(0, 0, log_count(), 0, text, on, left) }\n')
+        package = compile_text(source)["package"]
+        self.assertEqual((package[4], package[5], package[37]), (3, 2, 2))
+        parts = app.package_parts(package)
+        self.assertEqual(parts["column_names"], ["TIME", "MV"])
+        self.assertEqual(parts["permissions"], app.PERM_DATA | app.PERM_AWAKE)
+        machine = app.Machine(package)
+        machine.battery_mv = 3711
+        machine.run("press1")
+        machine.now += 1000
+        machine.run("press1")
+        self.assertEqual(machine.data, [[10000, 3711], [11000, 3711]])
+        # battery_mv() alone: format 3, engine 2, no data
+        package = compile_text('app "MV"\non draw { num(0, 0, battery_mv(), 0, text, on, left) }\n')["package"]
+        self.assertEqual((package[4], package[5], package[37]), (3, 2, 0))
+        # The old apps stay format 1 / engine 1
+        old = compile_text('app "OLD"\non press1 { click(900) }\npermission sound\n')["package"]
+        self.assertEqual((old[4], old[5]), (1, 1))
+
+    def test_data_errors(self):
+        for source, text in (
+                ('app "A"\non press1 { log(1) }\n', "needs a data store"),
+                ('app "A"\ndata "X" "Y"\non press1 { log(1) }\n', "needs 2 values"),
+                ('app "A"\ndata\n', "1 to 4 column names"),
+                ('app "A"\ndata "A" "B" "C" "D" "E"\n', "1 to 4 column names"),
+                ('app "A"\ndata "THIS IS TOO LONG"\n', "1 to 12 characters"),
+                ('app "A"\npermission data\n', "comes from the line"),
+                ('app "A"\non press1 { log_clear() }\n', "needs a data store")):
+            with self.subTest(source=source):
+                with self.assertRaises(app.AppError) as raised:
+                    compile_text(source)
+                self.assertIn(text, str(raised.exception))
+
+    def test_log_is_full_and_not_in_draw(self):
+        package = compile_text('app "A"\ndata "X" "Y" "Z" "W"\nvar r\non press1 { r = log(1, 2, 3, 4) }\n'
+                               'on draw { r = log(5, 6, 7, 8) }\n')["package"]
+        machine = app.Machine(package)
+        machine.run("draw")
+        self.assertEqual(machine.data, [])
+        for _ in range(300):
+            machine.run("press1")
+        self.assertEqual(len(machine.data), 256)          # 1024 values: full = stop
 
     def test_runtime_errors(self):
         machine = app.Machine(compile_text('app "L"\non press1 { while 1 { } }\n')["package"])

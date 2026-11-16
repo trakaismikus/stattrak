@@ -92,8 +92,19 @@ stapp_result_t Stapp_check(const uint8_t* package, uint32_t size, stapp_info_t* 
   if((info.permissions & ~STAPP_PERM_ALL) != 0 || info.id <= STAPP_RESERVED_IDS || info.id == 0xFFFFFFFFu ||
      info.globalCount > STAPP_MAX_GLOBALS || info.savedCount > STAPP_MAX_SAVED ||
      info.savedCount > info.globalCount || info.settingCount > STAPP_MAX_SETTINGS ||
-     info.stringCount > STAPP_MAX_STRINGS || info.bitmapCount > STAPP_MAX_BITMAPS || package[37] != 0)
+     info.stringCount > STAPP_MAX_STRINGS || info.bitmapCount > STAPP_MAX_BITMAPS)
     return STAPP_ERR_HEADER;
+
+  // Format 3 (docs/DATA.md section 6): byte 37 = data columns, permissions data, awake, background.
+  // Formats 1 and 2: byte 37 = 0, only the permissions counters and sound.
+  if(package[4] >= 3) {
+    info.columnCount = package[37];
+    const bool data = (info.permissions & STAPP_PERM_DATA) != 0;
+    if(info.columnCount > STAPP_MAX_COLUMNS || data != (info.columnCount > 0) || info.columnCount > info.stringCount)
+      return STAPP_ERR_HEADER;
+  } else if(package[37] != 0 || (info.permissions & ~STAPP_PERM_V2) != 0) {
+    return STAPP_ERR_HEADER;
+  }
 
   // Name: 1 to 14 characters, then only zeros
   const uint8_t* name = package + 16;
@@ -177,6 +188,9 @@ stapp_result_t Stapp_check(const uint8_t* package, uint32_t size, stapp_info_t* 
       if(!_isTextChar(package[i]))
         return STAPP_ERR_STRINGS;
     }
+    // The column names (the first strings): 1 to 12 characters
+    if(s < info.columnCount && (end == offset || end - offset > STAPP_COLUMN_NAME_LEN))
+      return STAPP_ERR_STRINGS;
   }
 
   // Bitmaps: size and data in the data area

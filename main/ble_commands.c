@@ -15,6 +15,10 @@
 
 #include "app.h"
 #include "apps.h"
+#include "app_data.h"
+#include "data_store.h"
+#include "device_log.h"
+#include "start_pic.h"
 #include "app_sync_view.h"
 #include "eeprom.h"
 #include "ota.h"
@@ -28,6 +32,8 @@
 static uint8_t _handle(const ota_user_cmd_t* cmd, uint8_t* response, uint8_t* responseLen);
 static uint8_t _handleApp(const ota_user_cmd_t* cmd, uint8_t* response, uint8_t* responseLen);
 static uint8_t _setOrder(const uint8_t* data);
+static uint8_t _handleData(const ota_user_cmd_t* cmd, uint8_t* response, uint8_t* responseLen);
+static uint8_t _syncStatus(app_sync_result_t result);
 static uint8_t _appsStatus(apps_result_t result);
 static void _put16(uint8_t* out, uint32_t value);
 static void _put32(uint8_t* out, uint32_t value);
@@ -63,7 +69,8 @@ void BleCommands_update(void) {
 // Does one command. Writes the answer data into `response` (OTA_USER_RESPONSE_SIZE bytes at
 // most) and its length into `responseLen`. Returns the status.
 static uint8_t _handle(const ota_user_cmd_t* cmd, uint8_t* response, uint8_t* responseLen) {
-  if(cmd->cmdId >= BLE_COMMAND__APP_INFO && cmd->cmdId <= BLE_COMMAND__APP_DEVICE_NAME)
+  if((cmd->cmdId >= BLE_COMMAND__APP_INFO && cmd->cmdId <= BLE_COMMAND__APP_DEVICE_NAME) ||
+     (cmd->cmdId >= BLE_COMMAND__CONFIG_INFO && cmd->cmdId <= BLE_COMMAND__LOG_READ))
     return _handleApp(cmd, response, responseLen);
 
   switch(cmd->cmdId) {
@@ -101,7 +108,10 @@ static uint8_t _handleApp(const ota_user_cmd_t* cmd, uint8_t* response, uint8_t*
                         cmd->cmdId == BLE_COMMAND__APP_END || cmd->cmdId == BLE_COMMAND__APP_DELETE ||
                         cmd->cmdId == BLE_COMMAND__APP_SET_ORDER || cmd->cmdId == BLE_COMMAND__APP_SET_HIDDEN ||
                         (cmd->cmdId == BLE_COMMAND__APP_SETTING && d[5] != 0xFF) ||
-                        (cmd->cmdId == BLE_COMMAND__APP_DEVICE_NAME && d[0] != 0));
+                        (cmd->cmdId == BLE_COMMAND__APP_DEVICE_NAME && d[0] != 0) ||
+                        cmd->cmdId == BLE_COMMAND__XFER_BEGIN || cmd->cmdId == BLE_COMMAND__PREVIEW_STOP ||
+                        cmd->cmdId == BLE_COMMAND__DATA_CLEAR ||
+                        (cmd->cmdId == BLE_COMMAND__START_PIC && d[0] >= 1 && d[0] <= 3));
   if(changes && AppSync_isWaiting())
     return BLE_COMMAND_STATUS__WAITING;
 
@@ -178,8 +188,13 @@ static uint8_t _handleApp(const ota_user_cmd_t* cmd, uint8_t* response, uint8_t*
     case BLE_COMMAND__APP_END: {
       stapp_result_t reason = STAPP_OK;
       uint16_t expected = 0;
+      const app_sync_kind_t kind = AppSync_getKind();
       switch(AppSync_end(&reason, &expected)) {
         case APP_SYNC_OK:
+          if(kind == APP_SYNC_KIND__RESTORE) {
+            AppSync_getRestoreCounts(&response[0], &response[1]);   // Values written, skipped
+            *responseLen = 2;
+          }
           return BLE_COMMAND_STATUS__OK;
         case APP_SYNC_ERR_OFFSET:
           _put16(&response[0], expected);
@@ -198,7 +213,8 @@ static uint8_t _handleApp(const ota_user_cmd_t* cmd, uint8_t* response, uint8_t*
 
     case BLE_COMMAND__APP_STATUS:
       response[0] = (uint8_t)AppSync_getState();
-      *responseLen = 1;
+      response[1] = (uint8_t)AppSync_getKind();    // docs/DATA.md 5.1 (old pages read byte 0 only)
+      *responseLen = 2;
       return BLE_COMMAND_STATUS__OK;
 
     case BLE_COMMAND__APP_DELETE:
@@ -252,7 +268,162 @@ static uint8_t _handleApp(const ota_user_cmd_t* cmd, uint8_t* response, uint8_t*
     } return BLE_COMMAND_STATUS__OK;
 
     default:
+      return _handleData(cmd, response, responseLen);
+  }
+}
+
+// docs/DATA.md section 5.2. Called only from _handleApp (only in "Apps: SYNC").
+static uint8_t _handleData(const ota_user_cmd_t* cmd, uint8_t* response, uint8_t* responseLen) {
+  const uint8_t* d = cmd->data;
+
+  switch(cmd->cmdId) {
+    case BLE_COMMAND__CONFIG_INFO: {
+      const uint32_t freeBytes = DataStore_availableEntries() * 32u;
+      response[0] = 1;                                  // Config version
+      response[1] = App_getEntryCount();
+      response[2] = 0x1F;                               // Backup, app data, device log, start picture, preview
+      response[3] = (uint8_t)StartPic_getState();
+      _put16(&response[4], AppData_usedBytes());
+      _put16(&response[6], APP_DATA_TOTAL_VALUES * 4u);
+      _put16(&response[8], APP_DATA_APP_VALUES * 4u);
+      _put16(&response[10], freeBytes);                 // At most 65535
+      response[12] = DeviceLog_count();
+      *responseLen = 13;
+    } return BLE_COMMAND_STATUS__OK;
+
+    case BLE_COMMAND__CONFIG_ENTRY: {
+      const char* key = App_getEntryKey(d[0]);
+      if(key == NULL)
+        return BLE_COMMAND_STATUS__INDEX;
+      const uint32_t length = (uint32_t)strlen(key);
+      if(d[1] == 0) {
+        _put32(&response[0], Eeprom_read(d[0]));
+        _put32(&response[4], App_getEntryMax(d[0]));
+        response[8] = (uint8_t)length;
+        *responseLen = 9;
+      } else if(d[1] <= 2) {
+        const uint32_t start = (d[1] == 1) ? 0 : OTA_USER_RESPONSE_SIZE;
+        uint32_t count = (start < length) ? length - start : 0;
+        if(count > OTA_USER_RESPONSE_SIZE)
+          count = OTA_USER_RESPONSE_SIZE;
+        memcpy(response, &key[start < length ? start : length], count);
+        *responseLen = (uint8_t)count;
+      } else {
+        return BLE_COMMAND_STATUS__ERROR;
+      }
+    } return BLE_COMMAND_STATUS__OK;
+
+    case BLE_COMMAND__APP_VALUES: {
+      static int32_t values[STAPP_MAX_SAVED];
+      const uint32_t id = _get32(&d[0]);
+      if(!Apps_isInstalled(id))
+        return BLE_COMMAND_STATUS__ERROR;
+      const uint8_t count = Apps_getSavedCount(id);
+      Apps_loadValues(id, values, count);
+      response[0] = count;
+      uint8_t n = 0;
+      for(uint8_t i = d[4]; i < count && n < 3; i++, n++)
+        _put32(&response[1 + 4 * n], (uint32_t)values[i]);
+      *responseLen = (uint8_t)(1 + 4 * n);
+    } return BLE_COMMAND_STATUS__OK;
+
+    case BLE_COMMAND__XFER_BEGIN:
+      return _syncStatus(AppSync_xferBegin((app_sync_kind_t)d[0], _get16(&d[1]), _get32(&d[3])));
+
+    case BLE_COMMAND__START_PIC: {
+      const uint8_t op = d[0];
+      if(op == 4) {
+        const uint8_t* picture = StartPic_get();
+        const uint16_t offset = _get16(&d[1]);
+        if(picture == NULL || offset >= START_PIC_SIZE)
+          return BLE_COMMAND_STATUS__ERROR;
+        uint32_t count = START_PIC_SIZE - offset;
+        if(count > 12)
+          count = 12;
+        memcpy(response, &picture[offset], count);
+        *responseLen = (uint8_t)count;
+        return BLE_COMMAND_STATUS__OK;
+      }
+      if(op > 3)
+        return BLE_COMMAND_STATUS__ERROR;
+      if((op == 1 || op == 2) && !StartPic_setShown(op == 1))
+        return BLE_COMMAND_STATUS__ERROR;
+      if(op == 3)
+        StartPic_delete();
+      response[0] = (uint8_t)StartPic_getState();
+      *responseLen = 1;
+    } return BLE_COMMAND_STATUS__OK;
+
+    case BLE_COMMAND__PREVIEW_STOP:
+      AppSync_previewStop();
+      return BLE_COMMAND_STATUS__OK;
+
+    case BLE_COMMAND__DATA_INFO: {
+      const uint32_t id = _get32(&d[0]);
+      if(Apps_isBuiltin(id)) {
+        memset(response, 0, 6);
+        *responseLen = 6;
+        return BLE_COMMAND_STATUS__OK;
+      }
+      uint8_t storeColumns = 0;
+      uint16_t rows = 0;
+      if(!AppData_info(id, &storeColumns, &rows))
+        return BLE_COMMAND_STATUS__ERROR;
+      const uint8_t appColumns = Apps_getColumnCount(id);
+      // The rows are read with the column count of the store (an older app version can have an other one)
+      const uint8_t columns = (rows > 0) ? storeColumns : appColumns;
+      const uint16_t fit = AppData_fitRows(id, columns);
+      response[0] = columns;
+      _put16(&response[1], rows);
+      _put16(&response[3], fit);
+      response[5] = (uint8_t)(((columns > 0 && rows >= fit) ? 0x01 : 0) |
+                              ((rows > 0 && storeColumns != appColumns) ? 0x02 : 0));
+      *responseLen = 6;
+    } return BLE_COMMAND_STATUS__OK;
+
+    case BLE_COMMAND__DATA_COLUMN: {
+      const char* name = Apps_getColumnName(_get32(&d[0]), d[4]);
+      if(name == NULL)
+        return BLE_COMMAND_STATUS__ERROR;
+      const uint32_t length = (uint32_t)strlen(name);
+      memcpy(response, name, (length < OTA_USER_RESPONSE_SIZE) ? length : OTA_USER_RESPONSE_SIZE);
+      *responseLen = (uint8_t)((length < OTA_USER_RESPONSE_SIZE) ? length : OTA_USER_RESPONSE_SIZE);
+    } return BLE_COMMAND_STATUS__OK;
+
+    case BLE_COMMAND__DATA_READ: {
+      int32_t values[3];
+      const uint32_t id = _get32(&d[0]);
+      if(!Apps_isInstalled(id))
+        return BLE_COMMAND_STATUS__ERROR;
+      const uint8_t count = AppData_readValues(id, _get16(&d[4]), values, 3);
+      response[0] = count;
+      for(uint8_t i = 0; i < count; i++)
+        _put32(&response[1 + 4 * i], (uint32_t)values[i]);
+      *responseLen = (uint8_t)(1 + 4 * count);
+    } return BLE_COMMAND_STATUS__OK;
+
+    case BLE_COMMAND__DATA_CLEAR:
+      return _syncStatus(AppSync_clearData(_get32(&d[0])));
+
+    case BLE_COMMAND__LOG_READ: {
+      response[0] = DeviceLog_count();
+      uint8_t n = 0;
+      while(n < 3 && (uint16_t)d[0] + n < DeviceLog_count() &&
+            DeviceLog_get((uint8_t)(d[0] + n), &response[1 + DEVICE_LOG_ENTRY_SIZE * n]))
+        n++;
+      *responseLen = (uint8_t)(1 + DEVICE_LOG_ENTRY_SIZE * n);
+    } return BLE_COMMAND_STATUS__OK;
+
+    default:
       return BLE_COMMAND_STATUS__UNKNOWN;
+  }
+}
+
+static uint8_t _syncStatus(app_sync_result_t result) {
+  switch(result) {
+    case APP_SYNC_OK:          return BLE_COMMAND_STATUS__OK;
+    case APP_SYNC_ERR_WAITING: return BLE_COMMAND_STATUS__WAITING;
+    default:                   return BLE_COMMAND_STATUS__ERROR;
   }
 }
 

@@ -109,6 +109,48 @@ that filter gets the name start filter "StatTrak" only. The firmware tab looks f
   page knows them for catalog apps and for a file installed in this page session; other apps show
   their name as the picture, and their settings are changed on the device.
 
+### Start picture, backup, app data, device log
+
+Under the app list (`js/apps-data.js`, commands in `js/data-protocol.js`, `../docs/DATA.md`).
+The page shows these parts only when the device answers CONFIG_INFO. An older firmware gets one
+line: "Update the firmware to use this". While a transfer or an install runs, all buttons are
+locked.
+
+- **Start picture.** "Choose a PNG or JPG": the page makes it 128 x 32 black and white (scaled to
+  fit, the same aspect, centered; it says "scaled to fit" for an other size). The slider "How dark
+  is on" (50 % at the start) sets which pixels are on. The picture shows on the device picture
+  before it goes. "Send to device" sends it (transfer kind 2); StatTrak shows it for 2 s. When
+  StatTrak has a picture, the page shows it, a switch "Show at power-on" and "Delete start
+  picture" (the page asks first, in the page). A link goes to the Screen Designer: Download PNG
+  there makes an exact 128 x 32 picture.
+- **Backup.** "Download backup" reads all flash values, the apps (order, hidden, settings, saved
+  values), the Bluetooth name, the start picture and the device log, and saves
+  `stattrak-backup-YYYY-MM-DD.json` (`../docs/DATA.md` 5.3). The apps themselves are not in it.
+  "Restore from file" shows a table "On the device now / In the file" with a tick for each part
+  (stats, settings, apps setup, Bluetooth name, start picture; all on at the start) and lists the
+  apps of the file that StatTrak does not have ("Install these apps first, or restore without
+  them"). "Restore" sends the restore data (5.4, transfer kind 1). StatTrak asks "RESTORE
+  BACKUP?" (hold button 2 = yes). After it, the page reads StatTrak again and lists each value
+  that is not the same as in the file (StatTrak skipped it). The menu order: the apps of the file
+  first, in the order of the file, then the other apps of StatTrak.
+- **App data.** Each app with a data store: the rows used and the rows that fit, "Download CSV"
+  (`<app-name>-data-YYYY-MM-DD.csv`, the column names first; a first column TIME also gets a
+  column "TIME mm:ss.mmm") and "Delete data" (StatTrak asks "DELETE <NAME> DATA?").
+- **Device log.** One line for each start, newest first: the reason (how the run before it
+  ended), the battery, "New firmware". "Download CSV" saves `stattrak-log-YYYY-MM-DD.csv`.
+
+## Screen Designer: Download PNG and Live preview
+
+- **Download PNG** saves the selected screen as an exact 128 x 32 PNG (white = on, black = off),
+  for the start picture of the Apps tab.
+- **Live preview** connects to StatTrak over Bluetooth (Chrome or Edge; the device in Settings >
+  Apps: SYNC) with the code of the Apps tab (`../js/ble.js`, `../js/apps-protocol.js`,
+  `../js/data-protocol.js`: plain scripts, so the designer still opens from a disk). It sends the
+  selected screen as a preview frame (transfer kind 3: only the parts that are not all 0, then END
+  with the CRC-32 of all 512 bytes), and again about 400 ms after the last change, one frame at a
+  time. A button on StatTrak ends the preview; the next change shows it again. "Stop" sends
+  PREVIEW_STOP and ends the connection. Nothing is written to the flash of StatTrak.
+
 ## Files
 
 | File | What it is |
@@ -118,19 +160,23 @@ that filter gets the name start filter "StatTrak" only. The firmware tab looks f
 | `js/firmware.js` | Checks of the firmware file |
 | `js/main.js` | The steps of the page |
 | `js/apps-protocol.js` | The app commands (`StatTrakApps`: install, list, Bluetooth name, the device chooser of the Apps tab) and the check of a `.stapp` file (`StappFile`) |
+| `js/data-protocol.js` | The commands of `../docs/DATA.md` (`StatTrakData`: CONFIG_INFO and CONFIG_ENTRY, saved values, the transfers restore / start picture / preview frame, app data, device log), the backup file and the restore data (`BackupFile`), the CSV files (`DataCsv`), the frame buffer format (`FrameBuffer`). Also used by the Screen Designer |
+| `js/apps-data.js` | The parts under the app list of the Apps tab: start picture, backup, app data, device log |
 | `js/apps-pictures.js` | Title pictures, and the device display in "Apps: SYNC": a port of `_draw()` of `../main/views/app_sync_view.c`, pixel by pixel |
 | `js/apps.js`, `css/apps.css` | The tabs and the Apps tab |
-| `js/device.js` | The device picture with a live display (`<st-device anim=...>`): step 1 of the firmware update (the way to the update mode on firmware 1.0.1) and the Apps tab (the screens of "Apps: SYNC" from `js/apps-pictures.js`). Its numbers (where the display and the round buttons are) are in `../tools/device_art/README.md` |
+| `js/device.js` | The device picture with a live display (`<st-device anim=...>`): step 1 of the firmware update (the way to the update mode on firmware 1.0.1) and the Apps tab (the screens of "Apps: SYNC" from `js/apps-pictures.js`, and `anim="still"` for the new start picture). Its numbers (where the display and the round buttons are) are in `../tools/device_art/README.md` |
 | `assets/device.webp` | The device: a render of the 3D model, made by `../tools/device_art/` (also the picture of the web simulator) |
 | `assets/sync-path.js` | The display of the firmware of this repository on the way to "Apps: SYNC", from the headless simulator (`../tools/device_art/make_sync_path.py`). The Apps tab plays it before Connect |
 | `assets/update-path-1.0.1.js` | The display of firmware 1.0.1 on the way to the update mode, from the 1.0.1 simulator (`../tools/device_art/fw101/make_update_path.py`). Most devices that come to the page have 1.0.1 |
 | `apps/` | The app catalog: made by `python tools/app.py catalog`, not by hand |
-| `tests/fake-device.js` | A stand-in for the device and for Web Bluetooth. Its packet code is a port of the firmware code in `../components/ble_ota/`; its app commands are a port of `../main/ble_commands.c`, `../main/apps.c` and `../main/views/app_sync_view.c` (with the buttons of "Apps: SYNC"); its device chooser uses the filters (name, service UUID) |
+| `tests/fake-device.js` | A stand-in for the device and for Web Bluetooth. Its packet code is a port of the firmware code in `../components/ble_ota/`; its app commands are a port of `../main/ble_commands.c`, `../main/apps.c` and `../main/views/app_sync_view.c` (with the buttons of "Apps: SYNC"); its device chooser uses the filters (name, service UUID); with `data: true` it has the commands and the transfers of `../docs/DATA.md` (test hooks for app data, the device log, the start picture, the flash values) |
 | `tests/ble.test.js` | Tests of `js/ble.js` and `js/firmware.js` in Node.js |
 | `tests/page.test.js` | Tests of the full page in a headless Chrome. They click the buttons as a user does |
 | `tests/apps.test.js` | Tests of `js/apps-protocol.js` in Node.js, each rule of `docs/APPS.md` section 6 against the stand-in device (install order, ASK, DATA only after "yes", a new BEGIN, the transfer stop, SYNC MORE / OPEN, DEVICE_NAME, format 2), and the device screens of `js/apps-pictures.js` against `tests/sync-screens.json` |
 | `tests/sync-screens.json` | Screens of "Apps: SYNC" from the firmware (the headless simulator, `../tests/stattrak_sim.py`). Make them again after a change to `_draw()` of `app_sync_view.c` (`python tests/make_sync_screens.py`); the firmware check `../tests/test_updater_screens.py` fails until then |
 | `tests/apps-page.test.js` | Tests of the Apps tab in a headless Chrome: connect, list, hide, move, delete, settings, install (the question first, then the transfer, then "Installed"), no, no answer in 30 s, the transfer stopped on the device, OPEN (a calm message), SYNC MORE, a lost answer, no space, format 2 on an older firmware, the Bluetooth name, a renamed device, old firmware, not in "Apps: SYNC", bad files, lost connection, the tab lock |
+| `tests/data.test.js` | Tests of `js/data-protocol.js` in Node.js against the stand-in device: an older firmware, the flash values, the backup file, the restore round trip (order, hidden flags, settings, saved values, name, start picture), the skipped values, only the ticked parts, no / no answer / a bad backup, the table, the start picture, the preview frame (empty parts left out), app data and its CSV, the device log, status 11 while the device asks |
+| `tests/data-page.test.js` | Tests in a headless Chrome of the parts under the app list (older firmware, start picture, backup, restore, app data, device log) and of the designer buttons Download PNG and Live preview |
 | `tests/device.test.js` | Tests of `js/device.js` in Node.js: the 1.0.1 frames, the Apps screens are the screens of `js/apps-pictures.js`, the display is at the same place in the page and in the web simulator |
 | `tests/files.test.js` | Tests of the fonts, of files from other sites, and that the Bluetooth numbers of the page are the numbers of the firmware |
 
@@ -160,6 +206,9 @@ After a change to `js/ble.js` or to the update steps in `js/main.js`, do an upda
 device before the page is published.
 After a change to the Apps tab, install (yes, no, OPEN, SYNC MORE), move, hide and delete an
 app, and rename the device, on a real device in "Apps: SYNC" before the page is published.
+After a change to the backup and data parts or to the live preview, send a start picture,
+download a backup and restore it, download and delete app data, and run the live preview of the
+Screen Designer, on a real device.
 
 ## Publish
 

@@ -93,7 +93,14 @@ view_id_t AppView_getPrevious(void) {
   return s_prevViewId;
 }
 
+static bool s_drawing = false;
+
+bool AppView_isDrawing(void) {
+  return s_drawing;
+}
+
 void AppView_show(void) {
+  s_drawing = true;
   gfx_ctx_t* gfx = Gfx_getContext();
 
   if(s_viewId != s_nextViewId) {
@@ -127,6 +134,7 @@ void AppView_show(void) {
     if(s_viewList[s_viewId]->draw)
       s_viewList[s_viewId]->draw();
   }
+  s_drawing = false;
 }
 
 void AppView_update(void) {

@@ -9,6 +9,11 @@ set(SRC_FILES
   "eeprom.c"
   "battery.c"
   "ble_commands.c"
+  "app_data.c"
+  "backup.c"
+  "data_store.c"
+  "device_log.c"
+  "start_pic.c"
   "gfx_fx.c"
   
   "board/bsp_adc.c"

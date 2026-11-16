@@ -1,6 +1,12 @@
 /***************************************************************************************************
  * @file    : app_host_view.c
- * @brief   : Runs one installed app with the app engine (docs/APPS.md, section 4).
+ * @brief   : Runs the installed apps with the app engine (docs/APPS.md, section 4).
+ *
+ * Two engines (runners): FG runs the app that the view shows, BG runs the background app of
+ * Settings > Background (docs/APPS.md section 4.6). When the view shows the background app, it
+ * shows the BG runner (the app runs once, with one state). The BG runner never draws; it gets the
+ * tick each 100 ms and the kill and death events. It stops while Apps: SYNC or the update mode is
+ * open, and starts again after them.
  *
  * The app can only do what the system calls below let it do. Each value from the app is checked:
  * all drawing is clipped to the screen and has a pixel budget for each frame, the counters change
@@ -8,7 +14,8 @@
  * setting. The engine stops an app after 4000 steps for one event.
  *
  * No flash writes in the draw function: an app error and the saved values are written later,
- * in AppHost_update() (App_update).
+ * in AppHost_update() (App_update). The start of the background app after a view closes waits
+ * for AppHost_update() too.
  *
  * Both buttons are never sent to the app (main.c): short = app menu, long = power off.
  **************************************************************************************************/
@@ -23,6 +30,7 @@
 #include "app.h"
 #include "app_view.h"
 #include "apps.h"
+#include "app_data.h"
 #include "eeprom.h"
 #include "battery.h"
 #include "gfx.h"
@@ -38,6 +46,28 @@
 #define DRAW_BUDGET       (8 * SCREEN_W * SCREEN_H)   // Pixels for one frame: 8 full screens
 #define MAX_DIGITS        10
 #define COUNTER_STEP_MAX  10
+#define APP_HOST_MAX_COUNTER_CHANGES  4
+#define MAX_PENDING_EVENTS            8         // Kill / death events that wait for AppHost_update()
+
+/* > Local Types **********************************************************************************/
+typedef struct runner_s {
+  uint8_t        package[STAPP_MAX_SIZE];
+  stapp_vm_t     vm;
+  stapp_info_t   info;
+  uint32_t       id;
+  bool           open;
+  bool           loaded;           // The package is in RAM and checked
+  stapp_result_t error;
+  stapp_event_t  event;            // The event that runs now
+  uint32_t       nextTick;
+  uint32_t       rand;
+  uint8_t        counterChanges;   // add_counter calls in the event that runs now
+  uint8_t        slot;             // The data store (APP_DATA_SLOT_FG / _BG)
+  // Saved variables: the copy in flash, and a save() call that waits for the 30 s limit
+  int32_t        savedCopy[STAPP_MAX_SAVED];
+  bool           saveRequested;
+  uint32_t       saveAllowedAt;
+} runner_t;
 
 /* > Local Function Declarations ******************************************************************/
 static void _init(void);
@@ -45,16 +75,20 @@ static void _deinit(void);
 static void _draw(void);
 static bool _eventHandler(uint16_t event);
 
-static void _open(uint32_t id);
-static void _close(void);
-static void _run(stapp_event_t event);
-static uint8_t s_counterChanges = 0;   // add_counter calls in the event that runs now
-#define APP_HOST_MAX_COUNTER_CHANGES  4
-static void _fail(stapp_result_t result);
-static bool _valuesChanged(void);
-static void _queueSave(void);
+static void _show(uint32_t id);
+static void _hide(void);
+static void _open(runner_t* r, uint32_t id);
+static void _close(runner_t* r);
+static bool _isRunning(const runner_t* r);
+static void _run(runner_t* r, stapp_event_t event);
+static void _tick(runner_t* r, uint32_t now);
+static void _saveIfDue(runner_t* r, uint32_t now);
+static void _refreshBackground(void);
+static void _fail(runner_t* r, stapp_result_t result);
+static bool _valuesChanged(const runner_t* r);
+static void _queueSave(runner_t* r);
 static void _flushPending(void);
-static void _drawError(void);
+static void _drawError(const runner_t* r);
 
 static int32_t _sys(void* ctx, uint8_t sysId, const int32_t* args, bool drawing);
 static int32_t _clamp(int32_t value, int32_t low, int32_t high);
@@ -70,8 +104,8 @@ static void _bignum(int32_t x, int32_t y, int32_t value, int32_t digits, int32_t
 static void _bitmap(int32_t x, int32_t y, int32_t index, int32_t color);
 static void _number(char* out, uint32_t size, int32_t value, int32_t digits);
 static int32_t _counter(int32_t id);
-static int32_t _addCounter(int32_t id, int32_t delta);
-static uint32_t _random(void);
+static int32_t _addCounter(runner_t* r, int32_t id, int32_t delta);
+static uint32_t _random(runner_t* r);
 
 /* > Local Variables ******************************************************************************/
 static const char* TAG = "AppHost";
@@ -91,31 +125,27 @@ static const uint32_t kCounterEntries[] = {
   ENTRY_ID__TOTAL_KILLS, ENTRY_ID__TOTAL_DEATHS, ENTRY_ID__GAME_KILLS, ENTRY_ID__GAME_DEATHS,
 };
 
-// The app and the engine (static: the main loop has a small stack)
-static uint8_t        s_package[STAPP_MAX_SIZE];
-static stapp_vm_t     s_vm;
-static stapp_info_t   s_info;
-static uint32_t       s_nextId = APPS_ID__NONE;   // The app that opens with the next init
-static uint32_t       s_id = APPS_ID__NONE;       // The open app
-static bool           s_open = false;
-static bool           s_loaded = false;           // The package is in RAM and checked
-static stapp_result_t s_error = STAPP_OK;
-static stapp_event_t  s_event = STAPP_EVENT__OPEN; // The event that runs now
+// The two engines (static: the main loop has a small stack)
+static runner_t       s_fg;                      // (no start values: they would put 4 KB into .data)
+static runner_t       s_bg;
+static runner_t*      s_shown = NULL;            // The runner that the view shows (NULL = none)
+static runner_t*      s_cur = NULL;              // The runner whose event runs now
+static uint32_t       s_nextId = APPS_ID__NONE;  // The app that the view shows with the next init
 static int32_t        s_budget = 0;
-static uint32_t       s_nextTick = 0;
-static uint32_t       s_rand = 1;
 
-// Saved variables: the copy in flash, and a save() call that waits for the 30 s limit
-static int32_t        s_savedCopy[STAPP_MAX_SAVED];
-static bool           s_saveRequested = false;
-static uint32_t       s_saveAllowedAt = 0;
+// The background app: stopped while Apps: SYNC / the update mode is open; a start that waits for
+// AppHost_update(); kill and death events of the counters that wait for AppHost_update()
+static bool           s_bgPaused = false;
+static bool           s_bgRefreshLater = false;
+static uint8_t        s_pendingKills = 0;
+static uint8_t        s_pendingDeaths = 0;
 
 // Flash writes for App_update (never while the view draws)
 static bool           s_pendingSave = false;
 static uint32_t       s_pendingSaveId = APPS_ID__NONE;
 static uint8_t        s_pendingSaveCount = 0;
 static int32_t        s_pendingValues[STAPP_MAX_SAVED];
-static uint32_t       s_pendingErrorId = APPS_ID__NONE;
+static uint32_t       s_pendingErrorIds[2] = { APPS_ID__NONE, APPS_ID__NONE };   // One for each runner
 
 // Color 2 (invert) of text and digits draws here first
 static uint8_t        s_scratchFrame[SCREEN_W * SCREEN_H / 8];
@@ -125,84 +155,146 @@ static gfx_ctx_t*     s_realCtx = NULL;
 /* > Function Definitions *************************************************************************/
 
 void AppHost_setApp(uint32_t id) {
-  if(s_open) {
-    if(s_id != id) {
-      _close();
-      _open(id);
-    }
+  if(s_shown != NULL && s_shown->id != id) {
+    _hide();
+    _show(id);
   }
   s_nextId = id;
 }
 
 uint32_t AppHost_getAppId(void) {
-  return s_open ? s_id : s_nextId;
+  return (s_shown != NULL) ? s_shown->id : s_nextId;
 }
 
 bool AppHost_isOpen(void) {
-  return s_open;
+  return s_shown != NULL;
 }
 
 stapp_result_t AppHost_getError(void) {
-  return s_open ? s_error : STAPP_OK;
+  return (s_shown != NULL) ? s_shown->error : STAPP_OK;
+}
+
+uint32_t AppHost_getBackgroundId(void) {
+  return s_bg.open ? s_bg.id : APPS_ID__NONE;
+}
+
+stapp_result_t AppHost_getBackgroundError(void) {
+  return s_bg.open ? s_bg.error : STAPP_OK;
 }
 
 void AppHost_update(uint32_t now) {
   _flushPending();
-
-  if(!s_open || !s_loaded || s_error != STAPP_OK)
-    return;
-
-  // Ticks only while the app is the current view (not while it slides in or out)
-  if(AppView_get() == VIEW_ID__APP_HOST && AppView_getNext() == VIEW_ID__APP_HOST) {
-    if((int32_t)(now - s_nextTick) >= 0) {
-      s_nextTick += APP_HOST_TICK_MS;
-      if((int32_t)(now - s_nextTick) >= 0)
-        s_nextTick = now + APP_HOST_TICK_MS;   // Late: no burst of ticks
-      _run(STAPP_EVENT__TICK);
-    }
+  if(s_bgRefreshLater) {
+    s_bgRefreshLater = false;
+    _refreshBackground();
   }
+  AppData_update(now);
 
-  // save() of the app: at most once in 30 s
-  if(s_saveRequested && s_error == STAPP_OK && (int32_t)(now - s_saveAllowedAt) >= 0) {
-    s_saveRequested = false;
-    if(_valuesChanged()) {
-      Apps_saveValues(s_id, s_vm.globals, s_info.savedCount);
-      memcpy(s_savedCopy, s_vm.globals, s_info.savedCount * sizeof(int32_t));
-      s_saveAllowedAt = now + APPS_SAVE_PERIOD_MS;
+  // The background app: the kill and death events, then the tick (also while the view shows it)
+  if(_isRunning(&s_bg)) {
+    while(s_pendingKills > 0 && _isRunning(&s_bg)) {
+      s_pendingKills--;
+      _run(&s_bg, STAPP_EVENT__KILL);
     }
+    while(s_pendingDeaths > 0 && _isRunning(&s_bg)) {
+      s_pendingDeaths--;
+      _run(&s_bg, STAPP_EVENT__DEATH);
+    }
+    _tick(&s_bg, now);
   }
+  s_pendingKills = 0;
+  s_pendingDeaths = 0;
+
+  // The app of the view ticks only while it is the current view (not while it slides in or out)
+  if(s_shown == &s_fg && _isRunning(&s_fg) &&
+     AppView_get() == VIEW_ID__APP_HOST && AppView_getNext() == VIEW_ID__APP_HOST)
+    _tick(&s_fg, now);
+
+  _saveIfDue(&s_fg, now);
+  _saveIfDue(&s_bg, now);
+}
+
+bool AppHost_keepsAwake(void) {
+  return s_shown != NULL && _isRunning(s_shown) && (s_shown->info.permissions & STAPP_PERM_AWAKE) &&
+         AppView_get() == VIEW_ID__APP_HOST && AppView_getNext() == VIEW_ID__APP_HOST;
 }
 
 void AppHost_onShutdown(void) {
   _flushPending();
-  if(s_open && s_loaded && s_error == STAPP_OK && _valuesChanged()) {
-    Apps_saveValues(s_id, s_vm.globals, s_info.savedCount);
-    memcpy(s_savedCopy, s_vm.globals, s_info.savedCount * sizeof(int32_t));
+  AppData_flush();
+  runner_t* const runners[] = { &s_fg, &s_bg };
+  for(uint8_t i = 0; i < 2; i++) {
+    runner_t* r = runners[i];
+    if(_isRunning(r) && _valuesChanged(r)) {
+      Apps_saveValues(r->id, r->vm.globals, r->info.savedCount);
+      memcpy(r->savedCopy, r->vm.globals, r->info.savedCount * sizeof(int32_t));
+    }
   }
+}
+
+void AppHost_counterAdded(uint8_t counter) {
+  if(!_isRunning(&s_bg))
+    return;
+  // An add_counter() of the background app itself is no event for it
+  if(s_cur == &s_bg)
+    return;
+  if(counter == APP_HOST_COUNTER__KILLS && s_pendingKills < MAX_PENDING_EVENTS)
+    s_pendingKills++;
+  else if(counter == APP_HOST_COUNTER__DEATHS && s_pendingDeaths < MAX_PENDING_EVENTS)
+    s_pendingDeaths++;
+}
+
+void AppHost_backgroundRefresh(void) {
+  s_bgRefreshLater = false;
+  _refreshBackground();
+}
+
+void AppHost_backgroundPause(bool paused) {
+  s_bgPaused = paused;
+  if(paused)
+    _refreshBackground();       // Now: the view of Apps: SYNC opens from a button event
+  else
+    s_bgRefreshLater = true;    // The view closes (this can be in a draw): AppHost_update() starts it
+}
+
+void AppHost_backgroundForget(void) {
+  if(s_shown == &s_bg)
+    s_shown = NULL;
+  s_bg.open = false;
+  s_bg.loaded = false;
+  s_bg.error = STAPP_OK;
+  s_bgRefreshLater = false;
+  s_pendingKills = 0;
+  s_pendingDeaths = 0;
+  // The flash is erased: nothing that waits is written
+  s_pendingSave = false;
+  s_pendingErrorIds[0] = APPS_ID__NONE;
+  s_pendingErrorIds[1] = APPS_ID__NONE;
 }
 
 /* > Local Function Definitions *******************************************************************/
 
 static void _init(void) {
-  if(!s_open)
-    _open(s_nextId);
+  if(s_shown == NULL)
+    _show(s_nextId);
 }
 
 static void _deinit(void) {
-  _close();
+  _hide();
 }
 
 static void _draw(void) {
-  if(!s_open)
+  runner_t* r = s_shown;
+  if(r == NULL)
     return;
 
-  if(!s_loaded || s_error != STAPP_OK) {
-    _drawError();
+  if(!r->loaded || r->error != STAPP_OK) {
+    _drawError(r);
     return;
   }
 
   s_budget = DRAW_BUDGET;
-  _run(STAPP_EVENT__DRAW);
+  _run(r, STAPP_EVENT__DRAW);
 }
 
 static bool _eventHandler(uint16_t event) {
@@ -222,96 +314,179 @@ static bool _eventHandler(uint16_t event) {
   }
 
   // After an app error the buttons do nothing. Both buttons open the app menu (main.c).
-  if(s_open && s_loaded && s_error == STAPP_OK)
-    _run(appEvent);
+  if(s_shown != NULL && _isRunning(s_shown))
+    _run(s_shown, appEvent);
   return true;
 }
 
-static void _open(uint32_t id) {
+// The view shows `id`: the background runner if it runs that app, else the FG runner opens it
+static void _show(uint32_t id) {
+  if(s_bg.open && s_bg.id == id) {
+    s_shown = &s_bg;
+    return;
+  }
+  _open(&s_fg, id);
+  s_shown = &s_fg;
+}
+
+// The view closes or shows an other app. The background app runs on.
+static void _hide(void) {
+  if(s_shown == &s_fg) {
+    const uint32_t id = s_fg.id;
+    _close(&s_fg);
+    // The background app waited for this app to close (it was open here when the setting chose it)
+    if(id == Apps_getBackground() && !s_bg.open)
+      s_bgRefreshLater = true;
+  }
+  s_shown = NULL;
+}
+
+static void _open(runner_t* r, uint32_t id) {
   const uint32_t now = Time_getMillis();
 
-  s_id = id;
-  s_open = true;
-  s_loaded = false;
-  s_error = STAPP_OK;
-  s_saveRequested = false;
-  s_saveAllowedAt = now;
-  s_nextTick = now + APP_HOST_TICK_MS;
-  s_rand = (now ^ id ^ 0x9E3779B9u) | 1u;
-  memset(&s_vm, 0, sizeof(s_vm));
+  r->id = id;
+  r->slot = (r == &s_bg) ? APP_DATA_SLOT_BG : APP_DATA_SLOT_FG;
+  r->open = true;
+  r->loaded = false;
+  r->error = STAPP_OK;
+  r->saveRequested = false;
+  r->saveAllowedAt = now;
+  r->nextTick = now + APP_HOST_TICK_MS;
+  r->rand = (now ^ id ^ (r == &s_bg ? 0x7F4A7C15u : 0x9E3779B9u)) | 1u;
+  memset(&r->vm, 0, sizeof(r->vm));
 
-  const stapp_result_t load = Apps_loadPackage(id, s_package, &s_info);
+  const stapp_result_t load = Apps_loadPackage(id, r->package, &r->info);
   if(load != STAPP_OK) {
     ESP_LOGE(TAG, "App %08lx: %s", (unsigned long)id, Stapp_resultText(load));
-    _fail(load);
+    _fail(r, load);
     return;
   }
 
-  Stapp_load(&s_vm, s_package, &s_info);
-  Apps_loadValues(id, s_vm.globals, s_info.savedCount);
-  memcpy(s_savedCopy, s_vm.globals, sizeof(s_savedCopy));
-  s_loaded = true;
+  Stapp_load(&r->vm, r->package, &r->info);
+  Apps_loadValues(id, r->vm.globals, r->info.savedCount);
+  AppData_open(r->slot, id, (r->info.permissions & STAPP_PERM_DATA) ? r->info.columnCount : 0);
+  memcpy(r->savedCopy, r->vm.globals, sizeof(r->savedCopy));
+  r->loaded = true;
 
-  _run(STAPP_EVENT__OPEN);
+  _run(r, STAPP_EVENT__OPEN);
 }
 
-static void _close(void) {
-  if(!s_open)
+static void _close(runner_t* r) {
+  if(!r->open)
     return;
 
-  if(s_loaded && s_error == STAPP_OK) {
-    _run(STAPP_EVENT__CLOSE);
-    if(s_error == STAPP_OK && _valuesChanged())
-      _queueSave();
+  if(r->loaded && r->error == STAPP_OK) {
+    _run(r, STAPP_EVENT__CLOSE);
+    if(r->error == STAPP_OK && _valuesChanged(r))
+      _queueSave(r);
   }
+  // The rows of the app: written by AppData_update() in the next loop (never here: this can be a draw)
+  AppData_closeLater(r->slot);
 
-  s_open = false;
-  s_loaded = false;
-  s_error = STAPP_OK;
+  r->open = false;
+  r->loaded = false;
+  r->error = STAPP_OK;
 }
 
-static void _run(stapp_event_t event) {
-  if(!s_open || !s_loaded || s_error != STAPP_OK)
+static bool _isRunning(const runner_t* r) {
+  return r->open && r->loaded && r->error == STAPP_OK;
+}
+
+// Settings > Background, Apps: SYNC and the update mode: the BG runner runs the app it must run now
+static void _refreshBackground(void) {
+  uint32_t wanted = s_bgPaused ? APPS_ID__NONE : Apps_getBackground();
+  // The view shows this app in the FG runner now: the background start waits for its close (_hide)
+  if(wanted != APPS_ID__NONE && s_fg.open && s_fg.id == wanted)
+    wanted = APPS_ID__NONE;
+
+  if(s_bg.open && s_bg.id == wanted)
+    return;
+  if(s_bg.open) {
+    if(s_shown == &s_bg)
+      s_shown = NULL;     // Not in use: only views other than the app host stop the background app
+    _close(&s_bg);
+  }
+  s_pendingKills = 0;
+  s_pendingDeaths = 0;
+  if(wanted != APPS_ID__NONE)
+    _open(&s_bg, wanted);
+}
+
+static void _run(runner_t* r, stapp_event_t event) {
+  if(!_isRunning(r))
     return;
 
-  s_event = event;
-  s_counterChanges = 0;
-  stapp_result_t result = Stapp_run(&s_vm, event, _sys, NULL);
+  runner_t* const before = s_cur;
+  s_cur = r;
+  r->event = event;
+  r->counterChanges = 0;
+  stapp_result_t result = Stapp_run(&r->vm, event, _sys, r);
   if(result == STAPP_OK)
-    result = s_vm.error;   // A bad argument that a system call found
+    result = r->vm.error;   // A bad argument that a system call found
   if(result != STAPP_OK)
-    _fail(result);
+    _fail(r, result);
+  s_cur = before;
 }
 
-static void _fail(stapp_result_t result) {
-  if(s_error != STAPP_OK)
+static void _tick(runner_t* r, uint32_t now) {
+  if((int32_t)(now - r->nextTick) >= 0) {
+    r->nextTick += APP_HOST_TICK_MS;
+    if((int32_t)(now - r->nextTick) >= 0)
+      r->nextTick = now + APP_HOST_TICK_MS;   // Late: no burst of ticks
+    _run(r, STAPP_EVENT__TICK);
+  }
+}
+
+// save() of the app: at most once in 30 s
+static void _saveIfDue(runner_t* r, uint32_t now) {
+  if(!_isRunning(r) || !r->saveRequested || (int32_t)(now - r->saveAllowedAt) < 0)
+    return;
+  r->saveRequested = false;
+  if(_valuesChanged(r)) {
+    Apps_saveValues(r->id, r->vm.globals, r->info.savedCount);
+    memcpy(r->savedCopy, r->vm.globals, r->info.savedCount * sizeof(int32_t));
+    r->saveAllowedAt = now + APPS_SAVE_PERIOD_MS;
+  }
+}
+
+static void _fail(runner_t* r, stapp_result_t result) {
+  if(r->error != STAPP_OK)
     return;
 
-  s_error = result;
-  s_vm.error = result;
-  ESP_LOGW(TAG, "App %08lx stopped: %s (code offset %u)", (unsigned long)s_id, Stapp_resultText(result),
-           (unsigned)s_vm.errorPc);
+  r->error = result;
+  r->vm.error = result;
+  ESP_LOGW(TAG, "App %08lx stopped: %s (code offset %u)", (unsigned long)r->id, Stapp_resultText(result),
+           (unsigned)r->vm.errorPc);
 
-  // The error count goes to flash later (this can be in the draw function)
-  if(s_pendingErrorId != APPS_ID__NONE && s_pendingErrorId != s_id)
-    Apps_noteError(s_pendingErrorId);
-  s_pendingErrorId = s_id;
+  // The error count goes to flash later, in AppHost_update() (this can be in the draw function).
+  // A free place, or the same app: one error count for each app and loop.
+  for(uint8_t i = 0; i < 2; i++) {
+    if(s_pendingErrorIds[i] == r->id)
+      return;
+  }
+  for(uint8_t i = 0; i < 2; i++) {
+    if(s_pendingErrorIds[i] == APPS_ID__NONE) {
+      s_pendingErrorIds[i] = r->id;
+      return;
+    }
+  }
+  ESP_LOGW(TAG, "App %08lx: the error count waits for no place", (unsigned long)r->id);
 }
 
-static bool _valuesChanged(void) {
-  return s_info.savedCount > 0 &&
-         memcmp(s_savedCopy, s_vm.globals, s_info.savedCount * sizeof(int32_t)) != 0;
+static bool _valuesChanged(const runner_t* r) {
+  return r->info.savedCount > 0 &&
+         memcmp(r->savedCopy, r->vm.globals, r->info.savedCount * sizeof(int32_t)) != 0;
 }
 
-static void _queueSave(void) {
-  if(s_pendingSave && s_pendingSaveId != s_id)
+static void _queueSave(runner_t* r) {
+  if(s_pendingSave && s_pendingSaveId != r->id)
     _flushPending();   // An other app waits: write it first (rare: two closes in one loop)
 
   s_pendingSave = true;
-  s_pendingSaveId = s_id;
-  s_pendingSaveCount = s_info.savedCount;
-  memcpy(s_pendingValues, s_vm.globals, s_info.savedCount * sizeof(int32_t));
-  memcpy(s_savedCopy, s_vm.globals, s_info.savedCount * sizeof(int32_t));
+  s_pendingSaveId = r->id;
+  s_pendingSaveCount = r->info.savedCount;
+  memcpy(s_pendingValues, r->vm.globals, r->info.savedCount * sizeof(int32_t));
+  memcpy(r->savedCopy, r->vm.globals, r->info.savedCount * sizeof(int32_t));
 }
 
 static void _flushPending(void) {
@@ -319,16 +494,18 @@ static void _flushPending(void) {
     s_pendingSave = false;
     Apps_saveValues(s_pendingSaveId, s_pendingValues, s_pendingSaveCount);
   }
-  if(s_pendingErrorId != APPS_ID__NONE) {
-    const uint32_t id = s_pendingErrorId;
-    s_pendingErrorId = APPS_ID__NONE;
-    Apps_noteError(id);
+  for(uint8_t i = 0; i < 2; i++) {
+    if(s_pendingErrorIds[i] != APPS_ID__NONE) {
+      const uint32_t id = s_pendingErrorIds[i];
+      s_pendingErrorIds[i] = APPS_ID__NONE;
+      Apps_noteError(id);
+    }
   }
 }
 
-static void _drawError(void) {
-  const char* text = s_loaded ? Stapp_resultText(s_error) : "cannot load";
-  if(!s_loaded && s_error == STAPP_ERR_SIZE)
+static void _drawError(const runner_t* r) {
+  const char* text = r->loaded ? Stapp_resultText(r->error) : "cannot load";
+  if(!r->loaded && r->error == STAPP_ERR_SIZE)
     text = "missing";
 
   GUI_DRAW_TITLE((SCREEN_W - 9 * font5x5.x_advance) / 2, 1, 9, "APP ERROR");
@@ -339,7 +516,8 @@ static void _drawError(void) {
 // --- System calls (docs/APPS.md, section 4). Each value from the app is checked here.
 
 static int32_t _sys(void* ctx, uint8_t sysId, const int32_t* a, bool drawing) {
-  (void)ctx;
+  runner_t* const r = (runner_t*)ctx;
+  const uint16_t permissions = r->info.permissions;
 
   switch(sysId) {
     // Drawing: only in the draw event
@@ -356,9 +534,9 @@ static int32_t _sys(void* ctx, uint8_t sysId, const int32_t* a, bool drawing) {
     case STAPP_SYS__TEXT: {
       if(!drawing)
         return 0;
-      const char* str = (a[2] >= 0 && a[2] < STAPP_MAX_STRINGS) ? Stapp_string(s_package, &s_info, (uint8_t)a[2]) : NULL;
+      const char* str = (a[2] >= 0 && a[2] < STAPP_MAX_STRINGS) ? Stapp_string(r->package, &r->info, (uint8_t)a[2]) : NULL;
       if(str == NULL) {
-        s_vm.error = STAPP_ERR_ARG;
+        r->vm.error = STAPP_ERR_ARG;
         return 0;
       }
       _text(a[0], a[1], str, a[3], a[4], a[5]);
@@ -378,30 +556,30 @@ static int32_t _sys(void* ctx, uint8_t sysId, const int32_t* a, bool drawing) {
     case STAPP_SYS__ADD_COUNTER:
       // Permission again (the engine checks it too). Only in a button event: no flash writes
       // in draw, and no app can write the counters each 100 ms.
-      if(!(s_info.permissions & STAPP_PERM_COUNTERS))
+      if(!(permissions & STAPP_PERM_COUNTERS))
         return 0;
-      if(drawing || !(s_event == STAPP_EVENT__PRESS_1 || s_event == STAPP_EVENT__PRESS_2 ||
-                      s_event == STAPP_EVENT__LONG_1 || s_event == STAPP_EVENT__LONG_2))
+      if(drawing || !(r->event == STAPP_EVENT__PRESS_1 || r->event == STAPP_EVENT__PRESS_2 ||
+                      r->event == STAPP_EVENT__LONG_1 || r->event == STAPP_EVENT__LONG_2))
         return 0;
       // At most 4 add_counter calls for one press (each change is a flash write)
-      if(s_counterChanges >= APP_HOST_MAX_COUNTER_CHANGES)
+      if(r->counterChanges >= APP_HOST_MAX_COUNTER_CHANGES)
         return _counter(a[0]);
-      s_counterChanges++;
-      return _addCounter(a[0], a[1]);
+      r->counterChanges++;
+      return _addCounter(r, a[0], a[1]);
 
     case STAPP_SYS__SETTING:
-      return (a[0] >= 0 && a[0] < STAPP_MAX_SETTINGS) ? Apps_getSetting(s_id, (uint8_t)a[0]) : 0;
+      return (a[0] >= 0 && a[0] < STAPP_MAX_SETTINGS) ? Apps_getSetting(r->id, (uint8_t)a[0]) : 0;
 
     case STAPP_SYS__TIME:
       return (int32_t)Time_getMillis();
 
     case STAPP_SYS__CLICK:
-      if((s_info.permissions & STAPP_PERM_SOUND) && !drawing && a[0] >= 200 && a[0] <= 4000)
+      if((permissions & STAPP_PERM_SOUND) && !drawing && a[0] >= 200 && a[0] <= 4000)
         App_click((uint16_t)a[0]);   // Follows the Sound setting
       return 0;
 
     case STAPP_SYS__TONE:
-      if((s_info.permissions & STAPP_PERM_SOUND) && !drawing && a[0] >= 200 && a[0] <= 4000 &&
+      if((permissions & STAPP_PERM_SOUND) && !drawing && a[0] >= 200 && a[0] <= 4000 &&
          a[1] >= 10 && a[1] <= 1000)
         App_tone((uint16_t)a[0], (uint16_t)a[1]);   // Follows the Sound setting
       return 0;
@@ -414,11 +592,37 @@ static int32_t _sys(void* ctx, uint8_t sysId, const int32_t* a, bool drawing) {
     case STAPP_SYS__RANDOM:
       if(a[0] < 1 || a[0] > 65535)
         return 0;
-      return (int32_t)(_random() % (uint32_t)a[0]);
+      return (int32_t)(_random(r) % (uint32_t)a[0]);
 
     case STAPP_SYS__SAVE:
-      s_saveRequested = true;   // Written in AppHost_update(), at most once in 30 s
+      r->saveRequested = true;   // Written in AppHost_update(), at most once in 30 s
       return 0;
+
+    // The data store of the app (docs/DATA.md section 2). Rows go to flash later, in AppData_update().
+    case STAPP_SYS__LOG:
+      if(!(permissions & STAPP_PERM_DATA) || drawing)
+        return 0;
+      return AppData_log(r->slot, a) ? 1 : 0;
+
+    case STAPP_SYS__LOG_COUNT:
+      return (permissions & STAPP_PERM_DATA) ? (int32_t)AppData_rows(r->slot) : 0;
+
+    case STAPP_SYS__LOG_GET:
+      return (permissions & STAPP_PERM_DATA) ? AppData_get(r->slot, a[0], a[1]) : 0;
+
+    case STAPP_SYS__LOG_CLEAR:
+      if(!(permissions & STAPP_PERM_DATA) || drawing)
+        return 0;
+      AppData_clear(r->slot);
+      return 1;
+
+    case STAPP_SYS__BATTERY_MV:
+      if(Eeprom_read(ENTRY_ID__BATTERY_TYPE) <= BATTERY_TYPE__USB)
+        return -1;
+      return (int32_t)Battery_readVoltage();
+
+    case STAPP_SYS__BACKGROUND:
+      return (r == &s_bg) ? 1 : 0;
 
     case STAPP_SYS__REDRAW:
     default:
@@ -436,7 +640,8 @@ static bool _spend(int32_t pixels) {
     pixels = 1;
   if(pixels > s_budget) {
     s_budget = 0;
-    s_vm.error = STAPP_ERR_STEPS;
+    if(s_cur != NULL)
+      s_cur->vm.error = STAPP_ERR_STEPS;
     return false;
   }
   s_budget -= pixels;
@@ -582,8 +787,10 @@ static void _bitmap(int32_t x, int32_t y, int32_t index, int32_t color) {
   uint8_t w = 0, h = 0;
   const uint8_t* data = NULL;
 
-  if(index < 0 || index >= STAPP_MAX_BITMAPS || !Stapp_bitmap(s_package, &s_info, (uint8_t)index, &w, &h, &data)) {
-    s_vm.error = STAPP_ERR_ARG;
+  if(s_cur == NULL)
+    return;
+  if(index < 0 || index >= STAPP_MAX_BITMAPS || !Stapp_bitmap(s_cur->package, &s_cur->info, (uint8_t)index, &w, &h, &data)) {
+    s_cur->vm.error = STAPP_ERR_ARG;
     return;
   }
   if(color < 0 || color > 2 || !_spend((int32_t)w * h))
@@ -622,7 +829,9 @@ static int32_t _counter(int32_t id) {
 }
 
 // Never below 0. A GAME counter also changes its TOTAL counter, like the built-in screens.
-static int32_t _addCounter(int32_t id, int32_t delta) {
+// More game kills or deaths: an event for the background app (not for the app that adds them).
+static int32_t _addCounter(runner_t* r, int32_t id, int32_t delta) {
+  (void)r;   // s_cur is r: AppHost_counterAdded() knows the app that adds
   if(id < 0 || id >= (int32_t)(sizeof(kCounterEntries) / sizeof(kCounterEntries[0])))
     return 0;
   if(delta < -COUNTER_STEP_MAX || delta > COUNTER_STEP_MAX)
@@ -643,15 +852,19 @@ static int32_t _addCounter(int32_t id, int32_t delta) {
       value = (old <= 0xFFFFFFFFu - (uint32_t)delta) ? old + (uint32_t)delta : 0xFFFFFFFFu;
     Eeprom_write(entry, value);
   }
+  if(delta > 0 && id == 2)
+    AppHost_counterAdded(APP_HOST_COUNTER__KILLS);
+  else if(delta > 0 && id == 3)
+    AppHost_counterAdded(APP_HOST_COUNTER__DEATHS);
   return _counter(id);
 }
 
-static uint32_t _random(void) {
+static uint32_t _random(runner_t* r) {
   // xorshift32
-  uint32_t x = s_rand;
+  uint32_t x = r->rand;
   x ^= x << 13;
   x ^= x >> 17;
   x ^= x << 5;
-  s_rand = x;
+  r->rand = x;
   return x;
 }

@@ -60,6 +60,11 @@ set(FIRMWARE_SOURCES
   ${MAIN_DIR}/apps.c
   ${MAIN_DIR}/battery.c
   ${MAIN_DIR}/ble_commands.c
+  ${MAIN_DIR}/app_data.c
+  ${MAIN_DIR}/backup.c
+  ${MAIN_DIR}/data_store.c
+  ${MAIN_DIR}/device_log.c
+  ${MAIN_DIR}/start_pic.c
   ${MAIN_DIR}/eeprom.c
   ${MAIN_DIR}/gfx_fx.c
 

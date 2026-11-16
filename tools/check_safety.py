@@ -70,6 +70,20 @@ RELEASED_NVS_KEYS = [
     "low_bat",
 ]
 
+# The value lists of the settings that were released. A stored setting is the position of its value
+# in the list, and a backup file (docs/DATA.md) has these positions too. New values go at the end only.
+RELEASED_SETTING_VALUES = {
+    "COUNTER": ["TOTAL", "GAME"],
+    "BATTERY_TYPE": ["NONE", "USB", "1xRCR123A", "3.7V(1S)", "7.4V(2S)", "11.1V(3S)", "3xAA/AAA", "9.6V(NiMH)"],
+    "AUTO_OFF": ["OFF", "30 min", "1 h", "2 h", "6 h", "12 h"],
+    "SHOW_BATTERY": ["OFF", "ON"],
+    "LOW_BAT": ["OFF", "0%", "10%", "20%", "30%"],
+    "BRIGHTNESS": ["1%", "10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%", "100%"],
+    "DIM_SCREEN": ["OFF", "5 sec", "10 sec", "30 sec", "1 min", "2 min", "5 min", "10 min"],
+    "DIM_LEVEL": ["1%", "10%", "20%", "30%", "40%", "50%", "60%", "70%", "80%", "90%"],
+    "SOUND": ["OFF", "ON"],
+}
+
 # Functions that write the firmware slots or select the firmware to start. Only the update code
 # (components/ble_ota/ota.c) can use them.
 OTA_ONLY_FUNCTIONS = [
@@ -137,6 +151,10 @@ RULES = [
     ("nvs-keys",
      "The released flash value names must stay, and each name has 15 characters at most.",
      "A renamed value is lost for users (counters go to zero). A name that is too long is never stored."),
+    ("setting-values",
+     "The value lists of the released settings keep their order: a new value goes at the end only.",
+     "A setting is stored as the position of its value in the list, also in a backup file. A value in "
+     "the middle moves all values after it: the device and every backup then mean an other value."),
     ("bluetooth-identity",
      "The Bluetooth name, the update service numbers, the update command numbers and the sector size "
      "must not change. Only main/views/app_sync_view.c may give Bluetooth an other name for one start "
@@ -475,6 +493,26 @@ class Checker:
             if keys.count(key) > 1:
                 self.fail("nvs-keys", "The flash value name '%s' is in ENTRY_LIST more than one time." % key)
 
+    def check_setting_values(self):
+        text = self.read("main/app.h", "setting-values")
+        if text is None:
+            return
+        block = re.search(r"#define\s+SETTING_LIST(.*?)\n\s*\n", text, flags=re.S)
+        if not block:
+            self.fail("setting-values", "main/app.h has no SETTING_LIST.")
+            return
+        found = {}
+        pattern = r'SETTING\(\s*(\w+)\s*,.*?SETTING_STR_VALUES\(((?:\s*"[^"]*"\s*,?)*)\)'
+        for match in re.finditer(pattern, block.group(1)):
+            found[match.group(1)] = re.findall(r'"([^"]*)"', match.group(2))
+        for name, released in RELEASED_SETTING_VALUES.items():
+            values = found.get(name)
+            if values is None:
+                self.fail("setting-values", "The released setting %s is not in SETTING_LIST any more." % name)
+            elif values[:len(released)] != released:
+                self.fail("setting-values", "The values of the setting %s changed order or were removed: %s "
+                          "(released: %s). Add new values at the end only." % (name, values, released))
+
     def check_bluetooth_identity(self):
         app_ble = self.read("components/app_ble/app_ble.c", "bluetooth-identity")
         if app_ble is not None:
@@ -554,6 +592,7 @@ class Checker:
         self.check_start_sequence()
         self.check_update_views()
         self.check_nvs_keys()
+        self.check_setting_values()
         self.check_bluetooth_identity()
         return self.failures
 
