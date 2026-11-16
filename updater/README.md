@@ -141,6 +141,8 @@ link to `index.html#device`.
 
 Use these; do not write the same thing again in a page or in an added script.
 
+- **The footer** is `<footer class="footer">` (`css/main.css`) on `index.html` and on Get
+  started. The Designer is a tool that fills the window: it has none.
 - **The header** is the same on every page: the logo, the menu, the StatTrak button
   (`<div class="devbar" id="devBar"></div>`, `js/devbar.js`) and `<!-- site:meta -->`.
   `tests/site.test.js` checks that the headers are the same.
@@ -161,7 +163,10 @@ A site that is built from this folder can add its own parts (an extra tab, a sig
 its styles and scripts) without changes to these files. Each page has HTML comments at the
 places: `<!-- site:head -->` (end of `<head>`), `<!-- site:nav -->` (in the menu, after My
 device), `<!-- site:meta -->` (right side of the header), `<!-- site:body -->` (after the
-scripts); `index.html` also has `<!-- site:views -->` (after the My device view). The site works
+scripts); `index.html` also has `<!-- site:views -->` (after the My device view); `index.html`
+and `start/index.html` have `<!-- site:footer -->` (in the footer, before the TRIDOS.DESIGN link:
+a place for small links, `<a>` elements). The header has one row from 1000 px: it has room for
+one added tab and one added button. The site works
 without them: they are comments. The added scripts use:
 
 - `AppsTab.api.addTab(name, { tab, view, onShow })`: a tab at `#<name>` (also `#<name>/...`)
@@ -288,8 +293,10 @@ on a real device.
 
 ## Publish
 
-The site is a folder of static files. Vercel publishes the folder `updater/` of this repository:
+The site is a folder of static files. The public address `https://stattrak.tridos.design` is
+built from this folder by TRIDOS, with added parts ("Places for added parts"): a change here is
+on that address after TRIDOS publishes it.
 
-- A push to `main` goes to the public address `https://stattrak.tridos.design`.
-- A push to an other branch gets a preview address, which only the team can open.
+- Vercel builds the folder `updater/` of each branch of this repository as a preview address,
+  which only the team can open.
 - `.vercelignore` keeps the tests out of the published files.

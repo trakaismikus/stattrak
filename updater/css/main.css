@@ -544,7 +544,8 @@ st-device[data-press="B"] .st-dev__btn {
   display: flex; justify-content: space-between; align-items: center;
   font-size: 12px; color: var(--fg3);
 }
-.footer a { color: var(--fg2); text-decoration: none; margin-left: 16px; }
+.footer a { color: var(--fg2); text-decoration: none; }
+.footer__right a { margin-left: 16px; }
 .footer a:hover { color: var(--fg1); }
 .footer__right a.footer__brand { text-transform: uppercase; letter-spacing: 0.08em; }
 
@@ -669,6 +670,6 @@ st-device[data-press="B"] .st-dev__btn {
   .release__meta { display: none; }
   .step__body { padding-left: 20px; padding-right: 20px; }
   .footer { flex-direction: column; gap: 10px; align-items: flex-start; }
-  .footer a { margin-left: 0; margin-right: 16px; }
+  .footer__right a { margin-left: 0; margin-right: 16px; }
   .success__meta { flex-direction: column; gap: 6px; text-align: left; }
 }

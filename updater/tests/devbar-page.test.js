@@ -215,6 +215,41 @@ test("the other pages: the same StatTrak button, and it connects there (Designer
   assert.match(await page.evaluate(`document.querySelector('#devBar [data-dev="close"]').getAttribute("href")`), /^\.\.\/index\.html#device$/);
 });
 
+test("the header fits the window at every width, also with an added tab and button; the frame of Get started is not cut", { skip: SKIP }, async (t) => {
+  const page = await open(t);
+  // What a site adds at site:nav and site:meta (updater/README.md): one tab and one button
+  await page.evaluate(`(() => {
+    document.getElementById("tabApps").insertAdjacentHTML("afterend", '<a class="tab" id="tabAdded" href="#added">App store</a>');
+    document.querySelector(".site-header__meta").insertAdjacentHTML("beforeend", '<button class="devbtn" type="button">A long name</button>');
+  })()`);
+  for (const [width, height] of [[320, 700], [390, 844], [701, 900], [820, 1100], [960, 800], [1001, 800], [1100, 800], [1280, 900]]) {
+    await page.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: width < 600 });
+    const fit = await page.evaluate(`(() => { const de = document.documentElement; const m = document.querySelector(".site-header__meta").getBoundingClientRect();
+      return { page: de.scrollWidth, window: de.clientWidth, metaRight: Math.round(m.right) }; })()`);
+    assert.ok(fit.page <= fit.window, `${width} px: the page is ${fit.page} px wide`);
+    assert.ok(fit.metaRight <= fit.window, `${width} px: the buttons end at ${fit.metaRight}`);
+  }
+  // One row from 1001 px (the menu next to the logo), two rows under it
+  const rows = async (width) => {
+    await page.send("Emulation.setDeviceMetricsOverride", { width, height: 900, deviceScaleFactor: 1, mobile: false });
+    return page.evaluate(`Math.round(document.querySelector(".site-nav").getBoundingClientRect().top) > Math.round(document.querySelector(".site-header__brand").getBoundingClientRect().top) + 20 ? 2 : 1`);
+  };
+  assert.equal(await rows(1280), 1);
+  assert.equal(await rows(1001), 1);
+  assert.equal(await rows(820), 2);
+  // Get started inside this page: the frame ends at the bottom of the window (a phone has the header in two rows)
+  for (const [width, height] of [[390, 844], [820, 1100], [1280, 900]]) {
+    await page.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: width < 600 });
+    await page.evaluate('location.hash = "#start"');
+    await page.waitFor('!document.getElementById("startView").hidden && document.querySelector("#startView iframe")');
+    const box = await page.evaluate(`(() => { const r = document.getElementById("startView").getBoundingClientRect(); return { top: Math.round(r.top), bottom: Math.round(r.bottom), window: innerHeight,
+      header: Math.round(document.querySelector(".site-header").getBoundingClientRect().bottom) }; })()`);
+    assert.equal(box.bottom, box.window, `${width} px: the frame ends at ${box.bottom} of ${box.window}`);
+    assert.equal(box.top, box.header, `${width} px: the frame starts under the header`);
+    await page.evaluate('location.hash = "#firmware"');
+  }
+});
+
 test("no console on the page; the way on the device uses the shared boxes", { skip: SKIP }, async (t) => {
   const page = await open(t, {}, "#device");
   assert.equal(await page.evaluate('document.querySelectorAll("#appsMain .path-crumb").length'), 3);

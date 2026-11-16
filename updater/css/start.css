@@ -95,8 +95,6 @@
 .table td:first-child { color: var(--fg1); width: 42%; }
 .table td { color: var(--fg2); }
 
-.foot { margin-top: 20px; padding-top: 22px; border-top: 1px solid var(--stroke-1); font-size: 14px; color: var(--fg3); }
-.foot a { color: var(--fg2); }
 
 /* --- tablet and phone -------------------------------------------------------- */
 @media (max-width: 960px) {

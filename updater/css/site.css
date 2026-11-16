@@ -7,11 +7,14 @@
    index.html is the only one */
 .in-frame .site-header { display: none; }
 
-/* index.html: the frame of #start and #designer, under the header */
-.page-frame { height: calc(100vh - 65px); height: calc(100dvh - 65px); }
-.page-frame iframe { display: block; width: 100%; height: 100%; border: 0; }
-body.frame-on { overflow: hidden; }
+/* index.html: the frame of #start and #designer fills the window under the header. The header
+   has one row or two (below), so the frame takes the height that is left: a fixed "100% - 65 px"
+   cut the last 35 px of Get started on a phone. */
+body.frame-on { overflow: hidden; display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
 body.frame-on .app { display: none; }
+body.frame-on .site-header { flex: 0 0 auto; }
+.page-frame { flex: 1 1 auto; min-height: 0; }
+.page-frame iframe { display: block; width: 100%; height: 100%; border: 0; }
 
 .site-header {
   background: var(--bg);
@@ -25,9 +28,11 @@ body.frame-on .app { display: none; }
 .site-header__brand { display: flex; align-items: center; flex-shrink: 0; }
 .site-header__brand img { height: 22px; display: block; }
 .site-header__brand[aria-disabled="true"] { opacity: 0.4; cursor: not-allowed; }
-.site-header__meta { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+.site-header__meta { margin-left: auto; display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
 
-.site-nav { display: flex; gap: 4px; }
+/* The menu gives way first: a long device name or an added button never makes the page wider than the window */
+.site-nav { display: flex; gap: 4px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.site-nav::-webkit-scrollbar { display: none; }
 .site-nav .tab {
   position: relative; display: flex; align-items: center; padding: 0 12px;
   font-family: var(--font-display); font-weight: 800; font-style: italic; font-size: 18px;
@@ -42,12 +47,17 @@ body.frame-on .app { display: none; }
 .site-nav .tab[aria-disabled="true"] { opacity: 0.4; cursor: not-allowed; }
 .site-nav .tab[aria-disabled="true"]:hover { color: var(--fg3); }
 
-@media (max-width: 700px) {
-  .site-header__in { height: auto; flex-wrap: wrap; padding: 0 20px; gap: 0 16px; }
+/* Two rows on a tablet and a phone: the logo and the right side, then the menu. One row needs
+   about 1000 px when a site adds a tab and a button (updater/README.md, "Places for added parts"). */
+@media (max-width: 1000px) {
+  .site-header__in { height: auto; flex-wrap: wrap; gap: 0 16px; }
   .site-header__brand { height: 52px; }
   /* The right side stays on the logo row, so the menu is at the same place on every page */
-  .site-nav { order: 3; width: 100%; gap: 0; overflow-x: auto; margin: 0 -8px; }
+  .site-nav { order: 3; width: 100%; gap: 0; margin: 0 -8px; }
   .site-nav .tab { font-size: 16px; padding: 10px 8px 14px; }
+}
+@media (max-width: 700px) {
+  .site-header__in { padding: 0 20px; }
 }
 
 /* --- Buttons: the one button style of the whole site (all pages, also the Designer). ------------

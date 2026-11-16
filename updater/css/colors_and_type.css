@@ -17,6 +17,9 @@
 @font-face { font-family: 'JetBrains Mono'; src: url('../fonts/JetBrainsMono.woff2') format('woff2'); font-weight: 400 700; font-style: normal; font-display: swap; }
 
 :root {
+  /* The site is dark: the browser's own parts too (scroll bars, file buttons, selects) */
+  color-scheme: dark;
+
   /* ------------------------------------------------------------------
      PRIMITIVES — raw brand colors
      Device: matte black. CS2 accent: orange. HUD counter: pure white.
