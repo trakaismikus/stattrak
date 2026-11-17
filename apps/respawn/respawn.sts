@@ -126,7 +126,7 @@ bitmap reset {           # left button: back to the full time
   "..###.."
 }
 
-bitmap clock {           # the action "settings": edit the time
+bitmap timeset {         # the action "settings": edit the time
   "..###.."
   ".#.#.#."
   "#..#..#"
@@ -403,7 +403,7 @@ func draw_action(which, y) {
   if setting(hints) == 0 {
     if which == 0 { text(7, y + 3, "SET", small, c, center) } else { text(7, y + 3, "RST", small, c, center) }
   } else {
-    if which == 0 { bitmap(3, y + 2, clock, c) } else { bitmap(3, y + 2, reset, c) }
+    if which == 0 { bitmap(3, y + 2, timeset, c) } else { bitmap(3, y + 2, reset, c) }
   }
 }
 
