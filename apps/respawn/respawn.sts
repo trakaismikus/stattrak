@@ -1,7 +1,9 @@
 # RESPAWN TIMER: the wait at the respawn point, in big digits.
 #   Right button: start / pause.
-#   Left button (paused): back to the full time.
-#   Hold left (not while it runs): edit the time, H:MM:SS. In the edit: press right = +1,
+#   While the time runs, the left side is a bar of the time left. While it does not run, the left
+#   side has two actions: settings (top) and reset (bottom). Press left = select the other one,
+#   hold left = do the selected one. Reset = back to the full time. Settings = edit the time,
+#   H:MM:SS. In the edit: press right = +1,
 #   press left = -1, hold right = next digit, hold left = digit before. The last place is the
 #   check mark: a press there saves the time. 10 s without a button saves it too.
 #   Time is up: the screen flashes, a chime plays again and again, until you press a button.
@@ -9,12 +11,12 @@
 #   comes back on the screen when the time is up (firmware 1.2.0-b3 or newer).
 
 app "RESPAWN TIMER"
-version 2
+version 3
 description "The wait at the respawn point in big digits. Start and pause with the right button. Flashes and chimes when you can go."
 picture icon runfast "RESPAWN"   # the running man of the GO screen, small, with speed lines
 permission sound, awake, background
 
-setting hints "LEFT HINTS" "WORDS" "ICONS"
+setting hints "LEFT HINTS" "WORDS" "ICONS" default "ICONS"
 setting warning "BG WARNING" "ON" "OFF"
 
 bitmap runfast {         # the title picture (also usable in the code)
@@ -52,6 +54,7 @@ var editing = 0
 var cursor = 0          # 0 = H, 1 and 2 = minutes, 3 and 4 = seconds, 5 = the check mark
 var value = 0           # the time in the edit, in seconds
 var last_input = 0
+var sel = 0             # the selected action on the left: 0 = settings (top), 1 = reset (bottom)
 var entry_hold = 0      # 1 = the hold that started the edit (or stopped the alarm) is still down
 
 bitmap go {
@@ -199,6 +202,7 @@ func done_edit() {
   }
   state = READY
   remain = total * 1000
+  sel = 0
   sound(1500)
 }
 
@@ -214,6 +218,7 @@ func closes() {
   if state == ALARM {
     state = READY
     remain = total * 1000
+    sel = 0
     sound(800)
     return 1
   }
@@ -232,10 +237,9 @@ on press1 {
   if editing {
     last_input = time()
     if cursor == 5 { done_edit() } else { change(-1) }
-  } else if state == PAUSED {
-    state = READY
-    remain = total * 1000
-    sound(600)
+  } else if state != RUNNING {
+    sel = 1 - sel              # The other action on the left
+    sound(800)
   }
 }
 
@@ -247,6 +251,7 @@ on press2 {
   } else if state == RUNNING {
     remain = rest()
     state = PAUSED
+    sel = 1                    # Paused: reset is selected first
     sound(1000)
   } else {
     end_at = time() + remain
@@ -263,7 +268,19 @@ on long1 {
     cursor = (cursor + 5) % 6
     sound(800)
   } else if state != RUNNING {
-    start_edit()
+    if sel == 0 {
+      start_edit()
+    } else {
+      entry_hold = 1           # The repeats of this hold do nothing
+      if state == PAUSED {
+        state = READY
+        remain = total * 1000
+        sel = 0
+        sound(600)
+      } else {
+        sound(300)             # Already the full time
+      }
+    }
   }
 }
 
@@ -376,6 +393,20 @@ func draw_warning() {
   text(117, 25, "OK", small, off, center)
 }
 
+# One action of the left side at the top y of its box: 0 = settings, 1 = reset
+func draw_action(which, y) {
+  var c = on
+  if sel == which {
+    fill(1, y, 11, 11, on)
+    c = off
+  }
+  if setting(hints) == 0 {
+    if which == 0 { text(7, y + 3, "SET", small, c, center) } else { text(7, y + 3, "RST", small, c, center) }
+  } else {
+    if which == 0 { bitmap(3, y + 2, gear, c) } else { bitmap(3, y + 2, reset, c) }
+  }
+}
+
 on draw {
   if warn { draw_warning(); return }
   if editing { draw_edit(); return }
@@ -387,23 +418,16 @@ on draw {
     clock(15, (ms + 999) / 1000)
   }
 
-  # Left: the time that is left, as a bar that empties (only after the start)
-  if state != READY {
-    var h = 12 * ms / max(total * 1000, 1)
-    rect(3, 8, 7, 16, on)
-    fill(5, 22 - h, 3, h, on)
-  }
-
-  # The buttons, only while the time does not run. Left: RST = a short press, SET = hold.
-  # Right: start (the play icon).
-  if state != RUNNING {
-    if setting(hints) == 0 {
-      text(7, 1, "RST", small, on, center)
-      text(7, 26, "SET", small, on, center)
-    } else {
-      bitmap(3, 0, reset, on)
-      bitmap(3, 25, gear, on)
-    }
+  if state == RUNNING {
+    # Left: the time that is left, as a bar of the full height that empties. No actions.
+    var h = 28 * ms / max(total * 1000, 1)
+    rect(3, 0, 7, 32, on)
+    fill(5, 30 - h, 3, h, on)
+  } else {
+    # Left: the two actions, no bar. The selected one is white (hold left = do it).
+    draw_action(0, 0)
+    draw_action(1, 21)
+    # Right: start (the play icon)
     var i = 0
     while i < 6 {
       vline(119 + i, 10 + i, 11 - 2 * i, on)

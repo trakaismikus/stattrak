@@ -72,8 +72,8 @@
     {
       "id": "481e340b",
       "name": "RESPAWN TIMER",
-      "version": 2,
-      "size": 2753,
+      "version": 3,
+      "size": 2897,
       "permissions": [
         "sound",
         "awake",
@@ -89,7 +89,7 @@
             "WORDS",
             "ICONS"
           ],
-          "default": 0
+          "default": 1
         },
         {
           "name": "BG WARNING",

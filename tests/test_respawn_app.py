@@ -73,7 +73,12 @@ class RespawnTest(BackgroundTestCase):
         self.dev.click(2)                    # The background app shows no warning: this starts it
         self.dev.click(2)                    # Pause
         self.assertNotEqual(self.dev.frame(), before)
-        self.dev.click(1)                    # Back to the full time
+        paused = self.dev.frame()
+        self.dev.click(1)                    # Paused: reset was selected; now settings is
+        left = lambda frame: [row[:13] for row in frame[0:11]]      # The top action (not the digits)
+        self.assertNotEqual(left(self.dev.frame()), left(paused))   # It is white now
+        self.dev.click(1)                    # Reset is selected again: a short press does no reset
+        self.dev.long_press(1)               # Hold: reset = back to the full time, settings selected
         self.set_five_seconds()
         self.dev.click(2)                    # Start
         self.go_to_view("KILL_DEAD")
