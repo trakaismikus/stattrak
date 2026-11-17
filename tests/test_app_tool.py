@@ -615,6 +615,63 @@ class Pictures(unittest.TestCase):
                 handle.write('app "PNG"\npicture bitmap "p.png"\n')
             self.assertEqual(app.compile_file(os.path.join(folder, "a.sts"))["picture"], rows)
 
+    def test_a_whole_picture_drawn_in_the_source(self):
+        # picture { ... }: 80 x 24 rows of # and . (a frame with a cross), exactly as written
+        rows = ["#" * 80] + ["#" + ("#" if y == 11 else ".") * 78 + "#" for y in range(1, 23)] + ["#" * 80]
+        rows = [row[:39] + "##" + row[41:] if 0 < y < 23 else row for y, row in enumerate(rows)]
+        source = 'app "OWN"\npicture {\n%s}\n' % "".join('  "%s"\n' % row for row in rows)
+        result = compile_text(source)
+        self.assertEqual(result["picture"], rows)
+        self.assertEqual(app.bitmap_to_rows(app.package_parts(result["package"])["picture"], 80, 24), rows)
+        self.assertEqual(result["info"]["bitmap_count"], 0)     # not a bitmap of the code
+
+    def test_a_smaller_picture_is_in_the_middle(self):
+        rows = compile_text('app "OWN"\npicture { "###" "#.#" "###" }\n')["picture"]
+        self.assertEqual(rows[10][38:41], "###")
+        self.assertEqual(rows[11][38:41], "#.#")
+        self.assertEqual(rows[12][38:41], "###")
+        self.assertEqual(sum(row.count("#") for row in rows), 8)
+
+    def test_an_icon_drawn_in_the_source(self):
+        # picture icon NAME "TEXT" with a bitmap of the source: the same layout as a built-in icon.
+        # The bitmap can come after the picture line.
+        ship = ["#........", "###......", "#######..", "#########", "#######..", "###......", "#........"]
+        bitmap = "bitmap ship {\n%s}\n" % "".join('  "%s"\n' % row for row in ship)
+        rows = compile_text('app "SHIP"\npicture icon ship "SHIP"\n' + bitmap)["picture"]
+        self.assertEqual(rows, app.picture_rows("icon", "ship", ["SHIP"], own_icons={"ship": ship}))
+        text_w = app.design.text_width(app._assets()["font_by_name"]["big"], "SHIP")
+        x0 = (80 - (9 + 5 + text_w) + 1) // 2
+        y0 = (24 - 7 + 1) // 2
+        for y, row in enumerate(ship):
+            self.assertEqual(rows[y0 + y][x0:x0 + 9], row)
+        self.assertIn("#", rows[9][x0 + 14:x0 + 14 + text_w])      # the text after the icon
+        two = compile_text('app "SHIP"\npicture icon ship "SPACE" "SHIP"\n' + bitmap)["picture"]
+        self.assertEqual(two, app.picture_rows("icon", "ship", ["SPACE", "SHIP"], own_icons={"ship": ship}))
+
+    def test_a_built_in_icon_wins_over_a_bitmap_with_its_name(self):
+        # Old sources keep their picture: a bitmap named like a built-in icon does not replace it
+        source = 'app "R"\npicture icon target "R"\nbitmap target { "#" }\n'
+        self.assertEqual(compile_text(source)["picture"], app.picture_rows("icon", "target", ["R"]))
+
+    def test_errors_of_an_own_picture(self):
+        def error(source):
+            with self.assertRaises(app.AppError) as context:
+                compile_text(source)
+            return str(context.exception)
+        self.assertIn("80 x 24 at most", error('app "E"\npicture { "%s" }\n' % ("#" * 81)))
+        self.assertIn("80 x 24 at most", error('app "E"\npicture { %s }\n' % ('"#" ' * 25)))
+        self.assertIn("same length", error('app "E"\npicture { "##" "#" }\n'))
+        self.assertIn("same length", error('app "E"\npicture { "#x" }\n'))
+        self.assertIn("same length", error('app "E"\npicture { }\n'))
+        self.assertIn("one time only", error('app "E"\npicture { "#" }\npicture text "E"\n'))
+        message = error('app "E"\npicture icon nothing "E"\n')
+        self.assertIn("line 2", message)
+        self.assertIn("no icon", message)
+        self.assertIn("bitmap of this source", message)
+        tall = '"#" ' * 25
+        self.assertIn("24 is the most", error('app "E"\npicture icon big "E"\nbitmap big { %s }\n' % tall))
+        self.assertIn("80 is the most", error('app "E"\npicture icon w "E"\nbitmap w { "%s" }\n' % ("#" * 76)))
+
     def test_every_icon_fits(self):
         for name in app_icons.ICONS:
             with self.subTest(icon=name):
