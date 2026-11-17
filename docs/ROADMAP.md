@@ -60,6 +60,11 @@ This repository (`trakaismikus/stattrak`) is private until these are done:
 
 ## Shipped
 
+- **2026-11-17: your own title picture for an app.** A script can draw the whole 80 x 24 title
+  picture as rows (`picture { "#..#" ... }`), or put its own `bitmap` next to the name
+  (`picture icon NAME "TEXT"`). Both are in the `.sts` source, so an app store that takes only the
+  source can show them. No firmware change: the package always held the picture as pixels. Old
+  scripts build to the same bytes (`tools/app.py`, docs/APPS.md section 7.4).
 - **2026-11-16: a favicon for the web site.** A black leaning S on the StatTrak orange, in the
   browser tab of every page (`updater/favicon.svg`; `favicon.ico` and `apple-touch-icon.png` are
   made from it by `node tests/make-favicon.js`).

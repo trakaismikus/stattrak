@@ -359,7 +359,7 @@ An answer has no length field: a name (NAME) ends at its first 0 byte.
 app "ROUND TIMER"
 version 1
 description "Times each round of a game."   # one line for the web updater
-picture icon stopwatch "ROUND" "TIMER"     # or: picture icon <name> "TEXT", or picture bitmap "file.png"
+picture icon stopwatch "ROUND" "TIMER"     # or: picture icon <name> "TEXT", picture { "#..#" ... }, picture bitmap "file.png"
 permission sound
 
 setting length "ROUND TIME" "1:00" "1:30" "2:00" "3:00" default 1
@@ -403,10 +403,11 @@ Each of these is one line. `#` starts a comment until the end of the line.
 | `version N` | 0 to 65535. Default 1. |
 | `id 0x1234ABCD` | The app id. Default: made from the name (section 3.3). Not 0 .. 255, not 0xFFFFFFFF. |
 | `description "TEXT"` | One line (at most 120 characters) for the web updater. Not in the package. Needed for `catalog`. |
-| `picture icon NAME "TEXT"` | Title picture: an icon and one text in the title font (section 7.4). |
+| `picture icon NAME "TEXT"` | Title picture: an icon and one text in the title font (section 7.4). `NAME` is a built-in icon, or a `bitmap` of this script (your own icon, at most 24 rows high). |
 | `picture icon NAME "LINE 1" "LINE 2"` | An icon and two lines in the 5x5 font. |
 | `picture text "TEXT"` / `picture text "LINE 1" "LINE 2"` | Text only, in the middle. |
-| `picture bitmap "file.png"` | A PNG file (next to the script), at most 80 x 24, in the middle. A pixel is on if it is light and not transparent. |
+| `picture { "#..#" "...." }` | Your own title picture, drawn in the script: rows of `#` (on) and `.` (off), all of the same length, at most 80 x 24, in the middle. 80 x 24 fills the whole picture (section 7.4). |
+| `picture bitmap "file.png"` | A PNG file (next to the script), at most 80 x 24, in the middle. A pixel is on if it is light and not transparent. An app store takes only the `.sts` file, so for a shared app draw the picture in the script (`picture { ... }`). |
 | `permission counters` / `permission sound` / `permission counters, sound` | The permissions: `counters`, `sound`, `awake` ([DATA.md](DATA.md) section 6), `background` (section 4.6). A call that needs a missing permission is a compile error. |
 | `setting KEY "NAME" "VALUE" "VALUE" ... [default N or "VALUE"]` | A setting (2 to 6 values). `KEY` is the name in the script: `setting(KEY)`. `default` is the number of the value (0 = the first, the default) or the value text. |
 | `const NAME = N` | A fixed number. |
@@ -467,6 +468,35 @@ drawing call in a handler other than `draw` is a note (it does nothing there).
   aligned after the icon.
 - Text only (no icon): each line in the middle.
 - Wider than 80 pixels: a compile error.
+- `picture { ... }` and `picture bitmap`: exactly these pixels, in the middle. No text is added.
+
+The package holds the picture as 240 bytes of pixels, so the firmware shows any picture: the
+picture lines above only decide which pixels go there. Make the picture show what the app is.
+Two ways to draw your own:
+
+```
+# 1. Your own icon next to the name (the same layout as the built-in icons)
+picture icon ship "BLASTER"
+bitmap ship {                # also usable in the code: bitmap(x, y, ship, on)
+  "#........"
+  "###......"
+  "#######.."
+  "#########"
+  "#######.."
+  "###......"
+  "#........"
+}
+
+# 2. The whole picture: up to 24 rows of up to 80 characters
+picture {
+  "................................................................................"
+  "...######...........######.........#######.......######......######............."
+  ...
+}
+```
+
+A built-in icon name (table below) always means the built-in icon, also when the script has a
+bitmap with that name. See the result with `python tools/app.py picture FILE.sts`.
 
 Icons for `picture icon NAME` (pixel art in `tools/app_icons.py`; the first five are the icons of
 the firmware):

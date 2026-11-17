@@ -585,27 +585,42 @@ def write_png(path, rows, scale=4):
         handle.write(png)
 
 
-def picture_rows(kind, icon=None, lines=(), path=None):
+def picture_rows(kind, icon=None, lines=(), path=None, rows=None, own_icons=None):
     """The 80 x 24 title picture as 24 rows of 80 characters.
 
     kind "icon": the icon and 1 or 2 lines of text (the rule of the app menu, docs/APPS.md 7.4).
-    kind "text": 1 or 2 lines of text only. kind "bitmap": a PNG file, at most 80 x 24, centered."""
+    The icon is a built-in icon, or else a bitmap of the source (own_icons: name -> rows).
+    kind "text": 1 or 2 lines of text only. kind "bitmap": a PNG file, at most 80 x 24, centered.
+    kind "rows": rows of '#' and '.' from the source (picture { ... }), at most 80 x 24, centered."""
     frame = design.Frame(_assets())
     lines = [line.upper() for line in lines]
-    if kind == "bitmap":
-        rows = _read_png(path)
+    if kind in ("bitmap", "rows"):
+        what = "The picture"
+        if kind == "bitmap":
+            rows = _read_png(path)
+            what = "The picture %s" % path
+        if (not rows or len(set(len(row) for row in rows)) != 1
+                or any(not re.fullmatch(r"[#.]+", row) for row in rows)):
+            raise AppError("The picture is 1 to 24 rows of the same length (1 to 80), with # (on) and . (off).")
         if len(rows) > PICTURE_H or len(rows[0]) > PICTURE_W:
-            raise AppError("The picture %s has %d x %d pixels. It can have 80 x 24 at most."
-                           % (path, len(rows[0]), len(rows)))
+            raise AppError("%s has %d x %d pixels. It can have 80 x 24 at most."
+                           % (what, len(rows[0]), len(rows)))
         frame.rows((PICTURE_W - len(rows[0])) // 2, (PICTURE_H - len(rows)) // 2, rows, 1)
         return [row[:PICTURE_W] for row in frame.lines()[:PICTURE_H]]
 
     fonts = _assets()["font_by_name"]
     if kind == "icon":
-        if icon not in app_icons.ICONS:
-            raise AppError("There is no icon %r. Icons: %s." % (icon, ", ".join(sorted(app_icons.ICONS))))
-        icon_rows = app_icons.ICONS[icon]
-        icon_w, icon_h = app_icons.size(icon)
+        if icon in app_icons.ICONS:      # a built-in icon wins, so old sources keep their picture
+            icon_rows = app_icons.ICONS[icon]
+            icon_w, icon_h = app_icons.size(icon)
+        elif own_icons and icon in own_icons:
+            icon_rows = own_icons[icon]
+            icon_w, icon_h = len(icon_rows[0]), len(icon_rows)
+            if icon_h > PICTURE_H:
+                raise AppError("The icon %s is %d pixels high; 24 is the most for the title picture." % (icon, icon_h))
+        else:
+            raise AppError("There is no icon %r. Use a bitmap of this source, or one of the icons: %s."
+                           % (icon, ", ".join(sorted(app_icons.ICONS))))
     else:
         icon_rows, icon_w, icon_h = None, 0, 0
     if len(lines) not in (1, 2):
@@ -714,7 +729,7 @@ class Program:
         self.version = 1
         self.app_id = None
         self.description = ""
-        self.picture = None        # (kind, icon, lines, path, line)
+        self.picture = None        # (kind, icon, lines, path or rows, line)
         self.permissions = 0
         self.columns = []          # the names of the data columns (the `data` line)
         self.settings = []         # (key, name, values, default, line)
@@ -855,12 +870,15 @@ class Parser:
     def top_picture(self, program, line):
         if program.picture is not None:
             self.error(line, "\"picture\" can be there one time only.")
-        token = self.expect("name", "icon, text or bitmap")
+        if self.is_op("{"):
+            # The whole title picture, drawn in the source: rows of # and . (at most 80 x 24)
+            program.picture = ("rows", None, [], self.rows_block("a row of the picture in quotes (# = on, . = off)"), line)
+            return
+        token = self.expect("name", "icon, text, bitmap or {")
         kind = token[1]
         if kind == "icon":
-            icon = self.expect("name", "the name of the icon")[1]
-            if icon not in app_icons.ICONS:
-                self.error(line, "there is no icon \"%s\". Icons: %s." % (icon, ", ".join(sorted(app_icons.ICONS))))
+            # A built-in icon, or a bitmap of this source (the compiler checks the name at the end)
+            icon = self.expect("name", "the name of the icon or of a bitmap")[1]
             lines = self.strings()
             program.picture = ("icon", icon, lines, None, line)
         elif kind == "text":
@@ -869,9 +887,20 @@ class Parser:
             path = self.expect("string", "the PNG file, in quotes,")[1]
             program.picture = ("bitmap", None, [], os.path.join(self.base_dir, path), line)
         else:
-            self.error(line, "after picture comes icon, text or bitmap.")
+            self.error(line, "after picture comes icon, text, bitmap or { rows }.")
         if kind != "bitmap" and len(program.picture[2]) not in (1, 2):
             self.error(line, "the picture needs 1 or 2 texts in quotes.")
+
+    def rows_block(self, what):
+        """{ "row" "row" ... }: the rows of a bitmap or of the title picture"""
+        self.expect_op("{")
+        rows = []
+        while True:
+            self.skip_newlines()
+            if self.is_op("}"):
+                self.take()
+                return rows
+            rows.append(self.expect("string", what)[1])
 
     def strings(self):
         out = []
@@ -949,14 +978,7 @@ class Parser:
             path = os.path.join(self.base_dir, self.take()[1])
             rows = _read_png(path)
         else:
-            self.expect_op("{")
-            rows = []
-            while True:
-                self.skip_newlines()
-                if self.is_op("}"):
-                    self.take()
-                    break
-                rows.append(self.expect("string", "a row of the bitmap in quotes (# = on, . = off)")[1])
+            rows = self.rows_block("a row of the bitmap in quotes (# = on, . = off)")
         if (not rows or any(not re.fullmatch(r"[#.]+", row) for row in rows)
                 or len(set(len(row) for row in rows)) != 1 or len(rows[0]) > 128 or len(rows) > 32):
             self.error(line, "a bitmap is 1 to 32 rows of the same length (1 to 128), with # (on) and . (off).")
@@ -1687,8 +1709,12 @@ def compile_source(source, filename="app.sts", base_dir="."):
         rows = picture_rows("text", lines=[name])
     else:
         kind, icon, lines, path, picture_line = program.picture
+        own_icons = {key: rows_ for key, rows_, _ in program.bitmaps}
         try:
-            rows = picture_rows(kind, icon, lines, path)
+            if kind == "rows":
+                rows = picture_rows("rows", rows=path)
+            else:
+                rows = picture_rows(kind, icon, lines, path, own_icons=own_icons)
         except AppError as error:
             raise AppError("%s, line %d: %s" % (filename, picture_line, error))
 
