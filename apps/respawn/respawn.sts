@@ -13,30 +13,11 @@
 app "RESPAWN TIMER"
 version 3
 description "The wait at the respawn point in big digits. Start and pause with the right button. Flashes and chimes when you can go."
-picture icon runfast "RESPAWN"   # the running man of the GO screen, small, with speed lines
+picture icon stopwatch "RESPAWN" "TIMER"
 permission sound, awake, background
 
 setting hints "LEFT HINTS" "WORDS" "ICONS" default "ICONS"
 setting warning "BG WARNING" "ON" "OFF"
-
-bitmap runfast {         # the title picture (also usable in the code)
-  "................###..."
-  "...............#####.."
-  "...............#####.."
-  "................###..."
-  "...............###...."
-  ".####.......######.##."
-  "...........##.#######."
-  "..........##..####...."
-  "#####.........###....."
-  "..............###....."
-  ".............#####...."
-  "............##...##..."
-  ".###...#...##.....##.."
-  ".......#####.....##..."
-  "........###......##..."
-  ".................###.."
-}
 
 saved total = 600       # the respawn time in seconds (10:00 at the first start)
 
