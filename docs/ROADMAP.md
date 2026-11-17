@@ -60,6 +60,16 @@ This repository (`trakaismikus/stattrak`) is private until these are done:
 
 ## Shipped
 
+- **2026-11: RESPAWN TIMER and `popup()` (firmware 1.2.0-b3).** A new app for the wait at the
+  respawn point: big digits (MM:SS, or H:MM:SS from 1 hour), right button start / pause, left
+  button back to the full time, hold left to edit the time (arrows, a check mark), a bar of the
+  time left, hints for the left button as words or icons (app setting). When the time is up the
+  screen flashes GO! with a running man and a chime plays until a button is pressed. It warns
+  when it is not the background app. Engine version 3: the call `popup()` lets the background app
+  come on the screen over a counter screen or an other app (never over the menu, the settings,
+  the update mode or a warning), and makes the screen bright (`main/views/app_host_view.c`;
+  docs/APPS.md section 4.6). Not tried on a device yet.
+
 - **2026-11-16: a favicon for the web site.** A black leaning S on the StatTrak orange, in the
   browser tab of every page (`updater/favicon.svg`; `favicon.ico` and `apple-touch-icon.png` are
   made from it by `node tests/make-favicon.js`).

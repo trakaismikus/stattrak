@@ -70,6 +70,38 @@
       "settings": []
     },
     {
+      "id": "481e340b",
+      "name": "RESPAWN TIMER",
+      "version": 1,
+      "size": 2730,
+      "permissions": [
+        "sound",
+        "awake",
+        "background"
+      ],
+      "description": "The wait at the respawn point in big digits. Start and pause with the right button. Flashes and chimes when you can go.",
+      "file": "respawn.stapp",
+      "picture": "AAAAAAAAAAAAAAAAgIBAUHBQQICAwAAAAAAAAAAAwEBAQMAAwEBAQEAAwEBAQEAAwEBAQMAAwEBAQMAAwAAAAMAAwIAAAMAAAAAAAAAAAAAAAAAAAAAAAAD4BgEAAAAAPyAgIAABBvgAAAAAAAAnIeMlJQAnJeUlJADlRYVF5wDnoaGhIQDnoaGh5wADBAIEAwAHAAECBwAAAAAAAAAAAAAAAAAAAAAAAAADBAgIEBAQEBAICAQDAAAAAAAAAAAAAwAAAAICAwICAAMAAAADAAMCAgICAAMAAQICAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "settings": [
+        {
+          "name": "LEFT HINTS",
+          "values": [
+            "WORDS",
+            "ICONS"
+          ],
+          "default": 0
+        },
+        {
+          "name": "BG WARNING",
+          "values": [
+            "ON",
+            "OFF"
+          ],
+          "default": 0
+        }
+      ]
+    },
+    {
       "id": "cc78e229",
       "name": "ROUND TIMER",
       "version": 1,

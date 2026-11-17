@@ -15,7 +15,8 @@
 #include <stdbool.h>
 
 /* > Defines **************************************************************************************/
-#define STAPP_ENGINE_VERSION      2     // 2: log(), log_count(), log_get(), log_clear(), battery_mv(), background()
+#define STAPP_ENGINE_VERSION      3     // 2: log(), log_count(), log_get(), log_clear(), battery_mv(), background()
+                                        // 3: popup()
 #define STAPP_FORMAT_VERSION      3     // The newest package format that the engine reads (1, 2 or 3)
 
 #define STAPP_HEADER_SIZE         48
@@ -105,6 +106,7 @@ typedef enum stapp_sys_e {
   STAPP_SYS__LOG_CLEAR = 29,
   STAPP_SYS__BATTERY_MV = 30,
   STAPP_SYS__BACKGROUND = 31,   // 1 = this app is the background app (Settings > Background)
+  STAPP_SYS__POPUP = 32,        // Engine 3: the background app asks to come on the screen (docs/APPS.md 4.6)
 } stapp_sys_t;
 
 // Result of Stapp_check() and Stapp_run(). Values are stable: the web page shows them.

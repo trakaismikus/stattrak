@@ -20,7 +20,7 @@ typedef struct sys_def_s {
 } sys_def_t;
 
 /* > Local Variables ******************************************************************************/
-#define SYS_TABLE_SIZE  32
+#define SYS_TABLE_SIZE  33
 
 static const sys_def_t kSys[SYS_TABLE_SIZE] = {
   [STAPP_SYS__PIXEL]       = { 3, 0 },
@@ -51,6 +51,7 @@ static const sys_def_t kSys[SYS_TABLE_SIZE] = {
   [STAPP_SYS__LOG_CLEAR]   = { 0, STAPP_PERM_DATA },
   [STAPP_SYS__BATTERY_MV]  = { 0, 0 },
   [STAPP_SYS__BACKGROUND]  = { 0, 0 },
+  [STAPP_SYS__POPUP]        = { 0, STAPP_PERM_BACKGROUND },
 };
 
 /* > Function Definitions *************************************************************************/

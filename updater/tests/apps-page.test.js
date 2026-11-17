@@ -110,7 +110,7 @@ test("connect: the apps of the device in menu order, SETTINGS last, the storage 
   // Installed apps are not in the catalog; the others are, with their permissions.
   // The catalog loads by itself: on a slow computer it can come after the device list.
   await page.waitFor(`document.querySelectorAll(".cat").length > 0`);
-  assert.deepEqual(await texts(page, ".cat .row__name"), ["BATTERY LOG", "CLIP MARKS", "HEADSHOT %", "REACTION", "RUNNER", "SLOTS", "WALLPAPER"]);
+  assert.deepEqual(await texts(page, ".cat .row__name"), ["BATTERY LOG", "CLIP MARKS", "HEADSHOT %", "REACTION", "RESPAWN TIMER", "RUNNER", "SLOTS", "WALLPAPER"]);
   // The name of the device at the top (no version), a pencil for the Bluetooth name
   assert.equal(await page.evaluate(`document.querySelector(".status__dev").textContent`), "StatTrak");
   await act(page, '[data-act="name-edit"]');

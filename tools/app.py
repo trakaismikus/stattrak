@@ -37,7 +37,8 @@ import design  # noqa: E402
 
 # --- Limits and numbers (the same as components/stapp/stapp.h) ------------------------------------
 
-ENGINE_VERSION = 2     # 2: log(), log_count(), log_get(), log_clear(), battery_mv(), background()
+ENGINE_VERSION = 3     # 2: log(), log_count(), log_get(), log_clear(), battery_mv(), background()
+                       # 3: popup()
 FORMAT_VERSION = 3     # The newest format. Format 3 only for an app with data columns, "awake",
                        # "background", kill / death or an engine 2 call; format 2 only for down1 / down2;
                        # all other packages stay format 1.
@@ -87,6 +88,7 @@ MAX_COLUMNS = 4          # Format 3: data columns (header byte 37)
 COLUMN_NAME_LEN = 12
 DATA_APP_VALUES = 1024   # The store of one app: 4096 bytes (the firmware also has 8192 for all apps)
 SYS_ENGINE2 = (26, 27, 28, 29, 30, 31)
+SYS_ENGINE3 = (32,)
 
 EVENTS = ("open", "draw", "press1", "press2", "long1", "long2", "tick", "close", "down1", "down2",
           "kill", "death")
@@ -163,6 +165,7 @@ SYSCALLS = {
     29: ("log_clear", (), PERM_DATA, False),
     30: ("battery_mv", (), 0, False),
     31: ("background", (), 0, False),
+    32: ("popup", (), PERM_BACKGROUND, False),
 }
 SYS_BY_NAME = {value[0]: key for key, value in SYSCALLS.items()}
 SYS_TEXT = SYS_BY_NAME["text"]
@@ -1124,6 +1127,7 @@ class Compiler:
         self.global_names = {}     # slot -> name (for the disassembly)
         self.used_permissions = {}
         self.engine2 = False       # a call of engine version 2: the package is format 3
+        self.engine3 = False       # a call of engine version 3 (popup()): format 3, engine 3
         # The data column names are the first strings (docs/DATA.md section 6)
         for column in program.columns:
             self.strings.append(column)
@@ -1258,6 +1262,8 @@ class Compiler:
             _, arg_names, permission, draws = SYSCALLS[sys_id]
             if sys_id in SYS_ENGINE2:
                 self.engine2 = True
+            if sys_id in SYS_ENGINE3:
+                self.engine3 = True
             if name == "log":
                 columns = len(self.program.columns)
                 if not columns:
@@ -1565,7 +1571,7 @@ class Compiler:
         handlers = [offsets[handler_labels[event]] if event in handler_labels else NO_HANDLER for event in EVENTS]
         return {
             "code": code, "handlers": handlers, "global_count": global_count, "saved_count": saved_count,
-            "strings": list(self.strings), "warnings": self.warnings, "engine2": self.engine2,
+            "strings": list(self.strings), "warnings": self.warnings, "engine2": self.engine2, "engine3": self.engine3,
             "global_names": {slot: "/".join(names) if isinstance(names, list) else names
                              for slot, names in self.global_names.items()},
         }
@@ -1621,7 +1627,7 @@ def assemble_package(name, app_id, version, permissions, picture, handlers, sett
     an engine 2 call (`engine_version` 2); format 2 only if the app has a down1 or down2 handler:
     other packages stay format 1, so that older firmware can install them."""
     if format_version is None:
-        if columns or permissions & ~PERM_V2 or engine_version == 2 or                 any(offset != NO_HANDLER for offset in handlers[HANDLERS_V2:]):
+        if columns or permissions & ~PERM_V2 or (engine_version or 1) >= 2 or                 any(offset != NO_HANDLER for offset in handlers[HANDLERS_V2:]):
             format_version = 3
         elif any(offset != NO_HANDLER for offset in handlers[HANDLERS_V1:HANDLERS_V2]):
             format_version = 2
@@ -1697,7 +1703,7 @@ def compile_source(source, filename="app.sts", base_dir="."):
     package = assemble_package(name, program.app_id or make_app_id(name), program.version, program.permissions,
                                picture_bytes(rows), result["handlers"], settings, result["strings"], bitmaps,
                                result["code"], result["global_count"], result["saved_count"],
-                               engine_version=2 if result["engine2"] else None, columns=len(program.columns))
+                               engine_version=3 if result["engine3"] else 2 if result["engine2"] else None, columns=len(program.columns))
     if len(package) > MAX_SIZE:
         raise AppError("%s: the package has %d bytes; %d is the most." % (filename, len(package), MAX_SIZE))
     status, info = check(package)
@@ -1827,6 +1833,7 @@ class Machine:
         self.battery = 80
         self.battery_mv = 3900
         self.background = False    # true: the app runs as the background app (Settings > Background)
+        self.popups = 0            # calls of popup()
         self.data = []             # the rows of the data store (docs/DATA.md section 2)
         self.data_capacity = DATA_APP_VALUES
         self.random = random.Random(seed)
@@ -2018,6 +2025,10 @@ class Machine:
             return self.battery_mv if self.battery >= 0 else -1
         if name == "background":
             return 1 if self.background else 0
+        if name == "popup":
+            # The preview always shows the app: it is on the screen (the firmware gives 1 then)
+            self.popups += 1
+            return 1
         columns = self.parts["columns"]
         if name == "log":
             # Full = stop. Not in draw (the firmware writes the rows later, never while it draws).
