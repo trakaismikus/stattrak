@@ -49,6 +49,26 @@ class SampleAppsTest(AppTestCase):
                 package = compiled(name)["package"]
                 self.assertEqual(app.check(package)[0], 0)
 
+    def test_the_menu_shows_a_picture_drawn_in_the_source(self):
+        # picture { ... } in the source: the app menu of the firmware shows exactly these pixels
+        rows = ["#" * 80] + ["#" + "".join("#" if (x + y) % 7 == 0 else "." for x in range(78)) + "#"
+                             for y in range(1, 23)] + ["#" * 80]
+        source = 'app "OWN PICTURE"\npicture {\n%s}\non draw { text(0, 0, "HI", text, on, left) }\n' % (
+            "".join('  "%s"\n' % row for row in rows))
+        package = app.compile_source(source, "own.sts")["package"]
+        result = self.install(package)
+        self.assertEqual(result["state"], INSTALLED, result)
+        self.leave_sync()
+        self.dev.click_both()
+        for _ in range(12):
+            if self.dev.state()["launcher_app"] == app_id(package):
+                break
+            self.dev.click(2)
+        self.assertEqual(self.dev.state()["launcher_app"], app_id(package))
+        self.dev.run(400)
+        frame = self.dev.frame()
+        self.assertEqual([row[24:104] for row in frame[2:26]], rows)   # 80 x 24 at (24, 2)
+
     def test_runner_plays_and_ends(self):
         package = compiled("runner")["package"]
         self.install_and_open(package)
