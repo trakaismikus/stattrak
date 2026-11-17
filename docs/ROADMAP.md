@@ -60,6 +60,11 @@ This repository (`trakaismikus/stattrak`) is private until these are done:
 
 ## Shipped
 
+- **2026-11-18: RESPAWN TIMER 3, the official app.** The left side is a full-height bar of the time
+  left while the time runs, and two actions when it is stopped: a clock icon (edit the time) on
+  top, a reset icon below. A short press on the left button selects an action, a hold does it.
+  The title picture is a stopwatch with RESPAWN TIMER. It is in the app store as an official app.
+
 - **2026-11-17: RESPAWN TIMER and `popup()` (firmware 1.2.0-b3).** A new app for the wait at the
   respawn point: big digits (MM:SS, or H:MM:SS from 1 hour), right button start / pause, left
   button back to the full time, hold left to edit the time (arrows, a check mark), a bar of the

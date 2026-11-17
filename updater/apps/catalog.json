@@ -72,8 +72,8 @@
     {
       "id": "481e340b",
       "name": "RESPAWN TIMER",
-      "version": 2,
-      "size": 2753,
+      "version": 3,
+      "size": 2849,
       "permissions": [
         "sound",
         "awake",
@@ -81,7 +81,7 @@
       ],
       "description": "The wait at the respawn point in big digits. Start and pause with the right button. Flashes and chimes when you can go.",
       "file": "respawn.stapp",
-      "picture": "AAAAAAAAAAAAAAAAAAAAAAAAYPDw8GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQEhISEgAAAAAACAyGwn5/f8+EBgYAAAAA/v4SEv7sAP7+kpKCggBc3pKS9mQA/v4SEh4MAPz+EhL+/AD+/mAwYP7+AP7+DBj+/gAAAAAAAAABAQEAAAADBgYGAwEAAAAADg8JAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "picture": "AAAAAAAAAAAAAAAAgIBAUHBQQICAwAAAAAAAAAAAwEBAQMAAwEBAQEAAwEBAQEAAwEBAQMAAwEBAQMAAwAAAAMAAwIAAAMAAAAAAAAAAAAAAAAAAAAAAAAD4BgEAAAAAPyAgIAABBvgAAAAAAAAnIeMlJQAnJeUlJADlRYVF5wDnoaGhIQDnoaGh5wADBAIEAwAHAAECBwAAAAAAAAAAAAAAAAAAAAAAAAADBAgIEBAQEBAICAQDAAAAAAAAAAAAAwAAAAICAwICAAMAAAADAAMCAgICAAMAAQICAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
       "settings": [
         {
           "name": "LEFT HINTS",
@@ -89,7 +89,7 @@
             "WORDS",
             "ICONS"
           ],
-          "default": 0
+          "default": 1
         },
         {
           "name": "BG WARNING",
