@@ -398,6 +398,21 @@ class PopupTest(BackgroundTestCase):
         self.assertEqual(self.dev.state()["eeprom.game_kills"], kills)
         self.assertEqual(self.rows(app_id)[-1], [5, 0])
 
+    def test_a_tap_right_at_the_popup_is_no_kill(self):
+        # The popup has no slide: a tap at once goes to the app, not to the counter screen
+        package, app_id = bg_app(extra=POPUP % 30)
+        self.install_background(package, app_id)
+        self.go_to_view("KILL_DEAD")
+        kills = self.dev.state()["eeprom.game_kills"]
+        for _ in range(600):
+            if self.dev.state()["view_next"] == "APP_HOST":
+                break
+            self.dev.run(10)
+        self.assertEqual(self.dev.state()["view_next"], "APP_HOST")
+        self.dev.click(1)
+        self.assertEqual(self.dev.state()["eeprom.game_kills"], kills)
+        self.assertEqual(self.rows(app_id)[-1], [5, 0])
+
     def test_it_takes_the_place_of_an_other_app(self):
         package, app_id = bg_app(extra=POPUP % 150)     # 15 s: time to open the other app
         self.install_background(package, app_id)

@@ -425,7 +425,8 @@ static void _popup(uint32_t now) {
     }
   } else if(view == VIEW_ID__TOTAL || view == VIEW_ID__KILL_DEAD || view == VIEW_ID__STATS) {
     AppHost_setApp(s_bg.id);
-    AppView_set(VIEW_ID__APP_HOST);
+    // No slide: a press at once goes to the app (a slide would give it to the counter: a kill)
+    AppView_setFrom(VIEW_ID__APP_HOST, APP_VIEW_FROM__TOP, 0);
   } else {
     return;
   }
