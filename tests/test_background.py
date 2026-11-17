@@ -379,5 +379,84 @@ class SafetyTest(BackgroundTestCase):
         self.assertIn("permission background", str(raised.exception))
 
 
+# popup() from the tick after `ticks` ticks (100 ms each); a press of button 1 logs (5, 0)
+POPUP = "var t\non tick {\n  t += 1\n  if t >= %d { popup() }\n}\non press1 { log(5, 0) }"
+
+
+class PopupTest(BackgroundTestCase):
+    """popup(): the background app comes on the screen (docs/APPS.md section 4.6, engine 3)"""
+
+    def test_it_covers_a_counter_screen_and_gets_the_buttons(self):
+        package, app_id = bg_app(extra=POPUP % 30)
+        self.install_background(package, app_id)
+        self.go_to_view("KILL_DEAD")
+        kills = self.dev.state()["eeprom.game_kills"]
+        self.dev.run(4000)
+        self.assertEqual(self.dev.view, "APP_HOST")
+        self.assertEqual(self.state("app_running"), app_id)
+        self.dev.click(1)                             # The press goes to the app, not to the counter
+        self.assertEqual(self.dev.state()["eeprom.game_kills"], kills)
+        self.assertEqual(self.rows(app_id)[-1], [5, 0])
+
+    def test_a_tap_right_at_the_popup_is_no_kill(self):
+        # The popup has no slide: a tap at once goes to the app, not to the counter screen
+        package, app_id = bg_app(extra=POPUP % 30)
+        self.install_background(package, app_id)
+        self.go_to_view("KILL_DEAD")
+        kills = self.dev.state()["eeprom.game_kills"]
+        for _ in range(600):
+            if self.dev.state()["view_next"] == "APP_HOST":
+                break
+            self.dev.run(10)
+        self.assertEqual(self.dev.state()["view_next"], "APP_HOST")
+        self.dev.click(1)
+        self.assertEqual(self.dev.state()["eeprom.game_kills"], kills)
+        self.assertEqual(self.rows(app_id)[-1], [5, 0])
+
+    def test_it_takes_the_place_of_an_other_app(self):
+        package, app_id = bg_app(extra=POPUP % 150)     # 15 s: time to open the other app
+        self.install_background(package, app_id)
+        other = app.compile_source('app "OTHER"\non draw { text(0, 0, "OTHER", text, on, left) }\n')["package"]
+        other_id = struct.unpack_from("<I", other, 8)[0]
+        self.open_sync()
+        self.assert_installed(other, open_sync=False)
+        self.leave_sync()
+        self.open_app(other_id)
+        self.assertEqual(self.state("app_running"), other_id)
+        self.dev.run(16000)
+        self.assertEqual(self.dev.view, "APP_HOST")
+        self.assertEqual(self.state("app_running"), app_id)
+
+    def test_never_over_the_menu_or_the_settings(self):
+        package, app_id = bg_app(extra=POPUP % 1)
+        self.install_background(package, app_id)
+        self.dev.run(1000)
+        self.assertEqual(self.dev.view, "SETTINGS")   # Settings > Background is still open
+        self.dev.click_both()
+        self.assertEqual(self.dev.view, "LAUNCHER")
+        self.dev.run(1500)                            # Less than the 3 s that open the selected app
+        self.assertEqual(self.dev.view, "LAUNCHER")
+
+    def test_the_screen_gets_bright(self):
+        package, app_id = bg_app(extra=POPUP % 600)    # After 60 s: the screen is dim (30 s)
+        self.install_background(package, app_id)
+        self.go_to_view("KILL_DEAD")
+        full = int(self.dev.state()["brightness"])
+        self.dev.run(40000)
+        self.assertEqual(self.dev.view, "KILL_DEAD")
+        self.assertLess(int(self.dev.state()["brightness"]), full)
+        self.dev.run(25000)
+        self.assertEqual(self.dev.view, "APP_HOST")
+        self.assertEqual(int(self.dev.state()["brightness"]), full)
+
+    def test_an_app_that_is_not_the_background_app_stays_where_it_is(self):
+        package, app_id = bg_app(extra=POPUP % 1)
+        self.assert_installed(package)
+        self.leave_sync()
+        self.go_to_view("KILL_DEAD")
+        self.dev.run(2000)
+        self.assertEqual(self.dev.view, "KILL_DEAD")
+
+
 if __name__ == "__main__":
     unittest.main()

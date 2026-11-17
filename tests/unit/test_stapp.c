@@ -515,7 +515,9 @@ TEST(engine_sys_table) {
   CHECK_EQ(Stapp_sysPermission(STAPP_SYS__BATTERY_MV), 0);
   CHECK_EQ(Stapp_sysArgCount(STAPP_SYS__BACKGROUND), 0);
   CHECK_EQ(Stapp_sysPermission(STAPP_SYS__BACKGROUND), 0);
-  CHECK_EQ(Stapp_sysArgCount(32), -1);
+  CHECK_EQ(Stapp_sysArgCount(STAPP_SYS__POPUP), 0);
+  CHECK_EQ(Stapp_sysPermission(STAPP_SYS__POPUP), STAPP_PERM_BACKGROUND);
+  CHECK_EQ(Stapp_sysArgCount(33), -1);
   CHECK_EQ(Stapp_sysPermission(STAPP_SYS__COUNTER), 0);
   CHECK(strcmp(Stapp_resultText(STAPP_ERR_CRC), "bad crc") == 0);
   CHECK(strcmp(Stapp_resultText((stapp_result_t)99), "unknown") == 0);

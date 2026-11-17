@@ -50,6 +50,10 @@ the calls `log()`, `log_count()`, `log_get()`, `log_clear()`, `battery_mv()`: se
 events `kill` and `death` (the handler table has 12 entries, the data area starts at 312) and the
 call `background()`: see section 4.6. The compiler writes format 3 only for an app that uses them.
 
+Engine version 3 (firmware 1.2.0-b3) adds the call `popup()` (section 4.6). The compiler writes
+engine version 3 (format 3) only for an app that calls it. An older firmware refuses such a package
+(`bad version`), and the web page says that the app needs a newer firmware.
+
 Little-endian. All offsets are from the start of the package.
 
 ```
@@ -214,6 +218,7 @@ The arguments are pushed left to right. Each call pushes one result (0 if nothin
 | 25 | `tone(freq, ms)` | permission "sound". One note: 200..4000 Hz for 10..1000 ms. It does not wait; a new note or click replaces the note that plays. Follows the Sound setting |
 | 26 .. 30 | `log`, `log_count`, `log_get`, `log_clear`, `battery_mv` | engine version 2, format 3: [DATA.md](DATA.md) section 6 |
 | 31 | `background()` | engine version 2. 1 if this app is the background app now (Settings > Background), else 0. Section 4.6 |
+| 32 | `popup()` | engine version 3, permission "background". The background app comes on the screen; the screen gets bright. 1 if the app is on the screen now, else 0. Section 4.6 |
 
 Drawing calls work only in the draw handler. In other handlers they do nothing.
 
@@ -282,6 +287,15 @@ reset erase it.
 - An app error (for example too many steps in `kill`) stops only the background app; the
   error counts like an error on the screen (3 errors switch the app off).
 - A script with `on kill` or `on death` needs the line `permission background`.
+- `popup()` (engine 3): the background app asks to come on the screen, for example for an alarm.
+  In the next loop the firmware shows it in the place of a counter screen (KILLS, KILLS + DEAD,
+  STATS) or of an other app, as if the person had opened it from the app menu (the same running
+  app, no new `open`). Never over the app menu, the settings, Apps: SYNC, the update mode, a
+  question or a warning, and not while a view slides in or out: the app calls `popup()` again in a
+  later tick (RESPAWN TIMER calls it each tick while it rings). Each call is also an activity, like
+  a button: the dimmed screen gets bright and auto-off starts again. An app on the screen that is
+  not the background app gets only the activity. The buttons then go to the app; both buttons still
+  open the app menu. The call gives 1 if the app is on the screen now.
 
 ## 5. Storage (NVS namespace `apps`)
 
@@ -522,7 +536,8 @@ the firmware):
 1. Make the folder `apps/<name>/` and the script `apps/<name>/<name>.sts` (section 7). The
    examples: `apps/round-timer/`, `apps/headshot/`, `apps/reaction/`, and the sample apps to try
    on a device: `apps/runner/` (a jump game), `apps/slots/` (a slot machine with confetti and a
-   song made with `tone`), `apps/wallpaper/` (looks like KILLS, the digits are set with the
+   song made with `tone`), `apps/respawn/` (a respawn timer: an edit with arrows and a check mark,
+   an alarm with `popup()` in the background), `apps/wallpaper/` (looks like KILLS, the digits are set with the
    buttons). `tests/test_sample_apps.py` runs them in the simulator.
    Play an app by hand in the web simulator, with one command (step 3 below):
    `python tools/app.py sim apps/runner/runner.sts`.

@@ -151,7 +151,7 @@ class ExampleApps(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             catalog = app.build_catalog(os.path.join(REPO_ROOT, "apps"), folder)
             names = [entry["name"] for entry in catalog["apps"]]
-            self.assertEqual(names, ["BATTERY LOG", "CLIP MARKS", "HEADSHOT %", "REACTION", "ROUND TIMER", "RUNNER", "SLOTS",
+            self.assertEqual(names, ["BATTERY LOG", "CLIP MARKS", "HEADSHOT %", "REACTION", "RESPAWN TIMER", "ROUND TIMER", "RUNNER", "SLOTS",
                                  "WALLPAPER"])
             for entry in catalog["apps"]:
                 with open(os.path.join(folder, entry["file"]), "rb") as handle:
@@ -202,7 +202,7 @@ class Check(unittest.TestCase):
 
     def test_bad_version(self):
         data = bytearray(self.good)
-        data[5] = 3           # needs a newer engine
+        data[5] = 4           # needs a newer engine
         self.assertResult(with_crc(data), "bad version")
 
     def test_bad_crc(self):
@@ -487,6 +487,18 @@ class Compiler(unittest.TestCase):
         # The old apps stay format 1 / engine 1
         old = compile_text('app "OLD"\non press1 { click(900) }\npermission sound\n')["package"]
         self.assertEqual((old[4], old[5]), (1, 1))
+
+    def test_popup_needs_background_and_engine_3(self):
+        # docs/APPS.md section 4.6: popup() = engine 3, format 3, only with the permission background
+        package = compile_text('app "POP"\npermission background\non tick { popup() }\n')["package"]
+        self.assertEqual((package[4], package[5]), (3, 3))
+        self.assertEqual(app.check(package)[0], app.OK)
+        machine = app.Machine(package)
+        machine.run("tick")
+        self.assertEqual(machine.popups, 1)
+        with self.assertRaises(app.AppError) as error:
+            compile_text('app "POP"\non tick { popup() }\n')
+        self.assertIn("background", str(error.exception))
 
     def test_data_errors(self):
         for source, text in (

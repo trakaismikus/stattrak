@@ -261,6 +261,7 @@ app in the menu, so you can always get to the firmware update.
 | **CLIP MARKS** | For video: press 2 when the camera starts, 1 for each kill. Each kill gets a time mark that you download for your video editor. |
 | **HEADSHOT %** | Counts kills and headshots and shows the headshot percentage. |
 | **REACTION** | A reaction game: wait for GO, then press a button as fast as you can. |
+| **RESPAWN TIMER** | The wait at the respawn point in big digits. Flashes and chimes when you can go. As the background app it comes back on the screen when the time is up (firmware 1.2.0-b3). |
 | **ROUND TIMER** | Times each round, and beeps at the end. |
 | **RUNNER** | An endless runner: jump over the cacti. The game gets faster. |
 | **SLOTS** | A slot machine. Three the same wins, with confetti and a song on the buzzer. |

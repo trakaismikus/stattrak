@@ -6,7 +6,9 @@
  * Settings > Background (docs/APPS.md section 4.6). When the view shows the background app, it
  * shows the BG runner (the app runs once, with one state). The BG runner never draws; it gets the
  * tick each 100 ms and the kill and death events. It stops while Apps: SYNC or the update mode is
- * open, and starts again after them.
+ * open, and starts again after them. With popup() (engine 3) it asks to come on the screen: it
+ * takes the place of a counter screen or of an other app, never of the menu, the settings, Apps:
+ * SYNC, the update mode or a warning (_popup()).
  *
  * The app can only do what the system calls below let it do. Each value from the app is checked:
  * all drawing is clipped to the screen and has a pixel budget for each frame, the counters change
@@ -84,6 +86,8 @@ static void _run(runner_t* r, stapp_event_t event);
 static void _tick(runner_t* r, uint32_t now);
 static void _saveIfDue(runner_t* r, uint32_t now);
 static void _refreshBackground(void);
+static bool _onScreen(const runner_t* r);
+static void _popup(uint32_t now);
 static void _fail(runner_t* r, stapp_result_t result);
 static bool _valuesChanged(const runner_t* r);
 static void _queueSave(runner_t* r);
@@ -139,6 +143,7 @@ static bool           s_bgPaused = false;
 static bool           s_bgRefreshLater = false;
 static uint8_t        s_pendingKills = 0;
 static uint8_t        s_pendingDeaths = 0;
+static bool           s_popupRequested = false;   // The background app called popup(): AppHost_update()
 
 // Flash writes for App_update (never while the view draws)
 static bool           s_pendingSave = false;
@@ -204,6 +209,10 @@ void AppHost_update(uint32_t now) {
   }
   s_pendingKills = 0;
   s_pendingDeaths = 0;
+  if(s_popupRequested) {
+    s_popupRequested = false;
+    _popup(now);
+  }
 
   // The app of the view ticks only while it is the current view (not while it slides in or out)
   if(s_shown == &s_fg && _isRunning(&s_fg) &&
@@ -266,6 +275,7 @@ void AppHost_backgroundForget(void) {
   s_bgRefreshLater = false;
   s_pendingKills = 0;
   s_pendingDeaths = 0;
+  s_popupRequested = false;
   // The flash is erased: nothing that waits is written
   s_pendingSave = false;
   s_pendingErrorIds[0] = APPS_ID__NONE;
@@ -390,6 +400,37 @@ static void _close(runner_t* r) {
 
 static bool _isRunning(const runner_t* r) {
   return r->open && r->loaded && r->error == STAPP_OK;
+}
+
+// The runner is the app that the screen shows now (not while a view slides in or out)
+static bool _onScreen(const runner_t* r) {
+  return r == s_shown && AppView_get() == VIEW_ID__APP_HOST && AppView_getNext() == VIEW_ID__APP_HOST;
+}
+
+// popup() of the background app (docs/APPS.md section 4.6): the app comes on the screen in the place
+// of a counter screen or of an other app, and the screen gets bright (an activity, like a button).
+// Never over the app menu, the settings, Apps: SYNC, the update mode, a question or a warning: the
+// app calls popup() again in a later tick.
+static void _popup(uint32_t now) {
+  if(!_isRunning(&s_bg))
+    return;
+  const view_id_t view = AppView_get();
+  if(view != AppView_getNext())
+    return;                       // A view slides in or out
+  if(view == VIEW_ID__APP_HOST) {
+    if(s_shown != &s_bg) {
+      AppHost_setApp(s_bg.id);    // An other app closes, the background app takes its place
+      if(s_shown == NULL)
+        _show(s_bg.id);
+    }
+  } else if(view == VIEW_ID__TOTAL || view == VIEW_ID__KILL_DEAD || view == VIEW_ID__STATS) {
+    AppHost_setApp(s_bg.id);
+    // No slide: a press at once goes to the app (a slide would give it to the counter: a kill)
+    AppView_setFrom(VIEW_ID__APP_HOST, APP_VIEW_FROM__TOP, 0);
+  } else {
+    return;
+  }
+  App_updateActivity(now);
 }
 
 // Settings > Background, Apps: SYNC and the update mode: the BG runner runs the app it must run now
@@ -623,6 +664,17 @@ static int32_t _sys(void* ctx, uint8_t sysId, const int32_t* a, bool drawing) {
 
     case STAPP_SYS__BACKGROUND:
       return (r == &s_bg) ? 1 : 0;
+
+    // Engine 3: the background app asks to come on the screen; AppHost_update() does it (_popup()).
+    // The app on the screen: only the activity (the screen gets bright). Gives 1 if it is on the screen.
+    case STAPP_SYS__POPUP:
+      if(!(permissions & STAPP_PERM_BACKGROUND) || drawing)
+        return _onScreen(r) ? 1 : 0;
+      if(r == &s_bg)
+        s_popupRequested = true;
+      else if(_onScreen(r))
+        App_updateActivity(Time_getMillis());
+      return _onScreen(r) ? 1 : 0;
 
     case STAPP_SYS__REDRAW:
     default:
