@@ -253,10 +253,10 @@ on long1 {
       start_edit()
     } else {
       entry_hold = 1           # The repeats of this hold do nothing
+      sel = 0
       if state == PAUSED {
         state = READY
         remain = total * 1000
-        sel = 0
         sound(600)
       } else {
         sound(300)             # Already the full time
@@ -382,7 +382,7 @@ func draw_action(which, y) {
     c = off
   }
   if setting(hints) == 0 {
-    if which == 0 { text(7, y + 3, "SET", small, c, center) } else { text(7, y + 3, "RST", small, c, center) }
+    if which == 0 { text(6, y + 3, "SET", small, c, center) } else { text(6, y + 3, "RST", small, c, center) }
   } else {
     if which == 0 { bitmap(3, y + 2, timeset, c) } else { bitmap(3, y + 2, reset, c) }
   }

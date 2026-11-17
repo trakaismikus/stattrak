@@ -21,6 +21,11 @@ def lit(frame):
     return sum(row.count("#") for row in frame)
 
 
+def left(frame):
+    """The two actions of the left side (not the digits)"""
+    return [row[:13] for row in frame]
+
+
 class RespawnTest(BackgroundTestCase):
 
     def no_error(self):
@@ -45,6 +50,11 @@ class RespawnTest(BackgroundTestCase):
         warning = self.dev.frame()
         self.dev.click(2)                    # Closes the warning only: the time does not start
         self.assertNotEqual(self.dev.frame(), warning)
+        ready = self.dev.frame()             # Settings is selected
+        self.dev.click(1)                    # Reset is selected
+        self.assertNotEqual(left(self.dev.frame()), left(ready))
+        self.dev.long_press(1)               # Reset at the full time: settings is selected again
+        self.assertEqual(left(self.dev.frame()), left(ready))
         self.set_five_seconds()
         kills = self.dev.state()["eeprom.game_kills"]
         self.dev.click(2)                    # Start
@@ -75,7 +85,6 @@ class RespawnTest(BackgroundTestCase):
         self.assertNotEqual(self.dev.frame(), before)
         paused = self.dev.frame()
         self.dev.click(1)                    # Paused: reset was selected; now settings is
-        left = lambda frame: [row[:13] for row in frame[0:11]]      # The top action (not the digits)
         self.assertNotEqual(left(self.dev.frame()), left(paused))   # It is white now
         self.dev.click(1)                    # Reset is selected again: a short press does no reset
         self.dev.long_press(1)               # Hold: reset = back to the full time, settings selected
