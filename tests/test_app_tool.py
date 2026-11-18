@@ -556,6 +556,11 @@ on press1 { total = xs[total] }
                     compile_text(source)
                 self.assertIn(text, str(raised.exception))
 
+    def test_a_list_makes_engine_4_and_old_parameter_names_stay(self):
+        self.assertEqual(compile_text('app "A"\nvar xs[3]\nvar n\non open { n = len(xs) }\n')["package"][5], 4)
+        package = compile_text('app "A"\nvar y\nfunc f(min, abs) { return min + abs }\non open { y = f(1, 2) }\n')["package"]
+        self.assertEqual(package[5], 1)
+
     def test_list_size_from_a_const(self):
         package = compile_text('app "A"\nconst N = 12\nvar xs[N]\nvar n\non open { n = len(xs) }\n')["package"]
         machine = app.Machine(package)

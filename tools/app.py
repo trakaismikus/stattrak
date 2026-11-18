@@ -1664,6 +1664,7 @@ class Compiler:
                 if len(value) > count:
                     self.error(line, "the list \"%s\" has %d values; %d start values are too many." % (key, count, len(value)))
                 self.arrays[key] = (slot, count)
+                self.engine4 = True   # a list: engine 4 (docs/APPS.md section 7.5)
                 for index in range(count):
                     self.global_names[slot + index] = "%s[%d]" % (key, index)
                 for index, item in enumerate(value):
@@ -1737,7 +1738,8 @@ class Compiler:
             self.place(label)
             slots = []
             for param in params:
-                if param in self.globals or param in program.lines or reserved_name(param):
+                if param in self.globals or param in program.lines or (param not in SHADOW_NAMES and (
+                        param in BUILTIN_NAMES or param in SYS_BY_NAME)):
                     self.error(line, "the parameter name \"%s\" is already used. Use an other name." % param)
                 slot = self.new_local(param, line)
                 self.locals[param] = slot
