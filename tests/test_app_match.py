@@ -61,6 +61,8 @@ class CheckMatchTest(unittest.TestCase):
             source = os.path.join(apps_dir, name, name + ".sts")
             if os.path.isfile(source):
                 cls.examples.append(app.load_package(source))
+        # An app for engine 4 (lists, held(), more steps): the check of its changed packages too
+        cls.examples.append(app.load_package(os.path.join(REPO_ROOT, "tools", "bench", "bench.sts")))
 
     @classmethod
     def tearDownClass(cls):

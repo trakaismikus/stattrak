@@ -1,0 +1,74 @@
+# BENCH: a test app for engine 4 (firmware 1.2.0-b4). It is not in the app catalog.
+# It shows how long the device needs for one frame when the draw handler runs many steps.
+# Right button: the next load (0, 4000, 8000, 12000 or 15500 steps for each frame).
+# Hold the left button: the box HELD shows (a test of held()).
+# On the screen: STEPS = the load, FPS = frames in one second, MS = time of one frame.
+# demo: wait 1500, press 2, wait 1500, press 2, wait 1500, down 1, wait 800, up 1, wait 500
+
+app "BENCH"
+version 1
+description "Test app: how fast the device runs app steps. Right button: more steps. Hold left: HELD."
+engine 4
+picture icon gauge "BENCH"
+
+# The rounds of the loop for each load, and the steps that they make (the whole draw handler)
+bitmap gauge {
+  ".....######....."
+  "...##......##..."
+  "..#..#....#..#.."
+  ".#............#."
+  ".#.........##.#."
+  "#.........##...#"
+  "#.#......##..#.#"
+  "#.......##.....#"
+  "#......###.....#"
+  "#......###.....#"
+  "################"
+}
+
+var rounds[5] = { 0, 229, 464, 699, 905 }
+var steps[5] = { 0, 4000, 8000, 12000, 15500 }
+var level = 0
+var frames = 0
+var since = 0
+var fps = 0
+var work[16]
+
+on open { since = time() }
+
+on press2 {
+  level = (level + 1) % len(rounds)
+  frames = 0
+  fps = 0
+  since = time()
+}
+
+on draw {
+  var n = rounds[level]
+  var i = 0
+  while i < n {
+    work[i & 15] += i
+    i += 1
+  }
+  frames += 1
+  var now = time()
+  if now - since >= 1000 {
+    fps = frames * 1000 / (now - since)
+    frames = 0
+    since = now
+  }
+  text(0, 1, "STEPS", small, on, left)
+  num(60, 1, steps[level], 0, small, on, right)
+  text(0, 12, "FPS", small, on, left)
+  num(60, 12, fps, 0, small, on, right)
+  text(0, 23, "MS", small, on, left)
+  if fps > 0 { num(60, 23, 1000 / fps, 0, small, on, right) } else { text(60, 23, "-", small, on, right) }
+  text(127, 1, "ENGINE 4", small, on, right)
+  if held(1) {
+    fill(80, 14, 47, 15, on)
+    text(103, 19, "HELD", small, off, center)
+  } else {
+    rect(80, 14, 47, 15, on)
+    text(103, 19, "HOLD L", small, on, center)
+  }
+}

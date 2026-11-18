@@ -184,7 +184,8 @@ class Check(unittest.TestCase):
 
     def test_result_texts(self):
         self.assertEqual(app.RESULTS[:5], ("ok", "bad size", "bad magic", "bad version", "bad crc"))
-        self.assertEqual(len(app.RESULTS), 18)
+        self.assertEqual(len(app.RESULTS), 19)
+        self.assertEqual(app.RESULTS[-1], "bad index")
 
     def test_truncated(self):
         self.assertResult(self.good[:-1], "bad size")
@@ -202,7 +203,7 @@ class Check(unittest.TestCase):
 
     def test_bad_version(self):
         data = bytearray(self.good)
-        data[5] = 4           # needs a newer engine
+        data[5] = app.ENGINE_VERSION + 1   # needs a newer engine
         self.assertResult(with_crc(data), "bad version")
 
     def test_bad_crc(self):
@@ -499,6 +500,129 @@ class Compiler(unittest.TestCase):
         with self.assertRaises(app.AppError) as error:
             compile_text('app "POP"\non tick { popup() }\n')
         self.assertIn("background", str(error.exception))
+
+    # Engine 4 (docs/APPS.md section 7): lists, len(), held(), the `engine 4` line, the larger limits
+    def test_lists(self):
+        source = """app "LISTS"
+saved best[3] = { 5, 0, 7 }
+var xs[8]
+var tune[4] = {
+  440, 494,
+  523, 587
+}
+var total
+on open {
+  var i = 0
+  while i < len(xs) {
+    xs[i] = i * 3
+    i += 1
+  }
+  xs[2] += 100
+  xs[3] -= 1
+  total = tune[1] + best[2] + xs[2] + xs[3]
+}
+on press1 { total = xs[total] }
+"""
+        result = compile_text(source)
+        package = result["package"]
+        self.assertEqual((package[4], package[5]), (3, 4))      # a list: engine 4 (format 3)
+        self.assertEqual(app.check(package)[0], app.OK)
+        self.assertEqual(result["info"]["saved_count"], 4)      # 3 values + the hidden "started"
+        machine = app.Machine(package)
+        self.assertEqual(machine.run("open"), "ok")
+        self.assertEqual(machine.globals[:3], [5, 0, 7])
+        self.assertEqual(machine.globals[4:12], [0, 3, 106, 8, 12, 15, 18, 21])
+        self.assertEqual(machine.globals[12:16], [440, 494, 523, 587])
+        self.assertEqual(machine.globals[16], 494 + 7 + 106 + 8)
+        self.assertEqual(machine.run("press1"), "bad index")    # xs[615]
+        self.assertIn("LOADX   g4[8]", "\n".join(app.disassemble(app.package_parts(package)["code"])))
+
+    def test_list_errors(self):
+        for source, text in (
+                ('app "A"\nvar xs[4]\non press1 { xs = 1 }\n', "is a list"),
+                ('app "A"\nvar xs[4]\nvar y\non press1 { y = xs }\n', "is a list"),
+                ('app "A"\nvar xs[4]\nvar y\non press1 { y = xs[4] }\n', "has 4 values (0 to 3)"),
+                ('app "A"\nvar xs[4]\non press1 { xs[-1] = 2 }\n', "has 4 values"),
+                ('app "A"\nvar y\non press1 { y[0] = 2 }\n', "is not a list"),
+                ('app "A"\nvar y\non press1 { y = len(y) }\n', "the name of a list"),
+                ('app "A"\nvar xs[0]\n', "from 1 to 255"),
+                ('app "A"\nvar xs[2] = { 1, 2, 3 }\n', "too many"),
+                ('app "A"\nvar xs[201]\n', "more than 200 variables"),
+                ('app "A"\nsaved xs[17]\n', "16 saved values"),
+                ('app "A"\nengine 3\n', "engine 4"),
+                ('app "A"\non press1 { var y = held(3) }\n', "from 1 to 2")):
+            with self.subTest(source=source):
+                with self.assertRaises(app.AppError) as raised:
+                    compile_text(source)
+                self.assertIn(text, str(raised.exception))
+
+    def test_list_size_from_a_const(self):
+        package = compile_text('app "A"\nconst N = 12\nvar xs[N]\nvar n\non open { n = len(xs) }\n')["package"]
+        machine = app.Machine(package)
+        machine.run("open")
+        self.assertEqual(machine.globals[12], 12)
+
+    def test_held(self):
+        package = compile_text('app "H"\nvar a\nvar b\non draw { a = held(1)\n b = held(2) }\n')["package"]
+        self.assertEqual(package[5], 4)
+        machine = app.Machine(package)
+        machine.run("draw")
+        self.assertEqual(machine.globals[:2], [0, 0])
+        for event, expected in (("down1", [1, 0]), ("long1", [1, 0]), ("down2", [1, 1]), ("up1", [0, 1]),
+                                ("press2", [0, 0]), ("down2", [0, 1]), ("press2", [0, 0])):
+            self.assertEqual(machine.run(event), "ok")
+            machine.run("draw")
+            self.assertEqual(machine.globals[:2], expected, event)
+
+    def test_old_scripts_keep_held_and_len_as_their_own_names(self):
+        # Scripts from before engine 4 can have a variable or a function with these names
+        package = compile_text('app "A"\nvar held = 2\nvar len\non press1 { len = held + 1 }\n')["package"]
+        self.assertEqual(package[5], 1)
+        machine = app.Machine(package)
+        machine.run("open")
+        machine.run("press1")
+        self.assertEqual(machine.globals[:2], [2, 3])
+        package = compile_text('app "A"\nvar y\nfunc held(n) { return n * 2 }\non press1 { y = held(4) }\n')["package"]
+        self.assertEqual(package[5], 1)
+        machine = app.Machine(package)
+        machine.run("press1")
+        self.assertEqual(machine.globals[0], 8)
+        self.assertIn("Rename the variable",
+                      self.compile_error('app "A"\nvar held\non draw { var y = held(1) }\n'))
+
+    def test_engine_4_for_more_than_the_old_limits(self):
+        # Without a list or held(): the old engine, so that older firmware installs the app
+        few = compile_text('app "A"\n' + "".join("var v%d\n" % i for i in range(48)))["package"]
+        self.assertEqual(few[5], 1)
+        many = compile_text('app "A"\n' + "".join("var v%d\n" % i for i in range(49)))["package"]
+        self.assertEqual((many[4], many[5]), (3, 4))
+        self.assertEqual(app.check(many)[0], app.OK)
+        bitmaps = "".join('bitmap b%d { "#" }\n' % i for i in range(9))
+        self.assertEqual(compile_text('app "A"\n' + bitmaps)["package"][5], 4)
+        line = compile_text('app "A"\nengine 4\n')["package"]
+        self.assertEqual((line[4], line[5]), (3, 4))
+        # The step limit follows the engine: 4000 for engine 1 to 3, 16000 for engine 4
+        loop = 'on press1 { var i = 0\n while i < 1000 { i += 1 } }\n'
+        old = app.Machine(compile_text('app "A"\n' + loop)["package"])
+        self.assertEqual(old.run("press1"), "too many steps")
+        new = app.Machine(compile_text('app "A"\nengine 4\n' + loop)["package"])
+        self.assertEqual(new.run("press1"), "ok")
+
+    def test_check_of_engine_4_packages(self):
+        # The same rules as Stapp_check(): lists and held() only in a package for engine 4
+        loadx = bytes([app.OP["PUSH8"], 0, app.OP["LOADX"], 0, 2, app.OP["DROP"], app.OP["HALT"]])
+        held = bytes([app.OP["PUSH8"], 1, app.OP["SYS"], 33, app.OP["DROP"], app.OP["HALT"]])
+        for code, old_result in ((loadx, "bad code"), (held, "bad sys")):
+            package = small_package(code)
+            self.assertEqual(app.result_text(app.check(package)[0]), old_result)
+            data = bytearray(package)
+            data[5] = 4
+            self.assertEqual(app.result_text(app.check(with_crc(data))[0]), "ok")
+        for base, length in ((1, 2), (0, 0), (2, 1)):
+            code = bytes([app.OP["PUSH8"], 0, app.OP["LOADX"], base, length, app.OP["DROP"], app.OP["HALT"]])
+            data = bytearray(small_package(code))
+            data[5] = 4
+            self.assertEqual(app.result_text(app.check(with_crc(data))[0]), "bad global", (base, length))
 
     def test_data_errors(self):
         for source, text in (

@@ -45,6 +45,7 @@ static const char* const kResultText[STAPP_RESULT_COUNT] = {
   [STAPP_ERR_CALLS]    = "call depth",
   [STAPP_ERR_STEPS]    = "too many steps",
   [STAPP_ERR_ARG]      = "bad arg",
+  [STAPP_ERR_INDEX]    = "bad index",
 };
 
 /* > Local Function Declarations ******************************************************************/
@@ -78,6 +79,7 @@ stapp_result_t Stapp_check(const uint8_t* package, uint32_t size, stapp_info_t* 
     return STAPP_ERR_CRC;
 
   // Header
+  info.engine       = package[5];
   info.permissions  = Stapp_rd16(package + 6);
   info.id           = Stapp_rd32(package + 8);
   info.version      = Stapp_rd16(package + 12);
@@ -90,9 +92,11 @@ stapp_result_t Stapp_check(const uint8_t* package, uint32_t size, stapp_info_t* 
 
   // Ids 0 .. 255: 0 and the built-in apps (1, 2, 3; 4 .. 255 are kept for later built-in apps)
   if((info.permissions & ~STAPP_PERM_ALL) != 0 || info.id <= STAPP_RESERVED_IDS || info.id == 0xFFFFFFFFu ||
-     info.globalCount > STAPP_MAX_GLOBALS || info.savedCount > STAPP_MAX_SAVED ||
+     info.globalCount > STAPP_LIMIT(info.engine, STAPP_MAX_GLOBALS, STAPP_MAX_GLOBALS_V3) ||
+     info.savedCount > STAPP_MAX_SAVED ||
      info.savedCount > info.globalCount || info.settingCount > STAPP_MAX_SETTINGS ||
-     info.stringCount > STAPP_MAX_STRINGS || info.bitmapCount > STAPP_MAX_BITMAPS)
+     info.stringCount > STAPP_MAX_STRINGS ||
+     info.bitmapCount > STAPP_LIMIT(info.engine, STAPP_MAX_BITMAPS, STAPP_MAX_BITMAPS_V3))
     return STAPP_ERR_HEADER;
 
   // Format 3 (docs/DATA.md section 6): byte 37 = data columns, permissions data, awake, background.
@@ -121,7 +125,7 @@ stapp_result_t Stapp_check(const uint8_t* package, uint32_t size, stapp_info_t* 
   const uint16_t codeOffset = Stapp_rd16(package + 44);
   const uint16_t codeSize = Stapp_rd16(package + 46);
 
-  if(codeSize > STAPP_MAX_CODE)
+  if(codeSize > STAPP_LIMIT(info.engine, STAPP_MAX_CODE, STAPP_MAX_CODE_V3))
     return STAPP_ERR_LAYOUT;
 
   block_t blocks[4];
@@ -358,9 +362,18 @@ static stapp_result_t _checkCode(const uint8_t* package, const stapp_info_t* inf
         if(code[pc + 1] >= info->globalCount)
           return STAPP_ERR_GLOBAL;
         break;
+      // Engine 4: a list is `length` globals from `base` on (docs/APPS.md section 4.1)
+      case STAPP_OP__LOADX:
+      case STAPP_OP__STOREX:
+        if(info->engine < 4)
+          return STAPP_ERR_CODE;
+        if(code[pc + 2] == 0 || (uint32_t)code[pc + 1] + code[pc + 2] > info->globalCount)
+          return STAPP_ERR_GLOBAL;
+        break;
       case STAPP_OP__SYS: {
         const uint8_t id = code[pc + 1];
-        if(Stapp_sysArgCount(id) < 0 || (Stapp_sysPermission(id) & ~permissions) != 0)
+        if(Stapp_sysArgCount(id) < 0 || (Stapp_sysPermission(id) & ~permissions) != 0 ||
+           (id == STAPP_SYS__HELD && info->engine < 4))
           return STAPP_ERR_SYS;
         // A fixed id: the instructions right before the SYS push all arguments from the id on
         if(id == STAPP_SYS__TEXT || id == STAPP_SYS__BITMAP) {

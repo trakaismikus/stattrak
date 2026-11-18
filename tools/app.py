@@ -37,8 +37,9 @@ import design  # noqa: E402
 
 # --- Limits and numbers (the same as components/stapp/stapp.h) ------------------------------------
 
-ENGINE_VERSION = 3     # 2: log(), log_count(), log_get(), log_clear(), battery_mv(), background()
+ENGINE_VERSION = 4     # 2: log(), log_count(), log_get(), log_clear(), battery_mv(), background()
                        # 3: popup()
+                       # 4: lists (LOADX, STOREX), held(), the larger limits (MAX_GLOBALS ... MAX_STEPS)
 FORMAT_VERSION = 3     # The newest format. Format 3 only for an app with data columns, "awake",
                        # "background", kill / death or an engine 2 call; format 2 only for down1 / down2;
                        # all other packages stay format 1.
@@ -57,7 +58,8 @@ NO_HANDLER = 0xFFFF
 
 MAX_SIZE = 4096
 MAX_NAME = 14
-MAX_GLOBALS = 48
+MAX_GLOBALS = 200        # Engine 4. A package for engine 1 to 3 has the _V3 limits (limit())
+MAX_GLOBALS_V3 = 48
 MAX_SAVED = 16
 MAX_SETTINGS = 4
 MIN_VALUES = 2
@@ -66,9 +68,12 @@ SETTING_NAME_LEN = 12
 VALUE_LEN = 8
 MAX_STRINGS = 32
 MAX_STRING_LEN = 20
-MAX_BITMAPS = 8
-MAX_CODE = 2048
-MAX_STEPS = 4000
+MAX_BITMAPS = 16
+MAX_BITMAPS_V3 = 8
+MAX_CODE = 3584
+MAX_CODE_V3 = 2048
+MAX_STEPS = 16000        # for one event
+MAX_STEPS_V3 = 4000
 STACK_SIZE = 32
 CALL_DEPTH = 8
 RESERVED_IDS = 0xFF          # ids 1 .. 255 are for the built-in apps (1 KILLS, 2 KILLS + DEAD, 3 STATS)
@@ -89,6 +94,14 @@ COLUMN_NAME_LEN = 12
 DATA_APP_VALUES = 1024   # The store of one app: 4096 bytes (the firmware also has 8192 for all apps)
 SYS_ENGINE2 = (26, 27, 28, 29, 30, 31)
 SYS_ENGINE3 = (32,)
+SYS_ENGINE4 = (33,)
+FIRMWARE_ENGINE4 = "1.2.0-b4"   # The first firmware with engine 4
+
+
+def limit(engine, v4, v3):
+    """The limit for a package that needs engine `engine` (header byte 5): the old limits for engine 1
+    to 3, so that a package that runs here also runs on the firmware that its engine byte names"""
+    return v4 if engine >= 4 else v3
 
 EVENTS = ("open", "draw", "press1", "press2", "long1", "long2", "tick", "close", "down1", "down2",
           "kill", "death")
@@ -111,17 +124,18 @@ NAME_CHARS = set("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 +-%/.:")
 # of Stapp_resultText(); the web page shows them.
 RESULTS = ("ok", "bad size", "bad magic", "bad version", "bad crc", "bad header", "bad layout",
            "bad settings", "bad strings", "bad bitmaps", "bad code", "bad global", "bad sys",
-           "bad handler", "stack", "call depth", "too many steps", "bad arg")
+           "bad handler", "stack", "call depth", "too many steps", "bad arg", "bad index")
 (OK, ERR_SIZE, ERR_MAGIC, ERR_VERSION, ERR_CRC, ERR_HEADER, ERR_LAYOUT, ERR_SETTINGS, ERR_STRINGS,
  ERR_BITMAPS, ERR_CODE, ERR_GLOBAL, ERR_SYS, ERR_HANDLER, ERR_STACK, ERR_CALLS, ERR_STEPS,
- ERR_ARG) = range(len(RESULTS))
+ ERR_ARG, ERR_INDEX) = range(len(RESULTS))
 
 # Opcodes: code -> (name, operand). Operands: i8, i16, i32 (numbers), g (u8 global), rel (i16 jump,
-# from the next instruction), abs (u16 code offset), sys (u8 system call id).
+# from the next instruction), abs (u16 code offset), sys (u8 system call id), gl (engine 4: u8 base
+# global and u8 length of a list).
 OPCODES = {
     0x00: ("HALT", None), 0x01: ("PUSH8", "i8"), 0x02: ("PUSH16", "i16"), 0x03: ("PUSH32", "i32"),
     0x04: ("LOAD", "g"), 0x05: ("STORE", "g"), 0x06: ("DUP", None), 0x07: ("DROP", None),
-    0x08: ("SWAP", None),
+    0x08: ("SWAP", None), 0x09: ("LOADX", "gl"), 0x0A: ("STOREX", "gl"),
     0x10: ("ADD", None), 0x11: ("SUB", None), 0x12: ("MUL", None), 0x13: ("DIV", None),
     0x14: ("MOD", None), 0x15: ("NEG", None),
     0x16: ("EQ", None), 0x17: ("NE", None), 0x18: ("LT", None), 0x19: ("LE", None),
@@ -132,7 +146,7 @@ OPCODES = {
     0x34: ("RET", None), 0x40: ("SYS", "sys"),
 }
 OP = {name: code for code, (name, _) in OPCODES.items()}
-OPERAND_SIZE = {None: 0, "i8": 1, "g": 1, "sys": 1, "i16": 2, "rel": 2, "abs": 2, "i32": 4}
+OPERAND_SIZE = {None: 0, "i8": 1, "g": 1, "sys": 1, "i16": 2, "rel": 2, "abs": 2, "i32": 4, "gl": 2}
 PUSH_OPS = (OP["PUSH8"], OP["PUSH16"], OP["PUSH32"])
 END_OPS = (OP["HALT"], OP["JMP"], OP["RET"])     # the last instruction of the code must be one of these
 
@@ -166,6 +180,7 @@ SYSCALLS = {
     30: ("battery_mv", (), 0, False),
     31: ("background", (), 0, False),
     32: ("popup", (), PERM_BACKGROUND, False),
+    33: ("held", ("button",), 0, False),
 }
 SYS_BY_NAME = {value[0]: key for key, value in SYSCALLS.items()}
 SYS_TEXT = SYS_BY_NAME["text"]
@@ -180,7 +195,7 @@ ARG_RANGES = {
     ("bignum", "c"): (0, 2), ("bitmap", "c"): (0, 2), ("counter", "id"): (0, 3),
     ("add_counter", "id"): (0, 3), ("add_counter", "delta"): (-10, 10), ("click", "freq"): (200, 4000),
     ("tone", "freq"): (200, 4000), ("tone", "ms"): (10, 1000),
-    ("random", "n"): (1, 65535),
+    ("random", "n"): (1, 65535), ("held", "button"): (1, 2),
 }
 
 # Names with a fixed value in scripts
@@ -193,6 +208,15 @@ BUILTIN_NAMES = {
 }
 OPCODE_FUNCTIONS = {"min": ("MIN", 2), "max": ("MAX", 2), "abs": ("ABS", 1)}
 STATEMENT_WORDS = {"var", "if", "else", "while", "return", "on", "func"}
+# Names of engine 4. A script may still use them for its own variables or functions (scripts that were
+# written before engine 4): then the name is the script's, and the call of the language is not there.
+SHADOW_NAMES = {"held", "len"}
+
+
+def reserved_name(name):
+    """A name that a script cannot use for its own things"""
+    return name not in SHADOW_NAMES and (name in BUILTIN_NAMES or name in SYS_BY_NAME
+                                         or name in OPCODE_FUNCTIONS or name in STATEMENT_WORDS)
 
 FONT_NAMES = ("5x7", "5x5", "3x5", "big")          # font numbers 0..3 in the fonts of design.py
 
@@ -268,6 +292,8 @@ def decode(code):
             operand = _u16(code, pc + 1)
         elif kind == "i32":
             operand = struct.unpack_from("<i", code, pc + 1)[0]
+        elif kind == "gl":
+            operand = (code[pc + 1], code[pc + 2])
         out.append((pc, opcode, operand, size))
         pc += size
     return out
@@ -295,15 +321,17 @@ def check(data):
     if zlib.crc32(data[:-CRC_SIZE]) & 0xFFFFFFFF != _u32(data, size - CRC_SIZE):
         return ERR_CRC, None
 
-    # 2. Header values
+    # 2. Header values (the limits of engine 4 only for a package that needs engine 4)
+    engine = data[5]
     permissions = _u16(data, 6)
     app_id = _u32(data, 8)
     name = _fixed_text(data, 16, 16, 1, MAX_NAME)
     global_count, saved_count, setting_count, string_count, bitmap_count, reserved = data[32:38]
     if (permissions & ~PERM_ALL or app_id <= RESERVED_IDS or app_id == 0xFFFFFFFF or name is None
             or any(char not in NAME_CHARS for char in name)
-            or global_count > MAX_GLOBALS or saved_count > MAX_SAVED or saved_count > global_count
-            or setting_count > MAX_SETTINGS or string_count > MAX_STRINGS or bitmap_count > MAX_BITMAPS):
+            or global_count > limit(engine, MAX_GLOBALS, MAX_GLOBALS_V3) or saved_count > MAX_SAVED
+            or saved_count > global_count or setting_count > MAX_SETTINGS or string_count > MAX_STRINGS
+            or bitmap_count > limit(engine, MAX_BITMAPS, MAX_BITMAPS_V3)):
         return ERR_HEADER, None
     # Format 3: byte 37 = data columns, permissions data / awake. Formats 1, 2: byte 37 = 0, bits 0, 1 only.
     columns = 0
@@ -318,7 +346,7 @@ def check(data):
     # 3. Layout: the blocks are inside the data area and do not overlap
     settings_offset, strings_offset, bitmaps_offset, code_offset, code_size = struct.unpack_from("<5H", data, 38)
     data_end = size - CRC_SIZE
-    if code_size > MAX_CODE:
+    if code_size > limit(engine, MAX_CODE, MAX_CODE_V3):
         return ERR_LAYOUT, None
     blocks = []
     setting_starts = []
@@ -384,8 +412,13 @@ def check(data):
         name_ = OPCODES[opcode][0]
         if name_ in ("LOAD", "STORE") and operand >= global_count:
             return ERR_GLOBAL, None
+        if name_ in ("LOADX", "STOREX"):
+            if engine < 4:
+                return ERR_CODE, None
+            if operand[1] == 0 or operand[0] + operand[1] > global_count:
+                return ERR_GLOBAL, None
         if name_ == "SYS":
-            if operand not in SYSCALLS:
+            if operand not in SYSCALLS or (operand in SYS_ENGINE4 and engine < 4):
                 return ERR_SYS, None
             if SYSCALLS[operand][2] & ~permissions:
                 return ERR_SYS, None
@@ -416,6 +449,7 @@ def check(data):
 
     info = {
         "id": app_id, "version": _u16(data, 12), "size": size, "permissions": permissions, "name": name,
+        "engine": engine,
         "global_count": global_count, "saved_count": saved_count, "setting_count": setting_count,
         "string_count": string_count, "bitmap_count": bitmap_count, "columns": columns,
     }
@@ -675,7 +709,7 @@ TOKEN_RE = re.compile(r"""
   | (?P<number>0[xX][0-9A-Fa-f]+|[0-9]+)
   | (?P<string>"(?:[^"\\\n]|\\["\\])*")
   | (?P<name>[A-Za-z_][A-Za-z0-9_]*)
-  | (?P<op>\+=|-=|==|!=|<=|>=|&&|\|\||<<|>>|[-+*/%<>=!&|^(){},;])
+  | (?P<op>\+=|-=|==|!=|<=|>=|&&|\|\||<<|>>|[-+*/%<>=!&|^(){}\[\],;])
 """, re.X)
 
 
@@ -736,8 +770,9 @@ class Program:
         self.permissions = 0
         self.columns = []          # the names of the data columns (the `data` line)
         self.settings = []         # (key, name, values, default, line)
-        self.saved = []            # (name, value expression, line)
-        self.vars = []
+        self.saved = []            # (name, value expression, line, size): size None = one value; a list:
+        self.vars = []             # the number of values, and the value is a list of start values
+        self.engine = None         # the `engine 4` line
         self.consts = {}           # name -> (value expression, line)
         self.bitmaps = []          # (key, rows, line)
         self.handlers = {}         # event -> (body, line)
@@ -833,7 +868,7 @@ class Parser:
             if handler is None:
                 self.error(line, "\"%s\" is not known here. A line starts with: app, version, id, "
                                  "description, picture, permission, data, setting, const, saved, var, "
-                                 "bitmap, on or func." % word)
+                                 "bitmap, engine, on or func." % word)
             handler(program, line)
             self.end_statement()
         if program.name is None:
@@ -962,12 +997,43 @@ class Parser:
 
     def _variable(self, program, line, target):
         key = self.expect("name", "the name of the variable")[1]
+        if self.is_op("["):
+            # A list (engine 4): var name[size] or var name[size] = { 1, 2, 3 }
+            self.take()
+            size = self.number_value()
+            self.expect_op("]")
+            values = []
+            if self.is_op("="):
+                self.take()
+                self.expect_op("{")
+                while True:
+                    self.skip_newlines()
+                    if self.is_op("}"):
+                        break
+                    values.append(self.number_value())
+                    self.skip_newlines()
+                    if not self.is_op(","):
+                        break
+                    self.take()
+                self.skip_newlines()
+                self.expect_op("}")
+            target.append((key, values, line, size))
+            self.define(program, key, line)
+            return
         value = ("num", 0, line)
         if self.is_op("="):
             self.take()
             value = self.number_value()
-        target.append((key, value, line))
+        target.append((key, value, line, None))
         self.define(program, key, line)
+
+    def top_engine(self, program, line):
+        self._once(program, "engine", line)
+        token = self.expect("number", "the engine version (4)")
+        if token[1] != 4:
+            self.error(line, "the line is: engine 4 (more steps for each event; the app then needs "
+                             "firmware %s or newer)." % FIRMWARE_ENGINE4)
+        program.engine = 4
 
     def top_saved(self, program, line):
         self._variable(program, line, program.saved)
@@ -1015,7 +1081,7 @@ class Parser:
     def define(self, program, key, line):
         if key in program.lines:
             self.error(line, "the name \"%s\" is already used (line %d)." % (key, program.lines[key]))
-        if key in BUILTIN_NAMES or key in SYS_BY_NAME or key in OPCODE_FUNCTIONS or key in STATEMENT_WORDS:
+        if reserved_name(key):
             self.error(line, "\"%s\" is a name of the language. Use an other name." % key)
         program.lines[key] = line
 
@@ -1062,6 +1128,17 @@ class Parser:
                 return ("return", value, line)
             if word == "else":
                 self.error(line, "\"else\" without \"if\".")
+            if self.is_op("[", 1):
+                # name[index] = value, += or -= (a list); else it is an expression
+                save = self.pos
+                self.take()
+                self.take()
+                index = self.expression()
+                self.expect_op("]")
+                if self.peek()[0] == "op" and self.peek()[1] in ("=", "+=", "-="):
+                    op = self.take()[1]
+                    return ("setx", word, index, op, self.expression(), line)
+                self.pos = save
             if self.peek(1)[0] == "op" and self.peek(1)[1] in ("=", "+=", "-="):
                 self.take()
                 op = self.take()[1]
@@ -1132,6 +1209,11 @@ class Parser:
                     self.take()
                 self.expect_op(")")
                 return ("call", token[1], args, token[2])
+            if self.is_op("["):
+                self.take()
+                index = self.expression()
+                self.expect_op("]")
+                return ("index", token[1], index, token[2])
             return ("name", token[1], token[2])
         self.error(token[2], "a value is missing here (found %s)." % self.show(token))
 
@@ -1150,6 +1232,8 @@ class Compiler:
         self.used_permissions = {}
         self.engine2 = False       # a call of engine version 2: the package is format 3
         self.engine3 = False       # a call of engine version 3 (popup()): format 3, engine 3
+        self.engine4 = False       # a list or a call of engine version 4 (held()): format 3, engine 4
+        self.arrays = {}           # name of a list -> (first global, size)
         # The data column names are the first strings (docs/DATA.md section 6)
         for column in program.columns:
             self.strings.append(column)
@@ -1200,7 +1284,24 @@ class Compiler:
                 return self.bitmap_index[name]
             if name in BUILTIN_NAMES and name not in self.globals:
                 return BUILTIN_NAMES[name]
+        if kind == "call" and expression[1] == "len" and "len" not in self.program.funcs:
+            return self.list_size(expression)
         return None
+
+    def list_size(self, expression):
+        """len(name): the size of a list, a fixed number"""
+        _, _, args, line = expression
+        if len(args) != 1 or args[0][0] != "name" or args[0][1] not in self.arrays or \
+                (self.locals is not None and args[0][1] in self.locals):
+            self.error(line, "len() needs the name of a list: len(rocks).")
+        return self.arrays[args[0][1]][1]
+
+    def list_slot(self, name, line):
+        """(first global, size) of the list `name`"""
+        if (self.locals is None or name not in self.locals) and name in self.arrays:
+            self.engine4 = True
+            return self.arrays[name]
+        self.error(line, "\"%s\" is not a list. Make a list at the top of the app: var %s[10]" % (name, name))
 
     def string_id(self, text, line):
         if len(text) > MAX_STRING_LEN:
@@ -1221,12 +1322,23 @@ class Compiler:
             self.push(expression[1], line)
         elif kind == "str":
             self.push(self.string_id(expression[1], line), line)
+        elif kind == "index":
+            _, name, index, _ = expression
+            base, size = self.list_slot(name, line)
+            fixed = self.fixed_value(index)
+            if fixed is not None and not 0 <= fixed < size:
+                self.error(line, "%s[%d]: the list %s has %d values (0 to %d)." % (name, fixed, name, size, size - 1))
+            self.expression(index)
+            self.emit("LOADX", (base, size))
         elif kind == "name":
             name = expression[1]
             if self.locals is not None and name in self.locals:
                 self.emit("LOAD", self.locals[name])
             elif name in self.globals:
                 self.emit("LOAD", self.globals[name])
+            elif name in self.arrays:
+                self.error(line, "\"%s\" is a list. Use one value of it: %s[0] (0 to %d), or len(%s)."
+                           % (name, name, self.arrays[name][1] - 1, name))
             else:
                 value = self.fixed_value(expression)
                 if value is None:
@@ -1272,7 +1384,22 @@ class Compiler:
 
     def call(self, expression):
         _, name, args, line = expression
-        if name in OPCODE_FUNCTIONS:
+        if name in SHADOW_NAMES and name in self.program.funcs:
+            pass   # the function of the script (a script from before engine 4)
+        elif name == "len":
+            self.push(self.list_size(expression), line)
+            return
+        elif name in SHADOW_NAMES and (name in self.globals or (self.locals is not None and name in self.locals)):
+            self.error(line, "\"%s\" is a variable of this app, so %s() is not there. Rename the variable."
+                       % (name, name))
+        if name in SHADOW_NAMES and name in self.program.funcs:
+            params = self.program.funcs[name][0]
+            if len(args) != len(params):
+                self.error(line, "%s() needs %d value%s." % (name, len(params), "" if len(params) == 1 else "s"))
+            for arg in args:
+                self.expression(arg)
+            self.emit("CALL", ("func", name))
+        elif name in OPCODE_FUNCTIONS:
             opcode, count = OPCODE_FUNCTIONS[name]
             if len(args) != count:
                 self.error(line, "%s() needs %d value%s." % (name, count, "" if count == 1 else "s"))
@@ -1286,6 +1413,8 @@ class Compiler:
                 self.engine2 = True
             if sys_id in SYS_ENGINE3:
                 self.engine3 = True
+            if sys_id in SYS_ENGINE4:
+                self.engine4 = True
             if name == "log":
                 columns = len(self.program.columns)
                 if not columns:
@@ -1340,8 +1469,7 @@ class Compiler:
             _, name, value, _ = statement
             if name in self.locals:
                 self.error(line, "the variable \"%s\" is already made in this %s." % (name, self.where()))
-            if name in self.globals or name in self.program.lines or name in BUILTIN_NAMES \
-                    or name in SYS_BY_NAME or name in OPCODE_FUNCTIONS or name in STATEMENT_WORDS:
+            if name in self.globals or name in self.program.lines or reserved_name(name):
                 self.error(line, "the name \"%s\" is already used. Use an other name." % name)
             slot = self.new_local(name, line)
             if value is not None:
@@ -1350,9 +1478,27 @@ class Compiler:
                 self.push(0, line)
             self.locals[name] = slot
             self.emit("STORE", slot)
+        elif kind == "setx":
+            _, name, index, op, value, _ = statement
+            base, size = self.list_slot(name, line)
+            fixed = self.fixed_value(index)
+            if fixed is not None and not 0 <= fixed < size:
+                self.error(line, "%s[%d]: the list %s has %d values (0 to %d)." % (name, fixed, name, size, size - 1))
+            self.expression(index)
+            if op != "=":
+                self.emit("DUP")
+                self.emit("LOADX", (base, size))
+            self.expression(value)
+            if op == "+=":
+                self.emit("ADD")
+            elif op == "-=":
+                self.emit("SUB")
+            self.emit("STOREX", (base, size))
         elif kind == "set":
             _, name, op, value, _ = statement
             slot = self.locals.get(name, self.globals.get(name))
+            if slot is None and name in self.arrays:
+                self.error(line, "\"%s\" is a list. Change one value of it: %s[0] = ..." % (name, name))
             if slot is None:
                 if self.fixed_value(("name", name, line)) is not None:
                     self.error(line, "\"%s\" is a fixed value; it cannot change." % name)
@@ -1414,8 +1560,8 @@ class Compiler:
             slot = self.next_slot
             self.next_slot += 1
         if slot >= MAX_GLOBALS:
-            self.error(line, "the app has too many variables (%d is the most, with the variables in handlers "
-                             "and functions)." % MAX_GLOBALS)
+            self.error(line, "the app has too many variables (%d is the most, with the lists and the variables "
+                             "in handlers and functions)." % MAX_GLOBALS)
         self.global_names.setdefault(slot, []).append("%s.%s" % (self.event, name))
         return slot
 
@@ -1492,38 +1638,56 @@ class Compiler:
             if self.fixed_value(value) is None:
                 self.error(line, "a const must be a whole number.")
 
-        # Globals: the saved variables first, then the other variables
-        saved_values = []
-        for key, value, line in program.saved:
+        # Globals: the saved variables first, then the other variables. A list has `size` globals
+        # after each other. The start values: (key, slot, value, line), only the ones that are not 0.
+        def fixed_start(key, value, line):
             fixed = self.fixed_value(value)
             if fixed is None:
                 self.error(line, "the start value of \"%s\" must be a whole number." % key)
-            saved_values.append((key, fixed, line))
-        var_values = []
-        for key, value, line in program.vars:
-            fixed = self.fixed_value(value)
-            if fixed is None:
-                self.error(line, "the start value of \"%s\" must be a whole number." % key)
-            var_values.append((key, fixed, line))
-        for slot, (key, _, _) in enumerate(saved_values):
-            self.globals[key] = slot
-            self.global_names[slot] = key
+            return fixed
+
+        def place(entries, first):
+            slot = first
+            starts = []
+            for key, value, line, size in entries:
+                if size is None:
+                    self.globals[key] = slot
+                    self.global_names[slot] = key
+                    fixed = fixed_start(key, value, line)
+                    if fixed:
+                        starts.append((key, slot, fixed, line))
+                    slot += 1
+                    continue
+                count = self.fixed_value(size)
+                if count is None or not 1 <= count <= 255:
+                    self.error(line, "the size of the list \"%s\" must be a whole number from 1 to 255." % key)
+                if len(value) > count:
+                    self.error(line, "the list \"%s\" has %d values; %d start values are too many." % (key, count, len(value)))
+                self.arrays[key] = (slot, count)
+                for index in range(count):
+                    self.global_names[slot + index] = "%s[%d]" % (key, index)
+                for index, item in enumerate(value):
+                    fixed = fixed_start(key, item, line)
+                    if fixed:
+                        starts.append((key, slot + index, fixed, line))
+                slot += count
+            return slot, starts
+
+        saved_end, saved_starts = place(program.saved, 0)
         # A saved variable with a start value that is not 0 needs a hidden saved variable: it is 0
         # until the app was opened one time, so the open handler knows when to set the start values.
         started_slot = None
-        if any(value for _, value, _ in saved_values):
-            started_slot = len(saved_values)
+        if saved_starts:
+            started_slot = saved_end
             self.global_names[started_slot] = "hidden: started"
-        saved_count = len(saved_values) + (1 if started_slot is not None else 0)
+        saved_count = saved_end + (1 if started_slot is not None else 0)
         if saved_count > MAX_SAVED:
-            self.error(program.saved[-1][2], "an app has %d saved variables at most%s." % (
-                MAX_SAVED, " (one is hidden: it remembers that the start values are set)" if started_slot is not None else ""))
-        for index, (key, _, _) in enumerate(var_values):
-            self.globals[key] = saved_count + index
-            self.global_names[saved_count + index] = key
-        self.pool_base = saved_count + len(var_values)
+            self.error(program.saved[-1][2], "an app has %d saved values at most (a list counts each value)%s." % (
+                MAX_SAVED, "; one is hidden: it remembers that the start values are set" if started_slot is not None else ""))
+        self.pool_base, var_starts = place(program.vars, saved_count)
         if self.pool_base > MAX_GLOBALS:
-            self.error(program.vars[-1][2], "the app has more than %d variables." % MAX_GLOBALS)
+            self.error(program.vars[-1][2], "the app has more than %d variables (a list counts each value)."
+                       % MAX_GLOBALS)
 
         self.check_calls()
 
@@ -1536,7 +1700,7 @@ class Compiler:
         # Handlers. Their variables share one area: handlers never run at the same time.
         self.pool_size = 0
         handler_labels = {}
-        has_start_values = started_slot is not None or any(value for _, value, _ in var_values)
+        has_start_values = started_slot is not None or bool(var_starts)
         for event in EVENTS:
             if event not in program.handlers and not (event == "open" and has_start_values):
                 continue
@@ -1547,18 +1711,16 @@ class Compiler:
             self.place(label)
             if event == "open":
                 # The start values: each time for the variables, the first time for the saved ones
-                for key, value, var_line in var_values:
-                    if value:
-                        self.push(value, var_line)
-                        self.emit("STORE", self.globals[key])
+                for _, slot, value, var_line in var_starts:
+                    self.push(value, var_line)
+                    self.emit("STORE", slot)
                 if started_slot is not None:
                     started = self.label()
                     self.emit("LOAD", started_slot)
                     self.emit("JNZ", started)
-                    for key, value, var_line in saved_values:
-                        if value:
-                            self.push(value, var_line)
-                            self.emit("STORE", self.globals[key])
+                    for _, slot, value, var_line in saved_starts:
+                        self.push(value, var_line)
+                        self.emit("STORE", slot)
                     self.push(1, line)
                     self.emit("STORE", started_slot)
                     self.place(started)
@@ -1575,7 +1737,7 @@ class Compiler:
             self.place(label)
             slots = []
             for param in params:
-                if param in self.globals or param in program.lines or param in BUILTIN_NAMES or param in SYS_BY_NAME:
+                if param in self.globals or param in program.lines or reserved_name(param):
                     self.error(line, "the parameter name \"%s\" is already used. Use an other name." % param)
                 slot = self.new_local(param, line)
                 self.locals[param] = slot
@@ -1594,6 +1756,7 @@ class Compiler:
         return {
             "code": code, "handlers": handlers, "global_count": global_count, "saved_count": saved_count,
             "strings": list(self.strings), "warnings": self.warnings, "engine2": self.engine2, "engine3": self.engine3,
+            "engine4": self.engine4,
             "global_names": {slot: "/".join(names) if isinstance(names, list) else names
                              for slot, names in self.global_names.items()},
         }
@@ -1621,6 +1784,8 @@ class Compiler:
                 code += struct.pack("<i", operand)
             elif kind in ("g", "sys"):
                 code.append(operand)
+            elif kind == "gl":
+                code += bytes(operand)
             elif kind == "rel":
                 distance = offsets[operand] - (len(code) + 2)
                 if not -32768 <= distance <= 32767:
@@ -1726,10 +1891,14 @@ def compile_source(source, filename="app.sts", base_dir="."):
 
     bitmaps = [(len(rows_[0]), len(rows_), rows_to_bitmap(rows_)) for _, rows_, _ in program.bitmaps]
     settings = [(setting_name, values, default) for _, setting_name, values, default, _ in program.settings]
+    # Engine 4: a list, held(), the `engine 4` line, or more than the limits of engine 1 to 3
+    engine4 = (result["engine4"] or program.engine == 4 or result["global_count"] > MAX_GLOBALS_V3
+               or len(bitmaps) > MAX_BITMAPS_V3 or len(result["code"]) > MAX_CODE_V3)
+    engine_version = 4 if engine4 else 3 if result["engine3"] else 2 if result["engine2"] else None
     package = assemble_package(name, program.app_id or make_app_id(name), program.version, program.permissions,
                                picture_bytes(rows), result["handlers"], settings, result["strings"], bitmaps,
                                result["code"], result["global_count"], result["saved_count"],
-                               engine_version=3 if result["engine3"] else 2 if result["engine2"] else None, columns=len(program.columns))
+                               engine_version=engine_version, columns=len(program.columns))
     if len(package) > MAX_SIZE:
         raise AppError("%s: the package has %d bytes; %d is the most." % (filename, len(package), MAX_SIZE))
     status, info = check(package)
@@ -1793,6 +1962,8 @@ def disassemble(code, handlers=None, global_names=None):
             text = "%-7s g%d" % (name, operand)
             if global_names and operand in global_names:
                 text += "  (%s)" % global_names[operand]
+        elif kind == "gl":
+            text = "%-7s g%d[%d]" % (name, operand[0], operand[1])
         else:
             text = "%-7s %d" % (name, operand)
         lines.append("%04x  %s" % (pc, text))
@@ -1853,6 +2024,8 @@ class Machine:
         self.parts = package_parts(package)
         self.package = package
         self.globals = [0] * MAX_GLOBALS
+        self.max_steps = limit(self.parts["engine"], MAX_STEPS, MAX_STEPS_V3)
+        self.held = [False, False]     # the buttons that are down now (held())
         self.counters = [0, 0, 0, 0]
         self.settings = [setting["default"] for setting in self.parts["settings"]]
         self.now = 10000
@@ -1869,7 +2042,13 @@ class Machine:
         self.screen = None
 
     def run(self, event):
-        """Run one handler. Return the result text ("ok" or the error)."""
+        """Run one handler. Return the result text ("ok" or the error). The button events also set
+        what held() gives: down and long = the button is down; press (it comes after the release) and
+        up1 / up2 (no handler: only the release) = it is up."""
+        if event in ("down1", "down2", "long1", "long2", "press1", "press2", "up1", "up2"):
+            self.held[int(event[-1]) - 1] = event[:-1] in ("down", "long")
+            if event in ("up1", "up2"):
+                return result_text(self.error) if self.error is not None else "ok"
         if self.error is not None:
             return result_text(self.error)
         index = EVENTS.index(event)
@@ -1904,7 +2083,7 @@ class Machine:
 
         while True:
             steps += 1
-            if steps > MAX_STEPS:
+            if steps > self.max_steps:
                 raise RunError(ERR_STEPS, pc)
             opcode = code[pc]
             name, kind = OPCODES[opcode]
@@ -1919,6 +2098,16 @@ class Machine:
                 push(g[operand])
             elif name == "STORE":
                 g[operand] = pop()
+            elif name in ("LOADX", "STOREX"):
+                base, length = operand
+                value = pop() if name == "STOREX" else None
+                index = pop()
+                if not 0 <= index < length:
+                    raise RunError(ERR_INDEX, pc)
+                if name == "LOADX":
+                    push(g[base + index])
+                else:
+                    g[base + index] = value
             elif name == "DUP":
                 value = pop()
                 push(value)
@@ -2055,6 +2244,9 @@ class Machine:
             # The preview always shows the app: it is on the screen (the firmware gives 1 then)
             self.popups += 1
             return 1
+        if name == "held":
+            # The preview always shows the app: it sees the buttons
+            return 1 if args[0] in (1, 2) and self.held[args[0] - 1] else 0
         columns = self.parts["columns"]
         if name == "log":
             # Full = stop. Not in draw (the firmware writes the rows later, never while it draws).
@@ -2088,6 +2280,8 @@ class Machine:
     def frame(self):
         """Run the draw handler and return the screen as 32 rows of 128 characters"""
         self.run("draw")
+        if self.screen is None:
+            self.screen = Screen(_assets())   # An app error before the first draw: an empty screen
         return self.screen.lines()
 
 
@@ -2128,7 +2322,7 @@ def run_actions(machine, actions):
     """Actions of the `run` command. Return the text output."""
     out = []
     for action in actions:
-        if action in ("press1", "press2", "long1", "long2", "down1", "down2", "tick", "kill", "death"):
+        if action in ("press1", "press2", "long1", "long2", "down1", "down2", "up1", "up2", "tick", "kill", "death"):
             result = machine.run(action)
         elif action.startswith("background:"):
             machine.background = action[11:] not in ("0", "")
@@ -2167,7 +2361,7 @@ def run_actions(machine, actions):
             out.append("Wrote %s" % action[4:])
             result = "ok"
         else:
-            raise AppError("Unknown action %r. Actions: press1 press2 long1 long2 down1 down2 tick kill death "
+            raise AppError("Unknown action %r. Actions: press1 press2 long1 long2 down1 down2 up1 up2 tick kill death "
                            "wait:MS frame png:FILE counter:NAME=N setting:N=V random:SEED battery:PERCENT "
                            "mv:MILLIVOLTS background:0|1 data" % action)
         if result != "ok":

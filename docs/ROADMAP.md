@@ -57,8 +57,19 @@ This repository (`trakaismikus/stattrak`) is private until these are done:
 - New production units: a small rescue firmware in the `factory` slot and a bootloader that
   starts it when both buttons are held for a long time.
 - Simulator: sound, and the real update task (`ota.c`) with a FreeRTOS stand-in.
+- Engine 4 on a device: run BENCH (`tools/bench/bench.sts`) at 15500 steps. If one frame takes
+  more than 40 ms, make `STAPP_MAX_STEPS` smaller before the official 1.2.0.
 
 ## Shipped
+
+- **2026-11-18: app engine 4 (firmware 1.2.0-b4): apps that look like built-in screens.** Apps
+  can have lists (`var rocks[16]`, `rocks[i]`, `len(rocks)`), 200 variables (was 48), 16 pictures
+  (was 8), 3.5 KB of code (was 2 KB) and 16000 steps for each event (was 4000). `held(1)` /
+  `held(2)` tell if a button is down now, so "move while held" works. Old apps do not change (the
+  same bytes) and keep the old limits; only an app that uses a new thing needs 1.2.0-b4.
+  docs/APPS.md section 7.5 and 7.6 (how to make an app from a built-in C screen). The test app
+  BENCH (`tools/bench/bench.sts`, not in the catalog) shows how long a frame takes on a device.
+  Not tried on a device yet.
 
 - **2026-11-18: RESPAWN TIMER 3, the official app.** The left side is a full-height bar of the time
   left while the time runs, and two actions when it is stopped: a clock icon (edit the time) on

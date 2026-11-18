@@ -21,6 +21,8 @@ typedef enum stapp_op_e {
   STAPP_OP__DUP    = 0x06,
   STAPP_OP__DROP   = 0x07,
   STAPP_OP__SWAP   = 0x08,
+  STAPP_OP__LOADX  = 0x09,   // Engine 4: u8 base, u8 length. Pops the index, pushes globals[base + index]
+  STAPP_OP__STOREX = 0x0A,   // Engine 4: u8 base, u8 length. Pops the value, then the index
   STAPP_OP__ADD    = 0x10,
   STAPP_OP__SUB    = 0x11,
   STAPP_OP__MUL    = 0x12,
@@ -65,6 +67,7 @@ static inline int8_t Stapp_opLength(uint8_t op) {
     case STAPP_OP__PUSH8: case STAPP_OP__LOAD: case STAPP_OP__STORE: case STAPP_OP__SYS:
       return 2;
     case STAPP_OP__PUSH16: case STAPP_OP__JMP: case STAPP_OP__JZ: case STAPP_OP__JNZ: case STAPP_OP__CALL:
+    case STAPP_OP__LOADX: case STAPP_OP__STOREX:
       return 3;
     case STAPP_OP__PUSH32:
       return 5;
