@@ -118,8 +118,9 @@ that filter gets the name start filter "StatTrak" only. The firmware tab looks f
   "Apps: SYNC" at the same time.
 - An old firmware (no app commands): "Update the firmware first", with a link to the firmware tab.
   A device that is not in "Apps: SYNC" (status 3): the page says what to do on the device.
-- The page checks a `.stapp` file (magic, format 1 or 2, size, CRC-32) before it sends it. The
-  device does the full check.
+- The page checks a `.stapp` file (magic, format 1 to 3, size, CRC-32) before it sends it. An app
+  that needs a newer app engine or package format than the device has (INFO) is not sent: "Update
+  the firmware first". The device does the full check.
 - The device has no command for the title picture or the setting names of an installed app. The
   page knows them for catalog apps and for a file installed in this page session; other apps show
   their name as the picture, and their settings are changed on the device.

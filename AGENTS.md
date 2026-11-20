@@ -62,10 +62,13 @@ real firmware, running on the computer. Tell the person in two sentences what th
 Then ask what they want to do, or start with their idea.
 
 **An app** (answer (d), or the person asks for an app): an app is a screen that the person
-installs from the web page, with no firmware change. Follow `docs/APPS.md` (section 8 has the
-steps) instead of sections 4 to 7 below. The simulator part is enough; an app needs no firmware
-build. If the app uses a list, `held()` or more than the old limits, it needs firmware 1.2.0-b4
-or newer (`docs/APPS.md` section 7.5): tell the person this before they install it.
+installs from the web page, with no firmware change. Use the work sequence of section 4 and the
+screen designs of section 5. For steps 4 to 6 (the code, the tests, the pictures) follow
+`docs/APPS.md` section 8: the app script, `python tools/app.py`, `tests/test_app_tool.py`. Skip
+steps 10 and 11 and sections 6 and 7: an app needs no firmware build. The person installs the
+`.stapp` file on the "My device" tab of the web page (**From file**). If the app uses a list,
+`held()` or more than the old limits, it needs firmware 1.2.0-b4 or newer (`docs/APPS.md`
+section 7.5): tell the person this before they install it.
 
 ## 2. What this repository is
 
@@ -366,7 +369,7 @@ sim/                     simulator (host/ = stand-ins for hardware, headless/, s
 tests/                   tests (Python: full firmware in the simulator, unit/: C unit tests)
 tools/                   setup.py, check.py, check_safety.py, sim.py, design.py, build.py
 updater/                 the web site (stattrak.tridos.design, updater/README.md): index.html = Firmware
-                         and Apps, start/ = Get started, designer/ = the Screen Designer
+                         and My device, start/ = Get started, designer/ = the Screen Designer
 docs/                    SAFETY.md, BLUETOOTH.md, DESIGNS.md, AUDIT.md, ROADMAP.md
 CONTRIBUTING.md          how to share a feature with all users
 ```

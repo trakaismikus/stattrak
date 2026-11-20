@@ -54,7 +54,8 @@ Format 3 (firmware 1.2.0-b2, engine version 2) adds a data store, the permission
 the calls `log()`, `log_count()`, `log_get()`, `log_clear()`, `battery_mv()`: see
 [DATA.md](DATA.md) section 6. It also adds the background app: the permission `background`, the
 events `kill` and `death` (the handler table has 12 entries, the data area starts at 312) and the
-call `background()`: see section 4.6. The compiler writes format 3 only for an app that uses them.
+call `background()`: see section 4.6. The compiler writes format 3 only for an app that uses them,
+or that needs engine version 3 or 4 (below).
 
 Engine version 3 (firmware 1.2.0-b3) adds the call `popup()` (section 4.6). The compiler writes
 engine version 3 (format 3) only for an app that calls it. An older firmware refuses such a package
@@ -70,19 +71,21 @@ Little-endian. All offsets are from the start of the package.
 ```
 Header (48 bytes)
   0  u8[4]  magic "STAP"
-  4  u8     format version = 1 or 2 (2 = the handler table also has down1, down2)
-  5  u8     engine version needed (1)
-  6  u16    permissions (bit 0: changes counters, bit 1: sound)
+  4  u8     format version = 1, 2 or 3 (2 = the handler table also has down1, down2; 3 = also
+            kill, death, and the features of DATA.md section 6)
+  5  u8     engine version needed (1 to 4, see above and section 7.5)
+  6  u16    permissions (bit 0: changes counters, bit 1: sound; format 3 also: bit 2 data,
+            bit 3 awake, bit 4 background)
   8  u32    app id (not 0, not 0xFFFFFFFF; the compiler makes it from the name unless set)
  12  u16    app version
  14  u16    total size (bytes, with the CRC)
  16  char[16] name, 0-padded
- 32  u8     global variable count (0..48)
+ 32  u8     global variable count (0..200; engine 1 to 3: 0..48)
  33  u8     saved variable count (0..16, <= global count)
  34  u8     setting count (0..4)
  35  u8     string count (0..32)
- 36  u8     bitmap count (0..8)
- 37  u8     reserved = 0
+ 36  u8     bitmap count (0..16; engine 1 to 3: 0..8)
+ 37  u8     formats 1 and 2: reserved = 0. Format 3: data column count 0..4 (DATA.md section 6)
  38  u16    offset of the settings block
  40  u16    offset of the string table
  42  u16    offset of the bitmap table
@@ -93,8 +96,8 @@ Title picture: 240 bytes right after the header (offset 48): 80 x 24, Gfx_drawBi
 Handler table: right after the title picture (offset 288): code offsets (relative to the code
   start) of: open, draw, press1, press2, long1, long2, tick, close (format 1: 8 x u16), then
   down1, down2 (format 2: 10 x u16), then kill, death (format 3: 12 x u16). 0xFFFF = none. The
-  compiler writes format 2 only for an app with a down1 or down2 handler; other apps stay format
-  1 (older firmware can install them).
+  compiler writes the lowest format that the app needs: format 2 for a down1 or down2 handler,
+  format 3 for the features above; other apps stay format 1 (older firmware can install them).
 Settings block: for each setting:
   char[12] name (0-padded), u8 value count (2..6), u8 default (< count),
   then value count x char[8] (0-padded)
@@ -118,10 +121,10 @@ start of the CRC.
 | --- | --- | --- |
 | 1 | Package size 308 to 4096 bytes | `bad size` |
 | 2 | Magic `STAP` | `bad magic` |
-| 3 | Format version = 1 or 2, engine version needed = 1 .. `STAPP_ENGINE_VERSION`. Format 2: size at least 312 | `bad version` (`bad size` for the 312) |
+| 3 | Format version = 1 .. `STAPP_FORMAT_VERSION` (3), engine version needed = 1 .. `STAPP_ENGINE_VERSION` (4). Format 2: size at least 312, format 3: at least 316 | `bad version` (`bad size` for the 312 / 316) |
 | 4 | Total size in the header = package size | `bad size` |
 | 5 | CRC | `bad crc` |
-| 6 | Permissions only bits 0 and 1. Id not 0 .. 255 (0 and the built-in apps 1, 2, 3; 4 .. 255 are kept for later built-in apps) and not 0xFFFFFFFF. Name: 1 to 14 characters of `A-Z 0-9 space + - % / . :`, then only 0 bytes. Counts: globals <= 200 (engine 1 to 3: 48), saved <= 16 and <= globals, settings <= 4, strings <= 32, bitmaps <= 16 (engine 1 to 3: 8). Reserved byte = 0 | `bad header` |
+| 6 | Permissions: formats 1 and 2 only bits 0 and 1, format 3 bits 0 to 4. Id not 0 .. 255 (0 and the built-in apps 1, 2, 3; 4 .. 255 are kept for later built-in apps) and not 0xFFFFFFFF. Name: 1 to 14 characters of `A-Z 0-9 space + - % / . :`, then only 0 bytes. Counts: globals <= 200 (engine 1 to 3: 48), saved <= 16 and <= globals, settings <= 4, strings <= 32, bitmaps <= 16 (engine 1 to 3: 8). Byte 37: formats 1 and 2 = 0; format 3: at most 4 columns, more than 0 exactly when the permission data is set, and not more than the string count | `bad header` |
 | 7 | Code size <= 3584 (engine 1 to 3: 2048) | `bad layout` |
 | 8 | Settings block: walk the settings. Each one starts in the data area and its 14 bytes are in it; its value count is 2 to 6 (a wrong count = `bad settings`, here already) | `bad layout` |
 | 9 | The 4 blocks (settings, string table, bitmap table, code) are inside the data area and do not overlap each other. A block with count 0 (or code size 0) is not checked | `bad layout` |
@@ -355,7 +358,7 @@ display (any command that changes apps answers 11 until the person answers), 12 
 
 | Number | Name | Data in | Answer |
 | --- | --- | --- | --- |
-| `0x0110` | INFO | | u8 engine version, u8 format version (the newest that the firmware reads: 2), u16 free bytes, u16 max package, u8 app count, u8 max apps |
+| `0x0110` | INFO | | u8 engine version, u8 format version (the newest that the firmware reads: 3), u16 free bytes, u16 max package, u8 app count, u8 max apps |
 | `0x0111` | LIST | u8 index | u32 id, u16 version, u16 size, u8 flags (bit 0 hidden, bit 1 built-in, bit 2 has settings, bit 3 error), u8 setting count, 3 chars of the name (use NAME for the full name). Status 4 = index too large |
 | `0x0112` | NAME | u32 id, u8 part | 13 bytes of the name from part * 13. Status 2 = unknown id |
 | `0x0113` | BEGIN | u32 id, u16 size, u32 crc | crc = CRC-32 of the whole package file. Status 2 for an id 0 .. 255 or 0xFFFFFFFF or a size under 308; 5 no space, 6 too large, 7 too many apps. A new BEGIN stops an install that runs (also an earlier "yes"). An id that is installed already is replaced: it keeps its place in the menu, and it is shown again if errors had switched it off |

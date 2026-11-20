@@ -174,8 +174,9 @@ device again and lists each value that is not the same as in the file.
 ## 6. Package format 3 (apps that use these features)
 
 Format 3 is format 2 with these changes (the handler table has 12 entries: also `kill` and
-`death` of the background app, [APPS.md](APPS.md) section 4.6). The compiler writes format 3 only for an
-app that uses a feature of this section; such an app needs engine version 2 (firmware 1.2.0-b2).
+`death` of the background app, [APPS.md](APPS.md) section 4.6). The compiler writes format 3 for an
+app that uses a feature of this section; such an app needs engine version 2 (firmware 1.2.0-b2)
+or newer. An app that needs engine 3 or 4 is format 3 too ([APPS.md](APPS.md) sections 3 and 7.5).
 Older firmware refuses it (`bad version`).
 
 - Header byte 37 (reserved in formats 1 and 2) = data column count, 0 .. 4.

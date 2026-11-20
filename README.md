@@ -200,7 +200,7 @@ More about the page: [updater/README.md](updater/README.md).
 ## 🧩 Apps and App Sync
 
 Your StatTrak can run **apps**, like a watch. An app is a small file (up to 4 KB): a game, a
-timer, a different counter. You install it over Bluetooth from your browser, in the **Apps**
+timer, a different counter. You install it over Bluetooth from your browser, in the **My device**
 tab of the Web Updater. The firmware stays the same, so an app install takes a few seconds. The
 firmware checks each app, and an app runs in a closed box: it cannot touch the firmware update,
 Bluetooth or the power.
@@ -217,7 +217,7 @@ Bluetooth or the power.
 
 1. **On the StatTrak:** Settings, then `Apps: SYNC`, hold the right button. The display shows
    `APP SYNC` and `WAITING`.
-2. **On the computer:** open <https://stattrak.tridos.design/#apps> (the **Apps** tab), click
+2. **On the computer:** open <https://stattrak.tridos.design/#device> (the **My device** tab), click
    **Connect** and pick your StatTrak.
 3. Click **Install** next to an app.
 4. **Answer on the StatTrak.** It asks `INSTALL <NAME>?`. Hold the right button for yes, or the left button for

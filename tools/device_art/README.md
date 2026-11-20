@@ -52,13 +52,13 @@ the same.
 
 ## The animations
 
-- **Apps tab, before Connect** (`sync-path`): the way to "Apps: SYNC" on the firmware of this
+- **My device tab, before Connect** (`sync-path`): the way to "Apps: SYNC" on the firmware of this
   repository: the kill counter, both buttons to the app menu, the left button to `SETTINGS`, both
   buttons to open it, the right button down to `APPS: SYNC`, hold the right button, `APP SYNC` /
   `Waiting...`. Make it again after a change of these screens:
   `python tools/check.py --build-only`, then `python tools/device_art/make_sync_path.py`.
   `tests/test_sync_path.py` (firmware checks) fails while the file is not the firmware now.
-- **Apps tab, install** (`sync-question`, `sync-installed`; `sync-idle` is not used now): the screens of Settings >
+- **My device tab, install** (`sync-question`, `sync-installed`; `sync-idle` is not used now): the screens of Settings >
   "Apps: SYNC", drawn by `updater/js/apps-pictures.js`. They follow the firmware:
   `tests/make_sync_screens.py` takes the screens from the headless simulator into
   `updater/tests/sync-screens.json`; `tests/test_updater_screens.py` (firmware checks) fails when
