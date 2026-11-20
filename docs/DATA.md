@@ -2,7 +2,7 @@
 
 Firmware 1.2.0-b2 and newer. The decisions behind this work are in
 `qa/backup-and-data/decisions.md` of the owner's workspace; this file is the technical
-description. The web page is the "Apps" tab of `updater/` (the sync page) and the Screen
+description. The web page is the "My device" tab of `updater/` (the sync page) and the Screen
 Designer (`updater/designer/`).
 
 All commands of this file work only in the view Settings > "Apps: SYNC" (status 3 in other

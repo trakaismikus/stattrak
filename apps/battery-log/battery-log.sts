@@ -1,7 +1,7 @@
 # BATTERY LOG: keeps the battery voltage over time, for a full-to-empty test of a battery.
 #   Button 1: start / pause.  Hold button 2: delete the log (only while paused).
 #   The device stays on while this app is open (permission awake). Read the log on the sync page
-#   of the web site (Apps, App data, Download CSV).
+#   of the web site (My device, App data, Download CSV).
 #   In the background (Settings > Background: BATTERY LOG) it starts at each power-on and logs
 #   while you use the other screens. The minutes count only the time that the device is on.
 

@@ -2,7 +2,7 @@
 # It shows how long the device needs for one frame when the draw handler runs many steps.
 # Open it and wait about 20 s: it tests the 5 loads (0, 4000, 8000, 12000 and 15500 steps for
 # each frame) one after the other, 4 seconds each, and saves the numbers in its data store.
-# Read them on the sync page: Settings > Apps: SYNC, then on the web page Apps, App data,
+# Read them on the sync page: Settings > Apps: SYNC, then on the web page My device, App data,
 # BENCH, Download CSV. Columns: RUN (1 more each time the app opens), STEPS, FPS, MS.
 # Right button: the next load (the test goes on from there). Hold the right button: test again.
 # Hold the left button: the box HELD shows (a test of held()).

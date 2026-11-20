@@ -11,7 +11,7 @@ This page is the specification. It is for AI coding tools and developers.
 - Build and check it: `python tools/app.py build apps/<name>/<name>.sts` -> `<name>.stapp`.
 - Try it in the simulator: `python tools/sim.py boot app:apps/<name>/<name>.stapp ...` (installs it
   directly, like a phone would).
-- Put it on a device: the "Apps" part of the web updater.
+- Put it on a device: the "My device" tab of the web page (connect, then **From file**).
 
 ## 1. The parts
 
@@ -384,7 +384,7 @@ The Bluetooth name of "Apps: SYNC" always starts with "StatTrak": "StatTrak | " 
 the person chose (12 characters at most), so a phone or a computer shows it as a StatTrak. The
 advertising packet has 31 bytes: a name of 8 characters or less fits next to the flags and the
 128-bit service UUID; a longer name moves the UUID to the scan response
-(`components/app_ble/app_ble.c`). The Apps tab finds the device by the name start "StatTrak" or
+(`components/app_ble/app_ble.c`). The "My device" tab finds the device by the name start "StatTrak" or
 by the UUID; the firmware tab and older pages look for the exact name "StatTrak", so the update
 views keep it.
 
@@ -583,6 +583,12 @@ in one frame and gets `too many steps` with 4000 steps needs a list, more variab
 `engine 4`.
 
 `python tools/app.py describe` prints the engine version of a package ("engine version 4").
+
+Tell the person when an app needs engine 4: their StatTrak must have firmware 1.2.0-b4 or newer
+(a beta now: the web page, Firmware tab, Upload .bin with the file of the release
+`v1.2.0-b4` on GitHub). On an older firmware the web page refuses the app and says "Update the
+firmware first". An app that does not need engine 4 is better without it: more devices can
+install it.
 
 ### 7.6 A built-in screen (a C view) as an app
 

@@ -4,7 +4,7 @@
 #   Hold button 1: -1 kill (no mark).  Hold button 2: delete all marks.
 #   In the background (Settings > Background: CLIP MARKS): press START here, then go to your
 #   counter screen. Each kill there gets a mark too.
-#   Read the marks on the sync page (Apps, App data, Download CSV): the TIME column is also there
+#   Read the marks on the sync page (My device, App data, Download CSV): the TIME column is also there
 #   as mm:ss.mmm, so you can jump to each kill in the video.
 
 app "CLIP MARKS"

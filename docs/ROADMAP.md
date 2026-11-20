@@ -70,7 +70,7 @@ This repository (`trakaismikus/stattrak`) is private until these are done:
   and saves the numbers in its data store (a CSV on the sync page). Tried on a device
   (2026-11-20, BENCH): up to 8000 steps a frame takes 10 ms (100 frames a second, the same as
   with no app work); 12000 and 15500 steps take 20 ms (50 frames a second). The limit was 40 ms,
-  so 16000 steps stay.
+  so 16000 steps stay. Pre-release v1.2.0-b4 on GitHub (2026-11-20).
 
 - **2026-11-18: RESPAWN TIMER 3, the official app.** The left side is a full-height bar of the time
   left while the time runs, and two actions when it is stopped: a clock icon (edit the time) on
