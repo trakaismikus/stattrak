@@ -2,12 +2,15 @@
 lists, held(), more variables and more steps (docs/APPS.md section 4.1)."""
 
 import os
+import struct
 import sys
 import unittest
 
 from test_apps import AppTestCase, INSTALLED
+from test_data import DATA_COLUMN, DataTestCase
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools"))
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(REPO_ROOT, "tools"))
 import app  # noqa: E402
 
 SOURCE = """app "LISTS"
@@ -76,6 +79,26 @@ class EngineFourTest(AppTestCase):
         # Both buttons still open the menu
         self.dev.click_both()
         self.assertEqual(self.dev.view, "LAUNCHER")
+
+
+class BenchTest(DataTestCase):
+    """BENCH (tools/bench/) saves its numbers in its data store; the sync page reads them"""
+
+    def test_bench_rows_can_be_read_on_the_sync_page(self):
+        package = app.load_package(os.path.join(REPO_ROOT, "tools", "bench", "bench.sts"))
+        app_id = struct.unpack_from("<I", package, 8)[0]
+        self.assert_installed(package)
+        self.leave_sync()
+        self.open_app(app_id)
+        self.dev.run(21000)
+        state = self.dev.state()
+        self.assertEqual(state["app_error"], 0, state["app_error_text"])
+        self.open_sync()          # closes the app: the rows go to flash
+        rows = self.read_rows(app_id)
+        self.assertEqual([row[1] for row in rows], [s for s in (0, 4000, 8000, 12000, 15500) for _ in range(3)])
+        self.assertTrue(all(row[0] == 1 and row[2] > 0 and row[3] > 0 for row in rows), rows)
+        self.assertEqual([self.cmd(DATA_COLUMN, struct.pack("<IB", app_id, n))[1] for n in range(4)],
+                         [b"RUN", b"STEPS", b"FPS", b"MS"])
 
 
 if __name__ == "__main__":

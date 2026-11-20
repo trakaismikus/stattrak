@@ -629,6 +629,33 @@ on press1 { total = xs[total] }
             data[5] = 4
             self.assertEqual(app.result_text(app.check(with_crc(data))[0]), "bad global", (base, length))
 
+    def test_bench_saves_its_numbers(self):
+        # BENCH (tools/bench/): it tests the 5 loads by itself and saves 3 rows for each load in its
+        # data store (RUN, STEPS, FPS, MS), so the sync page can download them as a CSV
+        package = app.load_package(os.path.join(REPO_ROOT, "tools", "bench", "bench.sts"))
+        self.assertEqual(app.check(package)[0], app.OK)
+        self.assertEqual(app.package_parts(package)["columns"], 4)
+        machine = app.Machine(package)
+        self.assertEqual(machine.run("open"), "ok")
+        machine.wait(21000)
+        self.assertIsNone(machine.error)
+        self.assertEqual([row[1] for row in machine.data], [s for s in (0, 4000, 8000, 12000, 15500) for _ in range(3)])
+        self.assertEqual({(row[0], row[2], row[3]) for row in machine.data}, {(1, 100, 10)})
+        machine.wait(5000)
+        self.assertEqual(len(machine.data), 15)                 # done: no more rows
+        self.assertEqual(machine.run("long2"), "ok")            # test again: run 2
+        machine.wait(5000)
+        self.assertEqual(machine.data[-1][:2], [2, 0])
+        # The STEPS on the screen are the real steps of the draw handler (at most 16000)
+        for limit, result in ((15400, "too many steps"), (15600, "ok")):
+            machine = app.Machine(package)
+            machine.run("open")
+            for _ in range(4):
+                machine.run("press2")                           # the load 15500
+            machine.wait(1200)
+            machine.max_steps = limit
+            self.assertEqual(machine.run("draw"), result, limit)
+
     def test_data_errors(self):
         for source, text in (
                 ('app "A"\non press1 { log(1) }\n', "needs a data store"),

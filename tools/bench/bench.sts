@@ -1,17 +1,22 @@
 # BENCH: a test app for engine 4 (firmware 1.2.0-b4). It is not in the app catalog.
 # It shows how long the device needs for one frame when the draw handler runs many steps.
-# Right button: the next load (0, 4000, 8000, 12000 or 15500 steps for each frame).
+# Open it and wait about 20 s: it tests the 5 loads (0, 4000, 8000, 12000 and 15500 steps for
+# each frame) one after the other, 4 seconds each, and saves the numbers in its data store.
+# Read them on the sync page: Settings > Apps: SYNC, then on the web page Apps, App data,
+# BENCH, Download CSV. Columns: RUN (1 more each time the app opens), STEPS, FPS, MS.
+# Right button: the next load (the test goes on from there). Hold the right button: test again.
 # Hold the left button: the box HELD shows (a test of held()).
 # On the screen: STEPS = the load, FPS = frames in one second, MS = time of one frame.
-# demo: wait 1500, press 2, wait 1500, press 2, wait 1500, down 1, wait 800, up 1, wait 500
+# demo: wait 3500, down 1, wait 800, up 1, wait 3000
 
 app "BENCH"
-version 1
-description "Test app: how fast the device runs app steps. Right button: more steps. Hold left: HELD."
+version 2
+description "Test app: tests 5 step loads by itself and saves FPS and MS (sync page: App data). Hold left: HELD."
 engine 4
+permission awake
 picture icon gauge "BENCH"
+data "RUN" "STEPS" "FPS" "MS"
 
-# The rounds of the loop for each load, and the steps that they make (the whole draw handler)
 bitmap gauge {
   ".....######....."
   "...##......##..."
@@ -26,21 +31,60 @@ bitmap gauge {
   "################"
 }
 
+const SAMPLES = 3      # the saved measurements (1 s each) for each load
+
+# The rounds of the loop for each load, and the steps that they make (the whole draw handler)
 var rounds[5] = { 0, 229, 464, 699, 905 }
 var steps[5] = { 0, 4000, 8000, 12000, 15500 }
+saved run = 0
 var level = 0
 var frames = 0
 var since = 0
 var fps = 0
+var ms = 0
+var ready = 0          # 1 = a new measurement waits for tick (log() does not work in draw)
+var samples = 0        # the saved measurements of this load
+var state = 0          # 0 = the test runs, 1 = all loads are done, 2 = the data store is full
 var work[16]
 
-on open { since = time() }
-
-on press2 {
-  level = (level + 1) % len(rounds)
+func load(n) {
+  level = n
   frames = 0
   fps = 0
+  ms = 0
+  ready = 0
+  samples = -1         # the first second after a change is not saved: it can have 1 frame more
   since = time()
+}
+
+func start() {
+  run += 1
+  state = 0
+  load(0)
+}
+
+on open { start() }
+
+on press2 { load((level + 1) % len(rounds)) }
+
+on long2 { start() }
+
+on tick {
+  if ready {
+    ready = 0
+    if samples < 0 {
+      samples = 0
+    } else if state == 0 {
+      if log(run, steps[level], fps, ms) {
+        samples += 1
+        if samples >= SAMPLES {
+          if level + 1 < len(rounds) { load(level + 1) } else { state = 1 }
+        }
+      } else {
+        state = 2
+      }
+    }
+  }
 }
 
 on draw {
@@ -54,16 +98,22 @@ on draw {
   var now = time()
   if now - since >= 1000 {
     fps = frames * 1000 / (now - since)
+    ms = (now - since) / frames
     frames = 0
     since = now
+    ready = 1
   }
   text(0, 1, "STEPS", small, on, left)
   num(60, 1, steps[level], 0, small, on, right)
   text(0, 12, "FPS", small, on, left)
   num(60, 12, fps, 0, small, on, right)
   text(0, 23, "MS", small, on, left)
-  if fps > 0 { num(60, 23, 1000 / fps, 0, small, on, right) } else { text(60, 23, "-", small, on, right) }
-  text(127, 1, "ENGINE 4", small, on, right)
+  if ms > 0 { num(60, 23, ms, 0, small, on, right) } else { text(60, 23, "-", small, on, right) }
+  if state == 0 {
+    text(127, 1, "SAVING", small, on, right)
+  } else {
+    if state == 1 { text(127, 1, "SAVED", small, on, right) } else { text(127, 1, "FULL", small, on, right) }
+  }
   if held(1) {
     fill(80, 14, 47, 15, on)
     text(103, 19, "HELD", small, off, center)

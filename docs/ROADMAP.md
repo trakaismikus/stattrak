@@ -57,8 +57,9 @@ This repository (`trakaismikus/stattrak`) is private until these are done:
 - New production units: a small rescue firmware in the `factory` slot and a bootloader that
   starts it when both buttons are held for a long time.
 - Simulator: sound, and the real update task (`ota.c`) with a FreeRTOS stand-in.
-- Engine 4 on a device: run BENCH (`tools/bench/bench.sts`) at 15500 steps. If one frame takes
-  more than 40 ms, make `STAPP_MAX_STEPS` smaller before the official 1.2.0.
+- Engine 4 on a device: open BENCH (`tools/bench/bench.sts`) and wait 20 s, then download its
+  CSV on the sync page (Apps, App data). If one frame takes more than 40 ms (MS) at 15500 steps,
+  make `STAPP_MAX_STEPS` smaller before the official 1.2.0.
 
 ## Shipped
 
@@ -68,7 +69,8 @@ This repository (`trakaismikus/stattrak`) is private until these are done:
   `held(2)` tell if a button is down now, so "move while held" works. Old apps do not change (the
   same bytes) and keep the old limits; only an app that uses a new thing needs 1.2.0-b4.
   docs/APPS.md section 7.5 and 7.6 (how to make an app from a built-in C screen). The test app
-  BENCH (`tools/bench/bench.sts`, not in the catalog) shows how long a frame takes on a device.
+  BENCH (`tools/bench/bench.sts`, not in the catalog) shows how long a frame takes on a device
+  and saves the numbers in its data store (a CSV on the sync page).
   Not tried on a device yet.
 
 - **2026-11-18: RESPAWN TIMER 3, the official app.** The left side is a full-height bar of the time
