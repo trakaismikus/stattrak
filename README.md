@@ -200,7 +200,7 @@ More about the page: [updater/README.md](updater/README.md).
 ## 🧩 Apps and App Sync
 
 Your StatTrak can run **apps**, like a watch. An app is a small file (up to 4 KB): a game, a
-timer, a different counter. You install it over Bluetooth from your browser, in the **Apps**
+timer, a different counter. You install it over Bluetooth from your browser, in the **My device**
 tab of the Web Updater. The firmware stays the same, so an app install takes a few seconds. The
 firmware checks each app, and an app runs in a closed box: it cannot touch the firmware update,
 Bluetooth or the power.
@@ -217,7 +217,7 @@ Bluetooth or the power.
 
 1. **On the StatTrak:** Settings, then `Apps: SYNC`, hold the right button. The display shows
    `APP SYNC` and `WAITING`.
-2. **On the computer:** open <https://stattrak.tridos.design/#apps> (the **Apps** tab), click
+2. **On the computer:** open <https://stattrak.tridos.design/#device> (the **My device** tab), click
    **Connect** and pick your StatTrak.
 3. Click **Install** next to an app.
 4. **Answer on the StatTrak.** It asks `INSTALL <NAME>?`. Hold the right button for yes, or the left button for
@@ -236,7 +236,7 @@ Bluetooth or the power.
 
 ### Sort, hide and delete
 
-The Apps tab shows all apps on your StatTrak, in the order of the app menu. You can:
+The My device tab shows all apps on your StatTrak, in the order of the app menu. You can:
 
 - move an app up or down (drag it, or use the arrows),
 - hide an app from the menu, or show it again,
@@ -250,14 +250,14 @@ The bar at the top shows how much of the 24 KB for apps you use. `SETTINGS` is a
 app in the menu, so you can always get to the firmware update.
 
 <p align="center">
-  <img src="docs/images/apps-list.png" alt="The Apps tab: the apps on the device, with show / hide, arrows, settings and delete, and the apps to add" width="80%">
+  <img src="docs/images/apps-list.png" alt="The My device tab: the apps on the device, with show / hide, arrows, settings and delete, and the apps to add" width="80%">
 </p>
 
 ### The apps you can install now
 
 | App | What it does |
 | --- | --- |
-| **BATTERY LOG** | Logs the battery voltage each 1, 2 or 5 minutes until the battery is empty. Download the log on the Apps tab. |
+| **BATTERY LOG** | Logs the battery voltage each 1, 2 or 5 minutes until the battery is empty. Download the log on the My device tab. |
 | **CLIP MARKS** | For video: press 2 when the camera starts, 1 for each kill. Each kill gets a time mark that you download for your video editor. |
 | **HEADSHOT %** | Counts kills and headshots and shows the headshot percentage. |
 | **REACTION** | A reaction game: wait for GO, then press a button as fast as you can. |
@@ -295,7 +295,10 @@ StatTrak stays connected when you go from My device to the Designer and back.
 
 Tell your AI coding tool what the app must do, for example *"Make an app that counts down
 from 10 minutes and beeps at the end."* The AI tool writes the app, tests it in the simulator
-and shows you the screens. Then you install the file with **From file** in the Apps tab.
+and shows you the screens. Then you install the file with **From file** in the My device tab.
+Since firmware 1.2.0-b4, apps can have lists and see a button that is held down, so a game can
+look like the built-in screens. Such an app needs firmware 1.2.0-b4 or newer; the AI tool tells
+you when.
 You can also share your app with other StatTrak owners: see [Share what you made](#-share-what-you-made).
 
 The details for AI tools and developers: [docs/APPS.md](docs/APPS.md).

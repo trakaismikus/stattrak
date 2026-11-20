@@ -239,7 +239,7 @@ User commands (`main/ble_commands.h`):
 
 Add your commands to this table.
 
-App manager commands (the "Apps" part of the web updater, `docs/APPS.md` section 6). They work
+App manager commands (the "My device" tab of the web updater, `docs/APPS.md` section 6). They work
 only while the device shows Settings > "Apps: SYNC"; in each other view the answer is status 3.
 In that view the device refuses new firmware. Numbers have the low byte first.
 

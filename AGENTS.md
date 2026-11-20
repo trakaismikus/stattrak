@@ -21,6 +21,7 @@ Do not ask more than these three.
    (a) No. (b) A little. (c) Yes.
 3. **What do you want to do today?** (a) Look around and try the simulator.
    (b) Change something small. (c) I have an idea for a new feature.
+   (d) Make an app for my StatTrak.
 
 Then write `.stattrak/profile.md` with the answers and the level that you selected:
 
@@ -59,6 +60,15 @@ https://git-scm.com/downloads
 Run `python tools/sim.py --tour` and show the pictures from `out/` to the person. This is the
 real firmware, running on the computer. Tell the person in two sentences what they see.
 Then ask what they want to do, or start with their idea.
+
+**An app** (answer (d), or the person asks for an app): an app is a screen that the person
+installs from the web page, with no firmware change. Use the work sequence of section 4 and the
+screen designs of section 5. For steps 4 to 6 (the code, the tests, the pictures) follow
+`docs/APPS.md` section 8: the app script, `python tools/app.py`, `tests/test_app_tool.py`. Skip
+steps 10 and 11 and sections 6 and 7: an app needs no firmware build. The person installs the
+`.stapp` file on the "My device" tab of the web page (**From file**). If the app uses a list,
+`held()` or more than the old limits, it needs firmware 1.2.0-b4 or newer (`docs/APPS.md`
+section 7.5): tell the person this before they install it.
 
 ## 2. What this repository is
 
@@ -359,7 +369,7 @@ sim/                     simulator (host/ = stand-ins for hardware, headless/, s
 tests/                   tests (Python: full firmware in the simulator, unit/: C unit tests)
 tools/                   setup.py, check.py, check_safety.py, sim.py, design.py, build.py
 updater/                 the web site (stattrak.tridos.design, updater/README.md): index.html = Firmware
-                         and Apps, start/ = Get started, designer/ = the Screen Designer
+                         and My device, start/ = Get started, designer/ = the Screen Designer
 docs/                    SAFETY.md, BLUETOOTH.md, DESIGNS.md, AUDIT.md, ROADMAP.md
 CONTRIBUTING.md          how to share a feature with all users
 ```
@@ -411,7 +421,10 @@ To add a view:
 4. Update `MAIN_VIEWS` in `tests/helpers.py` if the view is in the app menu. Add a test.
 
 An app that users install (and share without a firmware update) is often the better choice
-than a new built-in view: `docs/APPS.md`, `apps/`, `python tools/app.py`.
+than a new built-in view: `docs/APPS.md`, `apps/`, `python tools/app.py`. Since firmware
+1.2.0-b4 (app engine 4) an app has lists, `held()` (a button is down now), 200 variables and
+16000 steps for each event, so most built-in screens can also be an app. `docs/APPS.md`
+section 7.6 shows how to make an app from a C view.
 
 ### Drawing
 
