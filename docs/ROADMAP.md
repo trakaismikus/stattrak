@@ -57,9 +57,6 @@ This repository (`trakaismikus/stattrak`) is private until these are done:
 - New production units: a small rescue firmware in the `factory` slot and a bootloader that
   starts it when both buttons are held for a long time.
 - Simulator: sound, and the real update task (`ota.c`) with a FreeRTOS stand-in.
-- Engine 4 on a device: open BENCH (`tools/bench/bench.sts`) and wait 20 s, then download its
-  CSV on the sync page (Apps, App data). If one frame takes more than 40 ms (MS) at 15500 steps,
-  make `STAPP_MAX_STEPS` smaller before the official 1.2.0.
 
 ## Shipped
 
@@ -70,8 +67,10 @@ This repository (`trakaismikus/stattrak`) is private until these are done:
   same bytes) and keep the old limits; only an app that uses a new thing needs 1.2.0-b4.
   docs/APPS.md section 7.5 and 7.6 (how to make an app from a built-in C screen). The test app
   BENCH (`tools/bench/bench.sts`, not in the catalog) shows how long a frame takes on a device
-  and saves the numbers in its data store (a CSV on the sync page).
-  Not tried on a device yet.
+  and saves the numbers in its data store (a CSV on the sync page). Tried on a device
+  (2026-11-20, BENCH): up to 8000 steps a frame takes 10 ms (100 frames a second, the same as
+  with no app work); 12000 and 15500 steps take 20 ms (50 frames a second). The limit was 40 ms,
+  so 16000 steps stay.
 
 - **2026-11-18: RESPAWN TIMER 3, the official app.** The left side is a full-height bar of the time
   left while the time runs, and two actions when it is stopped: a clock icon (edit the time) on
