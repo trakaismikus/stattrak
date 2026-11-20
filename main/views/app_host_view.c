@@ -35,6 +35,7 @@
 #include "app_data.h"
 #include "eeprom.h"
 #include "battery.h"
+#include "bsp_button.h"
 #include "gfx.h"
 #include "font.h"
 #include "font_glyph.h"
@@ -675,6 +676,13 @@ static int32_t _sys(void* ctx, uint8_t sysId, const int32_t* a, bool drawing) {
       else if(_onScreen(r))
         App_updateActivity(Time_getMillis());
       return _onScreen(r) ? 1 : 0;
+
+    // Engine 4: 1 while the button is down. Only for the app on the screen: the background app and an
+    // app behind an other view do not see the buttons.
+    case STAPP_SYS__HELD:
+      if((a[0] != 1 && a[0] != 2) || !_onScreen(r))
+        return 0;
+      return BspButton_getState((uint8_t)(a[0] - 1)) ? 1 : 0;
 
     case STAPP_SYS__REDRAW:
     default:

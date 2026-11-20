@@ -15,8 +15,9 @@
 #include <stdbool.h>
 
 /* > Defines **************************************************************************************/
-#define STAPP_ENGINE_VERSION      3     // 2: log(), log_count(), log_get(), log_clear(), battery_mv(), background()
+#define STAPP_ENGINE_VERSION      4     // 2: log(), log_count(), log_get(), log_clear(), battery_mv(), background()
                                         // 3: popup()
+                                        // 4: lists (LOADX, STOREX), held(), the larger limits below
 #define STAPP_FORMAT_VERSION      3     // The newest package format that the engine reads (1, 2 or 3)
 
 #define STAPP_HEADER_SIZE         48
@@ -36,7 +37,8 @@
 
 #define STAPP_MAX_SIZE            4096
 #define STAPP_MAX_NAME            14
-#define STAPP_MAX_GLOBALS         48
+#define STAPP_MAX_GLOBALS         200   // Engine 4. Packages for engine 1 to 3: STAPP_MAX_GLOBALS_V3
+#define STAPP_MAX_GLOBALS_V3      48
 #define STAPP_MAX_SAVED           16
 #define STAPP_MAX_SETTINGS        4
 #define STAPP_MIN_VALUES          2
@@ -45,9 +47,15 @@
 #define STAPP_VALUE_LEN           8
 #define STAPP_MAX_STRINGS         32
 #define STAPP_MAX_STRING_LEN      20
-#define STAPP_MAX_BITMAPS         8
-#define STAPP_MAX_CODE            2048
-#define STAPP_MAX_STEPS           4000
+#define STAPP_MAX_BITMAPS         16    // Engine 4 (engine 1 to 3: 8)
+#define STAPP_MAX_BITMAPS_V3      8
+#define STAPP_MAX_CODE            3584  // Engine 4 (engine 1 to 3: 2048)
+#define STAPP_MAX_CODE_V3         2048
+#define STAPP_MAX_STEPS           16000 // Engine 4 (engine 1 to 3: 4000), for one event
+#define STAPP_MAX_STEPS_V3        4000
+// The limit for a package that needs engine `engine` (header byte 5): the old limits for engine 1 to 3,
+// so that a package that runs here also runs on the firmware that its engine byte names
+#define STAPP_LIMIT(engine, v4, v3)  (((engine) >= 4) ? (v4) : (v3))
 #define STAPP_STACK_SIZE          32
 #define STAPP_CALL_DEPTH          8
 
@@ -107,6 +115,7 @@ typedef enum stapp_sys_e {
   STAPP_SYS__BATTERY_MV = 30,
   STAPP_SYS__BACKGROUND = 31,   // 1 = this app is the background app (Settings > Background)
   STAPP_SYS__POPUP = 32,        // Engine 3: the background app asks to come on the screen (docs/APPS.md 4.6)
+  STAPP_SYS__HELD = 33,         // Engine 4: 1 while the button (1 or 2) is down
 } stapp_sys_t;
 
 // Result of Stapp_check() and Stapp_run(). Values are stable: the web page shows them.
@@ -130,6 +139,7 @@ typedef enum stapp_result_e {
   STAPP_ERR_CALLS,          // Call depth
   STAPP_ERR_STEPS,          // More than STAPP_MAX_STEPS instructions in one event
   STAPP_ERR_ARG,            // A string or bitmap id out of range at run time
+  STAPP_ERR_INDEX,          // Engine 4: a list index out of range at run time
   STAPP_RESULT_COUNT,
 } stapp_result_t;
 
@@ -141,6 +151,7 @@ typedef struct stapp_info_s {
   uint16_t version;
   uint16_t size;
   uint16_t permissions;
+  uint8_t  engine;           // The engine version that the package needs (header byte 5)
   char     name[STAPP_MAX_NAME + 1];
   uint8_t  globalCount;
   uint8_t  savedCount;

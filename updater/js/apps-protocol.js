@@ -204,7 +204,7 @@ class StatTrakApps {
   // Stapp_resultText(), in the order of stapp_result_t
   static RESULT_TEXTS = ["ok", "bad size", "bad magic", "bad version", "bad crc", "bad header", "bad layout",
     "bad settings", "bad strings", "bad bitmaps", "bad code", "bad global", "bad sys", "bad handler", "stack",
-    "call depth", "too many steps", "bad arg"];
+    "call depth", "too many steps", "bad arg", "bad index"];
 
   constructor(ota) {
     this.ota = ota;
@@ -350,7 +350,7 @@ class StatTrakApps {
       // A firmware that reads only an older package format refuses the package: do not send it
       const info = await this._ok(StatTrakApps.CMD__INFO);
       if (file.format > info[1] || file.engine > info[0]) {
-        throw new AppsError("file", "Update the firmware first: the app needs package format " + file.format, { problem: "newer format" });
+        throw new AppsError("file", "Update the firmware first: the app needs app engine " + file.engine + " and package format " + file.format, { problem: "newer format" });
       }
       const size = bytes.length;
       const crc = StappFile.crc32(bytes);

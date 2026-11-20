@@ -493,7 +493,7 @@ class InstallTest(AppTestCase):
         status, data = self.cmd(APP_CMD_INFO)
         self.assertEqual(status, OK)
         engine, fmt, free, max_size, count, max_apps = struct.unpack("<BBHHBB", data)
-        self.assertEqual((engine, fmt, max_size, count, max_apps), (3, 3, 4096, 1, 8))
+        self.assertEqual((engine, fmt, max_size, count, max_apps), (4, 3, 4096, 1, 8))
         self.assertEqual(free, 24 * 1024 - len(counter_app()))
 
         status, data = self.cmd(APP_CMD_LIST, bytes([0]))

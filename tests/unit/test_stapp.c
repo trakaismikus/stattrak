@@ -16,7 +16,8 @@
 /* > A small package builder ***********************************************************************/
 
 enum { OP_HALT = 0x00, OP_PUSH8 = 0x01, OP_PUSH16 = 0x02, OP_PUSH32 = 0x03, OP_LOAD = 0x04,
-       OP_STORE = 0x05, OP_DUP = 0x06, OP_DROP = 0x07, OP_SWAP = 0x08, OP_ADD = 0x10, OP_SUB = 0x11,
+       OP_STORE = 0x05, OP_DUP = 0x06, OP_DROP = 0x07, OP_SWAP = 0x08, OP_LOADX = 0x09, OP_STOREX = 0x0A,
+       OP_ADD = 0x10, OP_SUB = 0x11,
        OP_MUL = 0x12, OP_DIV = 0x13, OP_MOD = 0x14, OP_NEG = 0x15, OP_EQ = 0x16, OP_LT = 0x18,
        OP_NOT = 0x1C, OP_SHR = 0x21, OP_MIN = 0x22, OP_ABS = 0x24, OP_JMP = 0x30, OP_JZ = 0x31,
        OP_JNZ = 0x32, OP_CALL = 0x33, OP_RET = 0x34, OP_SYS = 0x40 };
@@ -40,6 +41,8 @@ typedef struct {
   bool withBitmap;
   uint8_t format;       // 1, 2 or 3 (0 = format 2)
   uint8_t columns;      // Format 3: data columns (header byte 37)
+  uint8_t engine;       // Header byte 5 (0 = 1 for format 1 and 2, 2 for format 3)
+  uint8_t bitmaps;      // Count of 8 x 8 bitmaps (0 = 1 if withBitmap)
 } spec_t;
 
 static void _put16(uint8_t* p, uint32_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); }
@@ -55,7 +58,7 @@ static void _build(pkg_t* pkg, const spec_t* spec) {
   uint8_t* d = pkg->data;
   memcpy(d, "STAP", 4);
   d[4] = spec->format ? spec->format : 2;
-  d[5] = (d[4] >= 3) ? 2 : 1;
+  d[5] = spec->engine ? spec->engine : (d[4] >= 3) ? 2 : 1;
   _put16(d + 6, spec->permissions);
   _put32(d + 8, 0x12345678);
   _put16(d + 12, 3);
@@ -65,7 +68,8 @@ static void _build(pkg_t* pkg, const spec_t* spec) {
   d[33] = spec->saved;
   d[34] = spec->withSetting ? 1 : 0;
   d[35] = spec->stringCount;
-  d[36] = spec->withBitmap ? 1 : 0;
+  const uint8_t bitmapCount = spec->bitmaps ? spec->bitmaps : spec->withBitmap ? 1 : 0;
+  d[36] = bitmapCount;
   d[37] = spec->columns;
   for(int i = 0; i < STAPP_PICTURE_SIZE; i++)
     d[STAPP_PICTURE_OFFSET + i] = (uint8_t)i;
@@ -95,11 +99,14 @@ static void _build(pkg_t* pkg, const spec_t* spec) {
       p += (uint32_t)len + 1;
     }
   }
-  if(spec->withBitmap) {
+  if(bitmapCount) {
     _put16(d + 42, p);
-    d[p] = 8; d[p + 1] = 8; _put16(d + p + 2, p + 4);
-    p += 4;
-    for(int i = 0; i < 8; i++) d[p++] = 0xFF;
+    const uint32_t table = p;
+    p += 4u * bitmapCount;
+    for(uint8_t b = 0; b < bitmapCount; b++) {
+      d[table + 4u * b] = 8; d[table + 4u * b + 1] = 8; _put16(d + table + 4u * b + 2, p);
+      for(int i = 0; i < 8; i++) d[p++] = (uint8_t)(0xFF ^ b);
+    }
   }
   _put16(d + 44, p);
   _put16(d + 46, spec->codeSize);
@@ -142,11 +149,15 @@ static int32_t _sys(void* ctx, uint8_t id, const int32_t* args, bool drawing) {
   return log->result;
 }
 
-// Runs `code` as the open handler; returns the result, globals in *vm
-static stapp_result_t _runCode(const uint8_t* code, uint16_t size, stapp_vm_t* vm, sys_log_t* log) {
+// Runs `code` as the open handler of a package for `engine` (0 = 1); returns the result, globals in *vm
+static stapp_result_t _runCodeFor(uint8_t engine, uint8_t globals, const uint8_t* code, uint16_t size,
+                                  stapp_vm_t* vm, sys_log_t* log) {
   static pkg_t pkg;
   spec_t spec = _spec(code, size);
   spec.permissions = STAPP_PERM_V2;
+  spec.engine = engine;
+  if(globals)
+    spec.globals = globals;
   _build(&pkg, &spec);
   stapp_info_t info;
   const stapp_result_t check = Stapp_check(pkg.data, pkg.size, &info);
@@ -154,6 +165,10 @@ static stapp_result_t _runCode(const uint8_t* code, uint16_t size, stapp_vm_t* v
     return check;
   Stapp_load(vm, pkg.data, &info);
   return Stapp_run(vm, STAPP_EVENT__OPEN, _sys, log);
+}
+
+static stapp_result_t _runCode(const uint8_t* code, uint16_t size, stapp_vm_t* vm, sys_log_t* log) {
+  return _runCodeFor(0, 0, code, size, vm, log);
 }
 
 /* > The check ************************************************************************************/
@@ -517,9 +532,12 @@ TEST(engine_sys_table) {
   CHECK_EQ(Stapp_sysPermission(STAPP_SYS__BACKGROUND), 0);
   CHECK_EQ(Stapp_sysArgCount(STAPP_SYS__POPUP), 0);
   CHECK_EQ(Stapp_sysPermission(STAPP_SYS__POPUP), STAPP_PERM_BACKGROUND);
-  CHECK_EQ(Stapp_sysArgCount(33), -1);
+  CHECK_EQ(Stapp_sysArgCount(STAPP_SYS__HELD), 1);
+  CHECK_EQ(Stapp_sysPermission(STAPP_SYS__HELD), 0);
+  CHECK_EQ(Stapp_sysArgCount(34), -1);
   CHECK_EQ(Stapp_sysPermission(STAPP_SYS__COUNTER), 0);
   CHECK(strcmp(Stapp_resultText(STAPP_ERR_CRC), "bad crc") == 0);
+  CHECK(strcmp(Stapp_resultText(STAPP_ERR_INDEX), "bad index") == 0);
   CHECK(strcmp(Stapp_resultText((stapp_result_t)99), "unknown") == 0);
 }
 
@@ -646,6 +664,180 @@ static int32_t _fuzzSys(void* ctx, uint8_t id, const int32_t* args, bool drawing
   return (int32_t)(_rand() & 0xFF) + (sum & 1);
 }
 
+// Engine 4 (docs/APPS.md section 4.1): a list is `length` globals from `base` on. LOADX pops the
+// index; STOREX pops the value, then the index. A wrong index stops the app ("bad index").
+TEST(engine_4_lists) {
+  stapp_vm_t vm; sys_log_t log = { 0 };
+  // g[1 + 2] = 77; g[0] = list[2]; g[1 + 0] += 5 (the compiler: DUP, LOADX, ADD, STOREX)
+  const uint8_t code[] = {
+    OP_PUSH8, 2, OP_PUSH8, 77, OP_STOREX, 1, 3,
+    OP_PUSH8, 2, OP_LOADX, 1, 3, OP_STORE, 0,
+    OP_PUSH8, 0, OP_DUP, OP_LOADX, 1, 3, OP_PUSH8, 5, OP_ADD, OP_STOREX, 1, 3, OP_HALT };
+  CHECK_EQ(_runCodeFor(4, 4, code, sizeof(code), &vm, &log), STAPP_OK);
+  CHECK_EQ(vm.globals[3], 77);
+  CHECK_EQ(vm.globals[0], 77);
+  CHECK_EQ(vm.globals[1], 5);
+  CHECK_EQ(vm.globals[2], 0);
+
+  // Index = length, and a negative index
+  const uint8_t past[] = { OP_PUSH8, 3, OP_LOADX, 1, 3, OP_HALT };
+  CHECK_EQ(_runCodeFor(4, 4, past, sizeof(past), &vm, &log), STAPP_ERR_INDEX);
+  CHECK_EQ(vm.error, STAPP_ERR_INDEX);
+  const uint8_t below[] = { OP_PUSH8, 0xFF, OP_PUSH8, 9, OP_STOREX, 1, 3, OP_HALT };
+  CHECK_EQ(_runCodeFor(4, 4, below, sizeof(below), &vm, &log), STAPP_ERR_INDEX);
+  CHECK_EQ(vm.globals[0], 0);   // Nothing written
+  const uint8_t empty[] = { OP_LOADX, 0, 1, OP_HALT };
+  CHECK_EQ(_runCodeFor(4, 4, empty, sizeof(empty), &vm, &log), STAPP_ERR_STACK);
+
+  // The check: a list inside the globals, length 1 or more, only in a package for engine 4
+  const uint8_t outside[] = { OP_PUSH8, 0, OP_LOADX, 2, 3, OP_HALT };   // 2 + 3 > 4 globals
+  CHECK_EQ(_runCodeFor(4, 4, outside, sizeof(outside), &vm, &log), STAPP_ERR_GLOBAL);
+  const uint8_t zero[] = { OP_PUSH8, 0, OP_LOADX, 0, 0, OP_HALT };
+  CHECK_EQ(_runCodeFor(4, 4, zero, sizeof(zero), &vm, &log), STAPP_ERR_GLOBAL);
+  const uint8_t ok[] = { OP_PUSH8, 0, OP_LOADX, 1, 3, OP_HALT };
+  CHECK_EQ(_runCodeFor(3, 4, ok, sizeof(ok), &vm, &log), STAPP_ERR_CODE);
+  CHECK_EQ(_runCodeFor(4, 4, ok, sizeof(ok), &vm, &log), STAPP_OK);
+
+  // The largest list: 200 globals, index 199
+  const uint8_t last[] = { OP_PUSH16, 199, 0, OP_PUSH8, 42, OP_STOREX, 0, 200, OP_HALT };
+  CHECK_EQ(_runCodeFor(4, STAPP_MAX_GLOBALS, last, sizeof(last), &vm, &log), STAPP_OK);
+  CHECK_EQ(vm.globals[199], 42);
+}
+
+// Engine 4: held(button) is a system call with one argument; only a package for engine 4 has it
+TEST(engine_4_held) {
+  stapp_vm_t vm; sys_log_t log = { 0 };
+  const uint8_t code[] = { OP_PUSH8, 2, OP_SYS, STAPP_SYS__HELD, OP_STORE, 0, OP_HALT };
+  log.result = 1;
+  CHECK_EQ(_runCodeFor(4, 0, code, sizeof(code), &vm, &log), STAPP_OK);
+  CHECK_EQ(log.lastId, STAPP_SYS__HELD);
+  CHECK_EQ(log.lastArgs[0], 2);
+  CHECK_EQ(vm.globals[0], 1);
+  CHECK_EQ(_runCodeFor(3, 0, code, sizeof(code), &vm, &log), STAPP_ERR_SYS);
+  CHECK_EQ(_runCodeFor(1, 0, code, sizeof(code), &vm, &log), STAPP_ERR_SYS);
+}
+
+// Engine 4 has larger limits, but only for a package that needs engine 4: a package for engine 1 to
+// 3 keeps the old limits, so that it also runs on the older firmware
+TEST(engine_4_limits_only_for_engine_4) {
+  stapp_vm_t vm; sys_log_t log = { 0 };
+  static pkg_t pkg;
+
+  // Steps: 1000 rounds of 8 instructions = 8000 steps (more than 4000, less than 16000)
+  const uint8_t loop[] = {
+    OP_LOAD, 0, OP_PUSH8, 1, OP_ADD, OP_DUP, OP_STORE, 0, OP_PUSH16, 0xE8, 0x03, OP_LT, OP_JNZ, 0xF1, 0xFF,
+    OP_HALT };
+  CHECK_EQ(_runCodeFor(3, 0, loop, sizeof(loop), &vm, &log), STAPP_ERR_STEPS);
+  CHECK_EQ(_runCodeFor(4, 0, loop, sizeof(loop), &vm, &log), STAPP_OK);
+  CHECK_EQ(vm.globals[0], 1000);
+  const uint8_t endless[] = { OP_JMP, 0xFD, 0xFF };
+  CHECK_EQ(_runCodeFor(4, 0, endless, sizeof(endless), &vm, &log), STAPP_ERR_STEPS);   // Still a limit
+
+  // Globals
+  spec_t spec = _spec(kHalt, sizeof(kHalt));
+  spec.globals = STAPP_MAX_GLOBALS_V3 + 1;
+  spec.engine = 3;
+  _build(&pkg, &spec);
+  CHECK_EQ(Stapp_check(pkg.data, pkg.size, NULL), STAPP_ERR_HEADER);
+  spec.engine = 4;
+  _build(&pkg, &spec);
+  CHECK_EQ(Stapp_check(pkg.data, pkg.size, NULL), STAPP_OK);
+  spec.globals = STAPP_MAX_GLOBALS;
+  _build(&pkg, &spec);
+  CHECK_EQ(Stapp_check(pkg.data, pkg.size, NULL), STAPP_OK);
+  spec.globals = STAPP_MAX_GLOBALS + 1;
+  _build(&pkg, &spec);
+  CHECK_EQ(Stapp_check(pkg.data, pkg.size, NULL), STAPP_ERR_HEADER);
+
+  // Bitmaps
+  spec = _spec(kHalt, sizeof(kHalt));
+  spec.bitmaps = STAPP_MAX_BITMAPS_V3 + 1;
+  spec.engine = 3;
+  _build(&pkg, &spec);
+  CHECK_EQ(Stapp_check(pkg.data, pkg.size, NULL), STAPP_ERR_HEADER);
+  spec.engine = 4;
+  _build(&pkg, &spec);
+  CHECK_EQ(Stapp_check(pkg.data, pkg.size, NULL), STAPP_OK);
+  spec.bitmaps = STAPP_MAX_BITMAPS;
+  _build(&pkg, &spec);
+  stapp_info_t info;
+  CHECK_EQ(Stapp_check(pkg.data, pkg.size, &info), STAPP_OK);
+  uint8_t w, h; const uint8_t* bits;
+  CHECK(Stapp_bitmap(pkg.data, &info, STAPP_MAX_BITMAPS - 1, &w, &h, &bits));
+  CHECK_EQ(bits[0], 0xFF ^ (STAPP_MAX_BITMAPS - 1));
+  spec.bitmaps = STAPP_MAX_BITMAPS + 1;
+  _build(&pkg, &spec);
+  CHECK_EQ(Stapp_check(pkg.data, pkg.size, NULL), STAPP_ERR_HEADER);
+
+  // Code: 3000 bytes of PUSH8 / DROP, then HALT
+  static uint8_t big[STAPP_MAX_CODE + 2];
+  uint16_t n = 0;
+  while(n + 3 < 3000) { big[n++] = OP_PUSH8; big[n++] = 1; big[n++] = OP_DROP; }
+  big[n++] = OP_HALT;
+  spec = _spec(big, n);
+  spec.engine = 3;
+  _build(&pkg, &spec);
+  CHECK_EQ(Stapp_check(pkg.data, pkg.size, NULL), STAPP_ERR_LAYOUT);
+  spec.engine = 4;
+  _build(&pkg, &spec);
+  CHECK_EQ(Stapp_check(pkg.data, pkg.size, &info), STAPP_OK);
+  CHECK_EQ(info.engine, 4);
+  // The largest code that fits in a package (4096 bytes): 4096 - 312 (format 3) - 4 (CRC)
+  CHECK(STAPP_MAX_CODE <= STAPP_MAX_SIZE - (STAPP_HANDLERS_OFFSET + 2 * STAPP_HANDLERS_V3) - 4);
+  n = 0;
+  while(n + 3 < STAPP_MAX_CODE) { big[n++] = OP_PUSH8; big[n++] = 1; big[n++] = OP_DROP; }
+  while(n < STAPP_MAX_CODE) big[n++] = OP_HALT;
+  spec = _spec(big, n);
+  spec.engine = 4;
+  _build(&pkg, &spec);
+  CHECK_EQ(Stapp_check(pkg.data, pkg.size, NULL), STAPP_OK);
+  big[n++] = OP_HALT;
+  spec = _spec(big, n);
+  spec.engine = 4;
+  _build(&pkg, &spec);
+  CHECK_EQ(Stapp_check(pkg.data, pkg.size, NULL), STAPP_ERR_LAYOUT);
+}
+
+TEST(fuzz_engine_4_packages_are_safe) {
+  // Lists, held() and a loop, in a package for engine 4 with 12 globals
+  const uint8_t code[] = {
+    OP_LOAD, 0, OP_PUSH8, 9, OP_LT, OP_JZ, 0x10, 0x00,
+    OP_LOAD, 0, OP_DUP, OP_STOREX, 2, 9, OP_LOAD, 0, OP_PUSH8, 1, OP_ADD, OP_STORE, 0, OP_JMP, 0xE8, 0xFF,
+    OP_PUSH8, 1, OP_SYS, STAPP_SYS__HELD, OP_LOADX, 2, 9, OP_STORE, 1,
+    OP_PUSH8, 4, OP_DUP, OP_LOADX, 2, 9, OP_PUSH8, 3, OP_ADD, OP_STOREX, 2, 9, OP_HALT };
+  static pkg_t good, pkg;
+  spec_t spec = _spec(code, sizeof(code));
+  spec.engine = 4;
+  spec.globals = 12;
+  spec.bitmaps = 10;
+  for(int e = 0; e < STAPP_EVENT_COUNT; e++)
+    spec.handlers[e] = 0;
+  _build(&good, &spec);
+  CHECK_EQ(Stapp_check(good.data, good.size, NULL), STAPP_OK);
+
+  static stapp_vm_t vm;
+  int passed = 0;
+  for(int round = 0; round < 30000; round++) {
+    pkg = good;
+    const int changes = 1 + (int)(_rand() % 4);
+    for(int c = 0; c < changes; c++) {
+      const uint32_t at = _rand() % good.size;
+      pkg.data[at] = (_rand() & 1) ? (uint8_t)_rand() : (uint8_t)(pkg.data[at] ^ (1u << (_rand() % 8)));
+    }
+    _finish(&pkg);
+    stapp_info_t info;
+    if(Stapp_check(pkg.data, pkg.size, &info) != STAPP_OK)
+      continue;
+    passed++;
+    Stapp_load(&vm, pkg.data, &info);
+    for(int e = 0; e < STAPP_EVENT_COUNT; e++)
+      Stapp_run(&vm, (stapp_event_t)e, _fuzzSys, NULL);
+    CHECK(info.globalCount <= STAPP_MAX_GLOBALS);
+  }
+  CHECK(passed > 100);
+  printf("fuzz engine 4: %d of 30000 changed packages passed the check\n", passed);
+}
+
 TEST(fuzz_broken_packages_are_safe) {
   // A package with many kinds of instructions
   const uint8_t code[] = {
@@ -716,6 +908,10 @@ int main(void) {
   RUN(engine_limits_stop_the_app);
   RUN(check_ids_and_fixed_string_ids);
   RUN(engine_sys_table);
+  RUN(engine_4_lists);
+  RUN(engine_4_held);
+  RUN(engine_4_limits_only_for_engine_4);
   RUN(fuzz_broken_packages_are_safe);
+  RUN(fuzz_engine_4_packages_are_safe);
   return utest_finish();
 }

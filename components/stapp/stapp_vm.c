@@ -2,7 +2,8 @@
  * @file    : stapp_vm.c
  * @brief   : The app engine: runs the code of a checked package (docs/APPS.md, section 4).
  *
- * Limits at run time: STAPP_MAX_STEPS instructions for one event, STAPP_STACK_SIZE values on the
+ * Limits at run time: STAPP_MAX_STEPS instructions for one event (STAPP_MAX_STEPS_V3 for a package
+ * of engine 1 to 3), STAPP_STACK_SIZE values on the
  * stack, STAPP_CALL_DEPTH calls. A broken limit stops the app with an error; the firmware then
  * shows "APP ERROR" and goes back to the app menu. The engine never reads outside the package.
  **************************************************************************************************/
@@ -20,7 +21,7 @@ typedef struct sys_def_s {
 } sys_def_t;
 
 /* > Local Variables ******************************************************************************/
-#define SYS_TABLE_SIZE  33
+#define SYS_TABLE_SIZE  34
 
 static const sys_def_t kSys[SYS_TABLE_SIZE] = {
   [STAPP_SYS__PIXEL]       = { 3, 0 },
@@ -52,6 +53,7 @@ static const sys_def_t kSys[SYS_TABLE_SIZE] = {
   [STAPP_SYS__BATTERY_MV]  = { 0, 0 },
   [STAPP_SYS__BACKGROUND]  = { 0, 0 },
   [STAPP_SYS__POPUP]        = { 0, STAPP_PERM_BACKGROUND },
+  [STAPP_SYS__HELD]         = { 1, 0 },
 };
 
 /* > Function Definitions *************************************************************************/
@@ -90,6 +92,7 @@ stapp_result_t Stapp_run(stapp_vm_t* vm, stapp_event_t event, stapp_sys_fn_t sys
   int32_t* const stack = vm->stack;
   int32_t* const globals = vm->globals;
   const uint8_t globalCount = vm->info.globalCount;
+  const uint16_t maxSteps = STAPP_LIMIT(vm->info.engine, STAPP_MAX_STEPS, STAPP_MAX_STEPS_V3);
 
   uint16_t pc = entry;
   uint8_t sp = 0;         // Count of values on the stack
@@ -105,7 +108,7 @@ stapp_result_t Stapp_run(stapp_vm_t* vm, stapp_event_t event, stapp_sys_fn_t sys
                             sp--; stack[sp - 1] = (int32_t)(_expr); } while(0)
 
   while(pc < codeSize) {
-    if(++steps > STAPP_MAX_STEPS) {
+    if(++steps > maxSteps) {
       error = STAPP_ERR_STEPS;
       goto fail;
     }
@@ -135,6 +138,25 @@ stapp_result_t Stapp_run(stapp_vm_t* vm, stapp_event_t event, stapp_sys_fn_t sys
         NEED(1);
         globals[code[pc + 1]] = stack[--sp];
         break;
+
+      // Engine 4: lists. The index is checked here; base + length <= globalCount (Stapp_check)
+      case STAPP_OP__LOADX: {
+        const uint8_t base = code[pc + 1], length = code[pc + 2];
+        if((uint32_t)base + length > globalCount) { error = STAPP_ERR_GLOBAL; goto fail; }
+        NEED(1);
+        const int32_t index = stack[sp - 1];
+        if(index < 0 || index >= length) { error = STAPP_ERR_INDEX; goto fail; }
+        stack[sp - 1] = globals[base + index];
+      } break;
+      case STAPP_OP__STOREX: {
+        const uint8_t base = code[pc + 1], length = code[pc + 2];
+        if((uint32_t)base + length > globalCount) { error = STAPP_ERR_GLOBAL; goto fail; }
+        NEED(2);
+        const int32_t index = stack[sp - 2];
+        if(index < 0 || index >= length) { error = STAPP_ERR_INDEX; goto fail; }
+        globals[base + index] = stack[sp - 1];
+        sp -= 2;
+      } break;
 
       case STAPP_OP__DUP:  NEED(1); PUSH(stack[sp - 1]); break;
       case STAPP_OP__DROP: NEED(1); sp--; break;

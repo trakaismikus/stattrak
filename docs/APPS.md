@@ -34,13 +34,19 @@ This page is the specification. It is for AI coding tools and developers.
 | All installed packages together | 24 KB (the NVS partition is 48 KB and also holds the settings) |
 | Installed apps | 8. The app menu has at most 12 apps (built-in + installed + SETTINGS). |
 | Name | 1 to 14 characters, `A-Z 0-9 space + - % / . :` (shown in upper case) |
-| Global variables | 48 (32-bit signed), with the hidden ones of the compiler. The first `saved` of them are kept in flash (at most 16). |
+| Global variables | 200 (32-bit signed), with the values of the lists and the hidden ones of the compiler. The first `saved` of them are kept in flash (at most 16). Engine 1 to 3: 48. |
 | Settings | 4, each with 2 to 6 values, value texts at most 8 characters, setting name at most 12 |
 | Strings | 32, at most 20 characters each |
-| Bitmaps | 8, at most 128 x 32 |
-| Code | 2048 bytes |
-| Steps for one event | 4000 instructions (draw included). More = app error. |
+| Bitmaps | 16, at most 128 x 32. Engine 1 to 3: 8. |
+| Code | 3584 bytes. Engine 1 to 3: 2048. |
+| Steps for one event | 16000 instructions (draw included). More = app error. Engine 1 to 3: 4000. |
 | Stack | 32 values. Call depth 8. |
+
+The larger limits are the limits of engine version 4 (firmware 1.2.0-b4). A package gets them only
+when its header says that it needs engine 4 (byte 5 = 4). A package for engine 1 to 3 keeps the old
+limits on each firmware, also on a firmware with engine 4: so an app that runs on the newest
+firmware also runs on the firmware that its engine byte names. The compiler writes engine 4 only
+when the app needs it (section 7.5).
 
 ## 3. Package format (versions 1, 2 and 3)
 
@@ -53,6 +59,11 @@ call `background()`: see section 4.6. The compiler writes format 3 only for an a
 Engine version 3 (firmware 1.2.0-b3) adds the call `popup()` (section 4.6). The compiler writes
 engine version 3 (format 3) only for an app that calls it. An older firmware refuses such a package
 (`bad version`), and the web page says that the app needs a newer firmware.
+
+Engine version 4 (firmware 1.2.0-b4) adds lists (the opcodes LOADX and STOREX, section 4.1), the
+call `held()` and the larger limits of section 2. The package format stays 3. The compiler writes
+engine version 4 (format 3) only for an app that uses a list, calls `held()`, has the line
+`engine 4`, or is larger than the limits of engine 1 to 3 (section 7.5).
 
 Little-endian. All offsets are from the start of the package.
 
@@ -110,14 +121,14 @@ start of the CRC.
 | 3 | Format version = 1 or 2, engine version needed = 1 .. `STAPP_ENGINE_VERSION`. Format 2: size at least 312 | `bad version` (`bad size` for the 312) |
 | 4 | Total size in the header = package size | `bad size` |
 | 5 | CRC | `bad crc` |
-| 6 | Permissions only bits 0 and 1. Id not 0 .. 255 (0 and the built-in apps 1, 2, 3; 4 .. 255 are kept for later built-in apps) and not 0xFFFFFFFF. Name: 1 to 14 characters of `A-Z 0-9 space + - % / . :`, then only 0 bytes. Counts: globals <= 48, saved <= 16 and <= globals, settings <= 4, strings <= 32, bitmaps <= 8. Reserved byte = 0 | `bad header` |
-| 7 | Code size <= 2048 | `bad layout` |
+| 6 | Permissions only bits 0 and 1. Id not 0 .. 255 (0 and the built-in apps 1, 2, 3; 4 .. 255 are kept for later built-in apps) and not 0xFFFFFFFF. Name: 1 to 14 characters of `A-Z 0-9 space + - % / . :`, then only 0 bytes. Counts: globals <= 200 (engine 1 to 3: 48), saved <= 16 and <= globals, settings <= 4, strings <= 32, bitmaps <= 16 (engine 1 to 3: 8). Reserved byte = 0 | `bad header` |
+| 7 | Code size <= 3584 (engine 1 to 3: 2048) | `bad layout` |
 | 8 | Settings block: walk the settings. Each one starts in the data area and its 14 bytes are in it; its value count is 2 to 6 (a wrong count = `bad settings`, here already) | `bad layout` |
 | 9 | The 4 blocks (settings, string table, bitmap table, code) are inside the data area and do not overlap each other. A block with count 0 (or code size 0) is not checked | `bad layout` |
 | 10 | Each setting: name 1 to 12 printable characters (0x20 to 0x7E) then 0 bytes; default < value count; each value 1 to 8 printable characters then 0 bytes | `bad settings` |
 | 11 | Each string: offset in the data area, a 0 byte before the CRC, at most 20 printable characters | `bad strings` |
 | 12 | Each bitmap: width 1 to 128, height 1 to 32, data inside the data area | `bad bitmaps` |
-| 13 | The code, instruction by instruction from offset 0: opcode known and operands inside the code (`bad code`); LOAD / STORE index < global count (`bad global`); SYS id known (`bad sys`); its permission in the header (`bad sys`); fixed string or bitmap id (below) < count (`bad strings` / `bad bitmaps`) | see the rule |
+| 13 | The code, instruction by instruction from offset 0: opcode known and operands inside the code (`bad code`); LOAD / STORE index < global count (`bad global`); LOADX / STOREX only in a package for engine 4 (`bad code`), length 1 or more and base + length <= global count (`bad global`); SYS id known (`bad sys`); `held` only in a package for engine 4 (`bad sys`); its permission in the header (`bad sys`); fixed string or bitmap id (below) < count (`bad strings` / `bad bitmaps`) | see the rule |
 | 14 | The last instruction of the code is HALT, JMP or RET (so the code cannot run past its end) | `bad code` |
 | 15 | Each JMP / JZ / JNZ target and each CALL target is an instruction start (inside the code) | `bad code` |
 | 16 | Each handler is 0xFFFF or an instruction start | `bad handler` |
@@ -133,7 +144,7 @@ read); the 4 blocks of step 9 must not.
 `Stapp_resultText()`, in the order of `stapp_result_t`: `ok`, `bad size`, `bad magic`,
 `bad version`, `bad crc`, `bad header`, `bad layout`, `bad settings`, `bad strings`,
 `bad bitmaps`, `bad code`, `bad global`, `bad sys`, `bad handler`, `stack`, `call depth`,
-`too many steps`, `bad arg`.
+`too many steps`, `bad arg`, `bad index` (engine 4).
 
 ### 3.3 The app id
 
@@ -156,6 +167,8 @@ modulo by 0 gives 0. Shifts use the low 5 bits of the count.
 | 0x06 | DUP | | a -> a a |
 | 0x07 | DROP | | a -> |
 | 0x08 | SWAP | | a b -> b a |
+| 0x09 | LOADX | u8 base, u8 length | i -> globals[base + i] (engine 4) |
+| 0x0A | STOREX | u8 base, u8 length | i v -> (globals[base + i] = v) (engine 4) |
 | 0x10..0x14 | ADD SUB MUL DIV MOD | | a b -> a?b |
 | 0x15 | NEG | | a -> -a |
 | 0x16..0x1B | EQ NE LT LE GT GE | | a b -> 0/1 |
@@ -180,7 +193,9 @@ time = app error.
 
 Run-time details:
 
-- Each instruction is one step, HALT too. The 4001st step of one event = `too many steps`.
+- Each instruction is one step, HALT too. The 16001st step of one event = `too many steps`
+  (engine 1 to 3: the 4001st).
+- LOADX / STOREX (section 4.1): an index below 0 or not below the length = `bad index`.
 - CALL pushes the return offset on a call stack of 8. A 9th CALL = `call depth`. RET with an
   empty call stack = `call depth` (a handler ends with HALT, not RET).
 - DIV and MOD work like C: the result goes toward 0, MOD has the sign of `a`.
@@ -188,6 +203,13 @@ Run-time details:
 - `text` with a string id that is not in the table, `bitmap` with a bitmap id that is not in
   the table = `bad arg`. Other values out of range (a font 7, a click of 50 Hz, a counter 9) do
   nothing and give 0; they are not app errors.
+
+### 4.1 Lists (engine 4)
+
+A list is a row of globals: `length` values from the global `base` on. LOADX and STOREX have both
+numbers in the instruction, and take the index from the stack. The engine checks the index each
+time: an index below 0 or not below the length stops the app with `bad index`. It never reads or
+writes outside the list. The check makes sure that the whole list is inside the globals of the app.
 
 ### System calls (SYS)
 
@@ -219,6 +241,7 @@ The arguments are pushed left to right. Each call pushes one result (0 if nothin
 | 26 .. 30 | `log`, `log_count`, `log_get`, `log_clear`, `battery_mv` | engine version 2, format 3: [DATA.md](DATA.md) section 6 |
 | 31 | `background()` | engine version 2. 1 if this app is the background app now (Settings > Background), else 0. Section 4.6 |
 | 32 | `popup()` | engine version 3, permission "background". The background app comes on the screen; the screen gets bright. 1 if the app is on the screen now, else 0. Section 4.6 |
+| 33 | `held(button)` | engine version 4. 1 while the button (1 left, 2 right) is down now, else 0. Always 0 for an app that is not on the screen (the background app, or an app behind the app menu). Use it in `draw` for "move while held" |
 
 Drawing calls work only in the draw handler. In other handlers they do nothing.
 
@@ -427,6 +450,9 @@ Each of these is one line. `#` starts a comment until the end of the line.
 | `const NAME = N` | A fixed number. |
 | `saved NAME [= N]` | A variable that is kept in flash. |
 | `var NAME [= N]` | A variable of the app. |
+| `var NAME[SIZE]` / `var NAME[SIZE] = { N, N, ... }` | A list of SIZE values (1 to 255; SIZE can be a const). The start values can go over more lines; the others are 0. Engine 4. |
+| `saved NAME[SIZE] [= { ... }]` | A list that is kept in flash (each value counts as one of the 16 saved values). Engine 4. |
+| `engine 4` | The app needs engine 4 (firmware 1.2.0-b4 or newer). Only for an app that needs more than 4000 steps but uses no list, no `held()` and stays in the old limits; all other apps get engine 4 by themselves (section 7.5). |
 | `bitmap NAME "file.png"` or `bitmap NAME { "#..#" "...." }` | A bitmap (at most 128 x 32): a PNG file, or rows of `#` (on) and `.` (off), one or more per line. `NAME` is its id in `bitmap(x, y, NAME, c)`. |
 | `on EVENT { ... }` | A handler: `open draw press1 press2 long1 long2 tick close down1 down2 kill death`. |
 | `func NAME(A, B) { ... }` | A function. Its parameters and variables are hidden globals. |
@@ -438,12 +464,14 @@ at the start of `on open`; 0 needs no code, the engine starts with 0). A `saved`
 start value only the first time: if one saved variable has a start value that is not 0, the
 compiler adds a hidden saved variable (the last saved one) that is 0 until the first open.
 
+Lists are made at the top of the app only (not inside a handler or a function).
+
 ### 7.2 Statements (in handlers and functions)
 
 - `var x = e` or `var x`: a new variable (0 if there is no `= e`). It is a hidden global. The
   variables of handlers share their places (handlers never run at the same time); each function
   has its own places. A name is known from its `var` line to the end of the handler or function.
-- `x = e`, `x += e`, `x -= e`.
+- `x = e`, `x += e`, `x -= e`. For a list: `rocks[i] = e`, `rocks[i] += e`, `rocks[i] -= e`.
 - `if e { } else if e { } else { }`. `else` can be on the next line.
 - `while e { }`. Each pass counts steps: a loop that does not end gives `too many steps`.
 - `return` (in a handler: the end of the handler). In a function: `return e`, or `return` = return 0.
@@ -462,14 +490,23 @@ One statement per line, or more with `;` between them. Inside `( )` a line break
   characters, 32 different texts). Usually in `text(x, y, "GO", ...)`.
 - Operators, from low to high: `||`, `&&`, `|`, `^`, `&`, `== !=`, `< <= > >=`, `<< >>`, `+ -`,
   `* / %`, then `- ! +` in front of a value. `&&` and `||` stop early and give 0 or 1.
-- Calls: the system calls of section 4 with their names (`pixel`, `text`, `counter`, ...),
-  `min(a, b)`, `max(a, b)`, `abs(a)` (the opcodes MIN, MAX, ABS), and the `func` functions.
+- One value of a list: `rocks[i]` (i = 0 to the size - 1; a fixed index out of range is a compile
+  error, a computed one an app error `bad index`). `len(rocks)` is the size of the list, a fixed
+  number.
+- Calls: the system calls of section 4 with their names (`pixel`, `text`, `counter`, `held`, ...),
+  `min(a, b)`, `max(a, b)`, `abs(a)` (the opcodes MIN, MAX, ABS), `len(list)`, and the `func`
+  functions.
 
 Compile errors (with the line number): an unknown name, a wrong number of values, a fixed value
 out of its range (for example `click(50)`, `bignum(..., scale 5, ...)`, `add_counter(0, 20)`),
 a missing permission, a function that calls itself (also through other functions), functions
-inside each other more than 8 deep, more than 48 variables, more than 2048 bytes of code. A
-drawing call in a handler other than `draw` is a note (it does nothing there).
+inside each other more than 8 deep, more than 200 variables (the values of the lists count), more
+than 3584 bytes of code. A drawing call in a handler other than `draw` is a note (it does nothing
+there).
+
+`held` and `len` came with engine 4. A script from before can have its own variable or function
+with one of these names: then the name is the script's (and the call of the language is not there
+in that script).
 
 ### 7.4 The title picture
 
@@ -531,6 +568,41 @@ the firmware):
 | `runner` | 14 x 17 | the character of RUNNER |
 | `cherries` | 15 x 14 | |
 
+### 7.5 Engine 4: when an app needs firmware 1.2.0-b4
+
+The compiler writes engine 4 (the app installs only on firmware 1.2.0-b4 or newer) when the app:
+
+- uses a list (`var x[10]`, `x[i]`), or calls `held()`;
+- has more than 48 variables (with the values of the lists and the variables in handlers and
+  functions), more than 8 bitmaps, or more than 2048 bytes of code;
+- has the line `engine 4`.
+
+All other apps stay at engine 1, 2 or 3 and install on the older firmware too. An app with engine
+4 gets 16000 steps for each event; all others 4000, on each firmware. So: an app that does a lot
+in one frame and gets `too many steps` with 4000 steps needs a list, more variables, or the line
+`engine 4`.
+
+`python tools/app.py describe` prints the engine version of a package ("engine version 4").
+
+### 7.6 A built-in screen (a C view) as an app
+
+A built-in screen in C (`main/views/*.c`) has no limits but its own; an app has the limits of
+section 2. To make an app from a built-in screen (for example a game from a firmware of your own),
+keep the look and change the way the state is kept:
+
+| In the C view | In the app |
+| --- | --- |
+| An array of structs (`enemy_t enemies[8]` with x, y, kind) | One list for each field: `var ex[8]`, `var ey[8]`, `var ek[8]` (0 = no enemy). A loop over `i < len(ex)`. Do not pack many values into the bits of one number: that was needed before engine 4 only. |
+| A sprite (`const uint8_t rock[]`) | `bitmap rock { "..##.." ... }`, at most 16 in an app. The same picture in two sizes or frames = two bitmaps. |
+| A button that is still down (`BspButton_getState()`) | `held(1)` / `held(2)` in `on draw`: "move while held". `down1` / `down2` for a fast reaction, `press1` / `press2` only for menus (they come 0.2 s after the release). |
+| A tune or a table (`const uint16_t notes[]`) | `var notes[12] = { 440, 494, ... }`. |
+| Movement with floats | Whole numbers in a smaller unit: x in 1/16 pixel (`x16 += speed`, draw at `x16 / 16`). |
+| Timing with `Time_getMillis()` | `time()`. Move the game in fixed steps in `draw` (a loop while `time() - last >= 30`), so it is as fast on each device. |
+| A lot of work in one frame | 16000 steps for each event. Each instruction is a step: a loop over 32 values with 10 lines in it is about 1000 to 2000 steps. If an event needs more: do a part of the work in each frame. |
+
+Then compare the two on the computer: `python tools/app.py run <app>.sts wait:2000 png:out/a.png`
+and the built-in screen in the simulator (`python tools/sim.py ... png:...`).
+
 ## 8. Write an app
 
 1. Make the folder `apps/<name>/` and the script `apps/<name>/<name>.sts` (section 7). The
@@ -561,9 +633,11 @@ the firmware):
    python tools/app.py run apps/headshot/headshot.sts counter:game_kills=12 press2 png:out/hs.png
    ```
 
-   Actions: `press1 press2 long1 long2 down1 down2 tick kill death`, `wait:MS` (a draw each 10 ms,
+   Actions: `press1 press2 long1 long2 down1 down2 up1 up2 tick kill death`, `wait:MS` (a draw each 10 ms,
    a tick each 100 ms), `frame` (print the screen), `png:FILE`, `counter:NAME=N`, `setting:N=V`
-   (value number), `random:SEED`, `background:1` (`background()` gives 1). It prints the clicks too. This engine is a Python copy for previews; the
+   (value number), `random:SEED`, `background:1` (`background()` gives 1). `held()` gives 1 for a
+   button after `down1` / `down2` or `long1` / `long2`, and 0 again after `press1` / `press2` (they
+   come after the release) or `up1` / `up2` (only the release). It prints the clicks too. This engine is a Python copy for previews; the
    simulator runs the real one (`python tools/sim.py boot app:...`).
 
    Play it by hand on the real firmware, in the browser:
