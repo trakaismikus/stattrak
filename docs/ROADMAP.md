@@ -57,20 +57,38 @@ This repository (`trakaismikus/stattrak`) is private until these are done:
 - New production units: a small rescue firmware in the `factory` slot and a bootloader that
   starts it when both buttons are held for a long time.
 - Simulator: sound, and the real update task (`ota.c`) with a FreeRTOS stand-in.
+- App store: an upload from the command line (`python tools/app.py publish`), so the person does
+  not pick two files by hand. It needs a sign-in key of the store for a maker.
 
 ## Shipped
 
-- **2026-11-26: the start with an AI tool is simpler.** The text to paste into an AI coding
-  tool is the first thing in the README and on the Get started page, and it is the same text
-  for an app and for a firmware change. The README is short (under 200 lines, was 420); the long
-  parts are the user guide, docs/GUIDE.md. AGENTS.md: the AI tool never asks "an app or a
-  firmware change?". It decides (no code, an app, a firmware change), tells the person what
-  that means, and helps a person without an idea to find one (section 16). An app has its own
-  work sequence, with the simulator and the Screen Designer offered each time (section 17).
-  The app store: docs/APP_STORE.md has the check list of the review for AI tools (section 18).
-  A pull request: how to write a text that each person understands (section 13,
-  CONTRIBUTING.md, the pull request form). Fix: `python tools/app.py run` now says an app
-  error that happens in `draw` or `tick` during a `wait:` (it was silent).
+- **2026-11-27: the start with an AI tool is simpler and faster.** The text to paste into an AI
+  coding tool is the first thing in the README and on the Get started page. It is the same text
+  for an app and for a firmware change, it has a ready example idea (a dice), and it asks for a
+  picture. The README is short (under 200 lines, was 420); the long parts are the user guide,
+  docs/GUIDE.md.
+  - **AGENTS.md is short (under 350 lines, was 550) and the tasks are guides** in `skills/`
+    (the Agent Skills format): make an app, design a screen, change the firmware. An AI tool
+    reads only the guide of its task. `.claude/skills/` and `.agents/skills/` name them for the
+    tools that load skills.
+  - **The fast start** (AGENTS.md section 1.1): an idea that an app can do gets a first picture
+    before the questions and without an install. The AI tool never asks "an app or a firmware
+    change?". It decides (no code, an app, a firmware change), tells the person what that
+    means, and helps a person without an idea to find one (section 4).
+  - **New commands of the app tool:** `python tools/app.py new "NAME"` starts an app (a small
+    counter that works), `store-check` does the checks of the app store on the computer, builds
+    the package and prints the steps of the upload, `run` says what a person would see as a
+    fault (`Look:` a text that is cut off, two texts on the same pixels, an empty screen), and
+    `sim` opens the simulator of the web site when the computer has no local build (no install).
+  - **The app guide** has the check of the AI tool's own pictures before the person sees them,
+    the simulator and the Screen Designer offered each time, and the known faults of the tools.
+    The app store: docs/APP_STORE.md has the check list of the review. A pull request: how to
+    write a text that each person understands (the firmware guide, CONTRIBUTING.md, the pull
+    request form).
+  - Fix: `python tools/app.py run` now says an app error that happens in `draw` or `tick`
+    during a `wait:` (it was silent).
+  - Not done: an upload to the app store from the command line. It needs a sign-in key of the
+    store ("Backlog").
 - **2026-11-26: the device version (DIY / PEQ) keeps the battery type right after an update
   (A4).** Devices with two different battery lists exist, and the stored number does not say
   which list it is from. The firmware now asks one time "StatTrak version": a new device, a

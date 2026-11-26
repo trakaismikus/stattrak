@@ -19,13 +19,16 @@ new function. Help me, step by step.
 1. Download the StatTrak project to this computer:
    git clone https://github.com/trakaismikus/stattrak.git
 2. Open the folder "stattrak" and read the file AGENTS.md completely. Follow it.
-   Start with section 1 "Start here".
-3. Ask me before you install anything on my computer. Tell me what it is and how large it is.
+3. Make a first version of my idea and show me a picture of the screen.
+4. Ask me before you install anything on my computer. Tell me what it is and how large it is.
 
-My idea: (write your idea here. No idea yet? Delete this line, and the AI tool helps you.)
+My idea: a dice. I press the right button, and it shows a number from 1 to 6.
 
 I may not be a programmer. Use plain words.
 ```
+
+**The dice is an example.** Write your own idea in its place, in your own words. No idea yet?
+Write "I have no idea yet", and the AI tool helps you to find one.
 
 <!-- TODO (TRIDOS): replace the address above with the final public address of this repository. -->
 
@@ -36,12 +39,11 @@ everything runs in a simulator first.
 
 ## What happens next
 
-1. **The AI tool asks three short questions**, so it knows how to talk with you. It asks
-   before it installs anything.
-2. **It shows you the real StatTrak screens**, running on your computer.
-3. **You say your idea.** For example: *"A timer for the respawn wait"*, *"Count my headshots"*,
-   *"A small game for the break"*, *"Make the numbers larger"*. No idea yet? The AI tool helps
-   you to find one.
+1. **You see a first picture of your idea** after some minutes: the AI tool makes a first
+   version and shows you the screen. It asks before it installs anything.
+2. **It asks two short questions**, so it knows how to talk with you.
+3. **You say what you want different**, or a new idea. For example: *"A timer for the respawn
+   wait"*, *"Count my headshots"*, *"A small game for the break"*, *"Make the numbers larger"*.
 4. **The AI tool tells you how it builds it:** as an app or as a firmware change (see below).
    You do not have to know the difference.
 5. **You see pictures, and you try it in the simulator** on your computer. Not happy with the
@@ -124,9 +126,11 @@ python tools/check.py              # safety check, build, unit tests, simulator 
 python tools/sim.py --tour         # a picture of each main view in out/
 python tools/sim.py boot click1 click1 frame   # 2 kills, print the display as text
 python tools/design.py render designs/example.json   # pictures of a screen design
+python tools/app.py new "DICE"                       # start an app: apps/dice/dice.sts, a small counter that works
 python tools/app.py build apps/slots/slots.sts       # an app: script -> .stapp package
 python tools/app.py run apps/slots/slots.sts press1 wait:2000 png:out/slots.png   # try an app, Python only
-python tools/app.py sim apps/slots/slots.sts         # open the web simulator with the app
+python tools/app.py sim apps/slots/slots.sts         # open the web simulator with the app (no install)
+python tools/app.py store-check apps/slots/slots.sts # the checks of the app store, before an upload
 python tools/setup.py firmware     # install ESP-IDF v5.4 (4 GB). Not necessary with Docker.
 python tools/build.py              # tests + firmware build -> build/stattrak.bin
 ```
@@ -143,6 +147,7 @@ main/          application: start sequence, views, settings, storage, battery, B
 components/    graphics, animation, display driver, Bluetooth, firmware update, app engine
 designs/       screen design files
 apps/          the official apps (StatTrak Script, docs/APPS.md)
+skills/        the guides for AI tools: make an app, design a screen, change the firmware
 sim/           simulator: the firmware on a computer (headless, window, web)
 tests/         tests: full firmware in the simulator, and unit tests
 tools/         setup.py, check.py, check_safety.py, sim.py, design.py, app.py, build.py
@@ -157,7 +162,8 @@ docs/          the documents below, and images/
 | Document | What is in it |
 | --- | --- |
 | [docs/GUIDE.md](docs/GUIDE.md) | **User guide:** the buttons, the firmware update, apps, the Screen Designer |
-| [AGENTS.md](AGENTS.md) | Rules and work sequence for AI coding tools (and for you) |
+| [AGENTS.md](AGENTS.md) | The rules for AI coding tools (and for you): the start, the safety rules, an app or a firmware change |
+| [skills/](skills/) | The guides for AI coding tools: [make an app](skills/stattrak-app/SKILL.md), [design a screen](skills/stattrak-screens/SKILL.md), [change the firmware](skills/stattrak-firmware/SKILL.md) |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to share an app, a feature or an idea |
 | [docs/SAFETY.md](docs/SAFETY.md) | How a device can get bricked, and how to prevent it |
 | [docs/APPS.md](docs/APPS.md) | Apps: the app language, the app engine and App Sync |

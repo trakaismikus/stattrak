@@ -191,8 +191,10 @@ e-mail to the address on the "Security" page of this repository.
 
 ## Rules for the code (for AI tools and developers)
 
-- Follow [AGENTS.md](AGENTS.md): the safety rules, the work sequence, the code style.
-  Section 13 is about a pull request, section 18 about the app store.
+- Follow [AGENTS.md](AGENTS.md) (the safety rules) and the guides in [skills/](skills/): the
+  [firmware guide](skills/stattrak-firmware/SKILL.md) has the work sequence and the pull request
+  (its section 5), its [code guide](skills/stattrak-firmware/code.md) has the code style, and the
+  [app guide](skills/stattrak-app/SKILL.md) has the app store (its section 8).
 - New values in flash go at the **end** of `ENTRY_LIST`. New values of a setting go at the
   **end** of its list. Never rename a stored value.
 - A new screen has a design file in `designs/` and a test that takes it through its states.

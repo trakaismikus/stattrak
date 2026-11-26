@@ -908,5 +908,279 @@ class CommandLine(unittest.TestCase):
         self.assertEqual([line for line in lines if line.startswith("App error")], [])
 
 
+GOOD_STORE_APP = '''app "DICE"
+version 2
+description "A dice: press the right button for a number from 1 to 6."
+picture {
+  "#######"
+  "#.....#"
+  "#..#..#"
+  "#.....#"
+  "#######"
+}
+# demo: wait 500, press 2, wait 1000, press 2, wait 1000
+var n = 1
+on press2 { n = 1 + random(6) }
+on draw {
+  bignum(55, 5, n, 1, 3, on)
+}
+'''
+
+
+class NewAppAndStoreCheck(unittest.TestCase):
+    """`python tools/app.py new` and `store-check` (docs/APP_STORE.md): what a person runs before
+    the upload must say the same things as the review of the app store."""
+
+    def check(self, source, store_apps=(), name="dice"):
+        """Run the store check on a source text. Return (all lines as one text, the count of FIX lines)"""
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, name + ".sts")
+            with open(path, "w", encoding="utf-8", newline="\n") as handle:
+                handle.write(source)
+            lines, fixes, info = app.store_check(path, store_apps=list(store_apps), out_dir=folder, apps_dir=folder)
+            self.assertEqual(fixes, sum(1 for line in lines if line.startswith("  FIX")))
+            self.assertEqual(info is None, fixes > 0)
+            return "\n".join(lines), fixes
+
+    def test_new_writes_an_app_that_works(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = app.new_app("respawn timer", folder)
+            self.assertEqual(path, os.path.join(folder, "respawn-timer", "respawn-timer.sts"))
+            result = app.compile_file(path)
+            self.assertEqual(result["info"]["name"], "RESPAWN TIMER")
+            machine = app.Machine(result["package"], look=True)
+            self.assertEqual(machine.run("open"), "ok")
+            lines = app.run_actions(machine, ["press2", "press2", "press1", "wait:200", "frame"])
+            self.assertEqual([line for line in lines if line.startswith("App error")], [])
+            self.assertEqual(machine.globals[0], 1)
+            self.assertEqual(machine.look_lines(), [])
+            # A second time: the file of the person stays
+            with self.assertRaises(app.AppError):
+                app.new_app("RESPAWN TIMER", folder)
+            # Each character that a name can have gives a source that compiles
+            app.compile_file(app.new_app("A+B-C%/.:9", folder))
+            # A name that an app cannot have: no file
+            with self.assertRaises(app.AppError):
+                app.new_app("A NAME THAT IS TOO LONG", folder)
+            self.assertFalse(os.path.exists(os.path.join(folder, "a-name-that-is-too-long")))
+
+    def test_the_text_of_new_is_not_ready_for_the_store(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = app.new_app("DICE", folder)
+            lines, fixes, info = app.store_check(path, store_apps=[], out_dir=folder, apps_dir=folder)
+            text = "\n".join(lines)
+            self.assertEqual(fixes, 2)
+            self.assertIn("The description is still the text of", text)
+            self.assertIn("The title picture is still the picture of", text)
+            self.assertIsNone(info)
+
+    def test_a_good_app_is_ready_and_the_two_files_fit(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "dice.sts")
+            with open(path, "w", encoding="utf-8", newline="\n") as handle:
+                handle.write(GOOD_STORE_APP)
+            lines, fixes, info = app.store_check(path, store_apps=[], out_dir=folder, apps_dir=folder)
+            text = "\n".join(lines)
+            self.assertEqual(fixes, 0, text)
+            self.assertIn("Result: ready for the upload", text)
+            self.assertIn("No app in the store has the name DICE", text)
+            self.assertEqual(info["description"], "A dice: press the right button for a number from 1 to 6.")
+            # The package next to the source is exactly what the source gives (the store compares them)
+            with open(info["package"], "rb") as handle:
+                self.assertEqual(handle.read(), compile_text(GOOD_STORE_APP)["package"])
+            self.assertTrue(os.path.isfile(os.path.join(folder, "dice_demo.png")))
+            self.assertTrue(os.path.isfile(os.path.join(folder, "dice_picture.png")))
+
+    def test_the_name_and_the_version_against_the_store(self):
+        text, fixes = self.check(GOOD_STORE_APP, [{"name": "Dice", "version": 2, "maker": "anna"}])
+        self.assertEqual(fixes, 1)
+        self.assertIn("must be higher than 2 (it is 2)", text)
+        text, fixes = self.check(GOOD_STORE_APP, [{"name": "DICE", "version": 1, "maker": "anna"}])
+        self.assertEqual(fixes, 0)
+        self.assertIn("this is an update", text)
+        # An official app of this project with the same name
+        with tempfile.TemporaryDirectory() as folder:
+            os.makedirs(os.path.join(folder, "apps", "dice"))
+            with open(os.path.join(folder, "apps", "dice", "dice.sts"), "w", encoding="utf-8") as handle:
+                handle.write(GOOD_STORE_APP)
+            mine = os.path.join(folder, "mine.sts")
+            with open(mine, "w", encoding="utf-8") as handle:
+                handle.write(GOOD_STORE_APP)
+            lines, fixes, _ = app.store_check(mine, store_apps=[], out_dir=folder, apps_dir=os.path.join(folder, "apps"))
+            self.assertEqual(fixes, 1)
+            self.assertIn("The official app", "\n".join(lines))
+            # The official app itself is not its own problem
+            lines, fixes, _ = app.store_check(os.path.join(folder, "apps", "dice", "dice.sts"), store_apps=[],
+                                              out_dir=folder, apps_dir=os.path.join(folder, "apps"))
+            self.assertEqual(fixes, 0, "\n".join(lines))
+
+    def test_the_title_picture(self):
+        for line, words in (('picture icon trophy "DICE"', "the built-in icon"),
+                            ('picture text "DICE"', "a text only"),
+                            ("", "the name of the app only")):
+            source = re.sub(r"picture \{.*?\n\}\n", line + "\n", GOOD_STORE_APP, flags=re.S)
+            text, fixes = self.check(source)
+            self.assertEqual(fixes, 1, text)
+            self.assertIn(words, text)
+        # The app's own icon with a text is its own picture
+        source = re.sub(r"picture \{.*?\n\}\n", 'bitmap cube {\n  "###"\n  "#.#"\n  "###"\n}\npicture icon cube "DICE"\n',
+                        GOOD_STORE_APP, flags=re.S)
+        self.assertEqual(self.check(source)[1], 0)
+        # The same picture as an other app of the store
+        import base64
+        package = compile_text(GOOD_STORE_APP)["package"]
+        picture = base64.b64encode(app.package_parts(package)["picture"]).decode("ascii")
+        text, fixes = self.check(GOOD_STORE_APP, [{"name": "CUBES", "version": 1, "picture": picture}])
+        self.assertEqual(fixes, 1)
+        self.assertIn("the same as the picture of the app CUBES", text)
+
+    def test_picture_files_links_and_the_description(self):
+        text, fixes = self.check(GOOD_STORE_APP.replace("picture {", 'bitmap face "face.png"\npicture {'))
+        self.assertEqual(fixes, 1)
+        self.assertIn("Line 4 uses a picture file", text)
+        text, fixes = self.check(GOOD_STORE_APP.replace("A dice: press", "See www.example.com: press"))
+        self.assertEqual(fixes, 1)
+        self.assertIn("does not allow links", text)
+        text, fixes = self.check(GOOD_STORE_APP.replace('description "A dice: press the right button for a number '
+                                                        'from 1 to 6."\n', ""))
+        self.assertEqual(fixes, 1)
+        self.assertIn("description \"...\" is missing", text)
+        text, fixes = self.check(GOOD_STORE_APP.replace("version 2", "version"))
+        self.assertEqual(fixes, 1)
+        self.assertIn("The source does not compile", text)
+
+    def test_the_demo(self):
+        self.assertEqual(app.parse_demo("wait 1000, press 1,hold 2 , DOWN 1, up 1"),
+                         ["wait:1000", "press1", "long2", "down1", "up1"])
+        self.assertEqual(app.demo_line("var a = 1\n  #demo : wait 5\n"), "wait 5")
+        self.assertIsNone(app.demo_line("var demo = 1\n"))
+        for bad in ("press 3", "wait", "wait 1 2", "tap 1", "press1", ""):
+            with self.assertRaises(app.AppError):
+                app.parse_demo(bad)
+        # A word that the store does not know
+        text, fixes = self.check(GOOD_STORE_APP.replace("press 2, wait 1000, press 2", "tap 2"))
+        self.assertEqual(fixes, 1)
+        self.assertIn("'tap 2'", text)
+        # No demo line: a note, and the standard button sequence still runs
+        text, fixes = self.check(GOOD_STORE_APP.replace("# demo: wait 500, press 2, wait 1000, press 2, wait 1000\n", ""))
+        self.assertEqual(fixes, 0, text)
+        self.assertIn("There is no demo line", text)
+        self.assertIn("runs the standard button sequence of the store without an app error", text)
+        # An app error in the demo, and one that only the standard sequence finds (hold 1)
+        bad = GOOD_STORE_APP.replace("var n = 1\n", "var n = 1\nvar a[3]\nvar i = 5\n")
+        text, fixes = self.check(bad.replace("n = 1 + random(6)", "n = 1 + random(6)\n  a[n + 2] = 1"))
+        self.assertEqual(fixes, 2, text)
+        self.assertIn("bad index) in the demo line", text)
+        text, fixes = self.check(bad + "on long1 { a[i] = 1 }\n")
+        self.assertEqual(fixes, 1, text)
+        self.assertIn("in the standard button sequence of the store", text)
+        # The store stops after 12 seconds: an error after that is not found, and the check says the limit
+        late = GOOD_STORE_APP.replace("wait 500, press 2, wait 1000, press 2, wait 1000", "wait 12500, hold 1")
+        text, fixes = self.check(late.replace("var n = 1\n", "var n = 1\nvar a[3]\nvar i = 5\n") + "on long1 { a[i] = 1 }\n")
+        self.assertIn("The store plays the first 12 seconds only", text)
+        self.assertIn("in the standard button sequence of the store", text)
+        self.assertNotIn("in the demo line", text)
+        # "on down1" in the app, no "down" in the demo
+        text, fixes = self.check(GOOD_STORE_APP + "on down1 { n = 2 }\n")
+        self.assertEqual(fixes, 0, text)
+        self.assertIn("A real button sends down first", text)
+
+    def test_the_firmware_that_an_app_needs(self):
+        # The table has each engine of the tool, and the store check says the firmware
+        self.assertEqual(sorted(app.FIRMWARE_FOR_ENGINE), list(range(1, app.ENGINE_VERSION + 1)))
+        text, fixes = self.check(GOOD_STORE_APP)
+        self.assertIn("OK    The app installs on a StatTrak with firmware 1.2.0-b1 or newer.", text)
+        text, fixes = self.check(GOOD_STORE_APP.replace("var n = 1\n", "var n = 1\nvar a[3]\n"))
+        self.assertEqual(fixes, 0, text)
+        self.assertIn("NOTE  The app installs on a StatTrak with firmware 1.2.0-b4 or newer", text)
+        text, fixes = self.check(GOOD_STORE_APP.replace("version 2\n", "version 2\npermission awake\n"))
+        self.assertIn("firmware 1.2.0-b2 or newer", text)
+
+    def test_run_has_one_list_of_actions(self):
+        # The help and the error text name the same actions, and each of them works
+        with self.assertRaises(app.AppError) as error:
+            app.run_actions(app.Machine(compile_text(GOOD_STORE_APP)["package"]), ["jump"])
+        self.assertIn(app.RUN_ACTIONS, str(error.exception))
+        machine = app.Machine(compile_text(GOOD_STORE_APP)["package"])
+        machine.run("open")
+        for action in app.RUN_ACTIONS.split():
+            action = {"wait:MS": "wait:20", "png:FILE": None, "counter:NAME=N": "counter:game_kills=3",
+                      "setting:N=V": None, "random:SEED": "random:5", "battery:PERCENT": "battery:50",
+                      "mv:MILLIVOLTS": "mv:3700", "background:0|1": "background:1"}.get(action, action)
+            if action:
+                app.run_actions(machine, [action])
+
+    def test_the_look_notes(self):
+        def notes(draw):
+            package = compile_text('app "LOOK"\non draw {\n%s\n}\n' % draw)["package"]
+            machine = app.Machine(package, look=True)
+            machine.run("open")
+            machine.wait(50)
+            return "\n".join(machine.look_lines())
+
+        self.assertEqual(notes('  text(64, 2, "PRESS TO START", caps, on, center)\n  num(64, 12, 42, 0, text, on, center)'), "")
+        self.assertIn('the text "A TEXT THAT IS LONG" is cut off at the edge of the screen (in 5 of 5 pictures)',
+                      notes('  text(60, 2, "A TEXT THAT IS LONG", text, on, left)'))
+        self.assertIn('the text "LOW" is cut off', notes('  text(2, 28, "LOW", text, on, left)'))
+        self.assertIn('the text "GONE" is not on the screen', notes('  text(200, 2, "GONE", text, on, left)'))
+        self.assertIn('the texts "SCORE" and "0123" are on the same pixels',
+                      notes('  text(2, 2, "SCORE", text, on, left)\n  num(10, 3, 123, 4, text, on, left)'))
+        self.assertIn('the text "9999" is cut off', notes("  bignum(70, 2, 9999, 0, 3, on)"))
+        # Without look=True the machine collects nothing, and it draws the same screen
+        package = compile_text('app "LOOK"\non draw {\n  text(60, 2, "A TEXT THAT IS LONG", text, on, left)\n}\n')["package"]
+        plain, look = app.Machine(package), app.Machine(package, look=True)
+        self.assertEqual(plain.frame(), look.frame())
+        self.assertEqual(plain.look_lines(), [])
+        # The run command prints the notes, and it says an empty screen
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "look.stapp")
+            with open(path, "wb") as handle:
+                handle.write(package)
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                app.main(["run", path, "wait:100"])
+            self.assertIn("Look: the text \"A TEXT THAT IS LONG\" is cut off", out.getvalue())
+            with open(path, "wb") as handle:
+                handle.write(compile_text('app "EMPTY"\non draw {\n}\n')["package"])
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                app.main(["run", path])
+            self.assertIn("Look: the last picture is an empty screen", out.getvalue())
+
+    def test_the_official_apps_run_the_store_sequence_without_notes(self):
+        # The apps of this project are the examples that an AI tool reads: no app error and no look note
+        apps_dir = os.path.join(REPO_ROOT, "apps")
+        for folder in sorted(os.listdir(apps_dir)):
+            path = os.path.join(apps_dir, folder, folder + ".sts")
+            if not os.path.isfile(path):
+                continue
+            machine, error = app.run_demo(app.compile_file(path)["package"], app.parse_demo(app.STANDARD_DEMO))
+            self.assertIsNone(error, folder)
+            self.assertEqual(machine.look_lines(), [], folder)
+
+    def test_sim_without_a_local_page_opens_the_page_of_the_web_site(self):
+        import base64
+        import websim
+        package = compile_text(GOOD_STORE_APP)["package"]
+        said = []
+        with tempfile.TemporaryDirectory() as folder:
+            old = (websim.BUILD_DIR, websim.PAGE, websim.is_up_to_date, websim.build)
+            websim.BUILD_DIR = os.path.join(folder, "build-web")
+            websim.PAGE = os.path.join(websim.BUILD_DIR, "simulator.html")
+            websim.is_up_to_date = lambda: False
+            websim.build = lambda log=print: self.fail("no build without --build")
+            try:
+                launcher = websim.open_with_app(package, "DICE", fresh=True, browser=False, log=said.append)
+            finally:
+                websim.BUILD_DIR, websim.PAGE, websim.is_up_to_date, websim.build = old
+            with open(launcher, "r", encoding="utf-8") as handle:
+                text = handle.read()
+        found = re.search(r"https://stattrak\.tridos\.design/sim/simulator\.html#app=([A-Za-z0-9_-]+)&fresh", text)
+        self.assertIsNotNone(found)
+        data = found.group(1)
+        self.assertEqual(base64.urlsafe_b64decode(data + "=" * (-len(data) % 4)), package)
+        self.assertIn("This uses the simulator of the web site", said[0])
+
+
 if __name__ == "__main__":
     unittest.main()

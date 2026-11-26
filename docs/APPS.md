@@ -13,8 +13,8 @@ This page is the specification. It is for AI coding tools and developers.
   directly, like a phone would).
 - Put it on a device: the "My device" tab of the web page (connect, then **From file**).
 - Share it with other owners: the app store, [APP_STORE.md](APP_STORE.md).
-- What an app can do and what needs a firmware change, in a short list: `AGENTS.md` section 16.
-  The work sequence with a person: `AGENTS.md` section 17.
+- What an app can do and what needs a firmware change, in a short list: `AGENTS.md` section 4.
+  The work sequence with a person: the app guide, `skills/stattrak-app/SKILL.md`.
 
 ## 1. The parts
 
@@ -617,7 +617,9 @@ and the built-in screen in the simulator (`python tools/sim.py ... png:...`).
 
 ## 8. Write an app
 
-1. Make the folder `apps/<name>/` and the script `apps/<name>/<name>.sts` (section 7). The
+1. Make the folder `apps/<name>/` and the script `apps/<name>/<name>.sts` (section 7).
+   `python tools/app.py new "NAME"` does it: it writes a small counter that works, with all
+   lines that the app store needs, and you change it. The
    examples: `apps/round-timer/`, `apps/headshot/`, `apps/reaction/`, and the sample apps to try
    on a device: `apps/runner/` (a jump game), `apps/slots/` (a slot machine with confetti and a
    song made with `tone`), `apps/respawn/` (a respawn timer: an edit with arrows and a check mark,
@@ -656,27 +658,40 @@ and the built-in screen in the simulator (`python tools/sim.py ... png:...`).
    (`App error after press1: too many steps`, `App error after wait:100: bad index`): also for
    an error in `draw` or `tick` during a `wait:`. No such line = the app ran all actions.
 
+   `run` also looks at the screen as a person does. A line that starts with `Look:` names a thing
+   that is probably a fault: a text that the edge of the screen cuts, a text that is not on the
+   screen at all, two texts on the same pixels, an empty last screen
+   (`Look: the text "PRESS TO START" is cut off at the edge of the screen (in 50 of 50 pictures)`).
+   An animation that moves a text in gives such a line too: then it is right.
+
    Play it by hand on the real firmware, in the browser:
 
    ```
    python tools/app.py sim apps/runner/runner.sts            # add --fresh for a new device
    ```
 
-   It compiles the app, builds the web simulator when it is missing or old (Emscripten or Docker,
-   about 1 minute the first time; `tools/websim.py`), and opens the browser. The app is
-   installed like with the web updater (the simulator answers "INSTALL?" with yes) and is open:
-   the arrow keys are the buttons, LEFT + RIGHT together = the app menu.
+   It compiles the app and opens the browser with the web simulator. The app is installed like
+   with the web updater (the simulator answers "INSTALL?" with yes) and is open: the arrow keys
+   are the buttons, LEFT + RIGHT together = the app menu. Which simulator page: `build-web/simulator.html`
+   when it is there and up to date, else the page of the web site (the newest official firmware;
+   no install, it needs the internet). `--build` builds the page from the firmware code of this
+   folder (Emscripten or Docker, about 1 minute the first time; `tools/websim.py`): use it when
+   you changed the firmware.
 4. Put it into the catalog of the web updater: `python tools/app.py catalog` builds every
    `apps/*/*.sts` into `updater/apps/<name>.stapp` and writes `updater/apps/catalog.json`.
 5. Tests: `tests/test_app_tool.py` (`cd tests` then `python -m unittest test_app_tool`).
 6. Share it in the app store of the web page: [APP_STORE.md](APP_STORE.md). The store reads one
    more line of the source, a comment: `# demo: wait 1000, press 1, wait 3000, hold 2`. It is
    the button script of the preview film. The compiler does not read it.
+   `python tools/app.py store-check apps/<name>/<name>.sts` does the checks of the store that a
+   computer can do, builds the package, and prints the steps of the upload (`--open` opens the
+   upload page, `--offline` does not read the list of the store).
 
 Python code can use the tool directly: `import app` (with `tools/` in `sys.path`), then
 `app.compile_file(path)`, `app.compile_source(text)`, `app.check(data)` -> (result, info),
 `app.result_text(result)`, `app.describe(data)`, `app.Machine(data)` (`run(event)`, `wait(ms)`,
-`frame()`), `app.build_catalog()`.
+`frame()`; `Machine(data, look=True)` collects the `Look:` notes, `look_lines()`),
+`app.build_catalog()`, `app.new_app(name)`, `app.store_check(path)`, `app.parse_demo(text)`.
 
 ### 8.1 catalog.json
 

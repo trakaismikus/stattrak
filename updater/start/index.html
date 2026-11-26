@@ -56,8 +56,8 @@ try { if (window.parent !== window && window.parent.AppsTab) document.documentEl
             <li><b>Copy this text.</b></li>
             <li><b>Paste it into an AI coding tool</b> on your computer: Claude Code, Codex, Cursor, GitHub Copilot
               (agent mode) or Gemini CLI. A chat website alone is not enough.</li>
-            <li><b>Say your idea.</b> The AI tool builds it, shows you pictures and lets you try it in a simulator.
-              You do not need your StatTrak to start.</li>
+            <li><b>Write your idea in place of the dice.</b> The dice is an example. The AI tool makes a first version
+              and shows you a picture after some minutes. You do not need your StatTrak to start.</li>
             <li class="ai__more"><a href="#own-app">How it works, step by step ↓</a></li>
           </ol>
           <div class="prompt prompt--big">
@@ -65,10 +65,11 @@ try { if (window.parent !== window && window.parent.AppsTab) document.documentEl
 
 1. Download the StatTrak project to this computer:
    git clone https://github.com/trakaismikus/stattrak.git
-2. Open the folder "stattrak" and read the file AGENTS.md completely. Follow it. Start with section 1 "Start here".
-3. Ask me before you install anything on my computer. Tell me what it is and how large it is.
+2. Open the folder "stattrak" and read the file AGENTS.md completely. Follow it.
+3. Make a first version of my idea and show me a picture of the screen.
+4. Ask me before you install anything on my computer. Tell me what it is and how large it is.
 
-My idea: (write your idea here. No idea yet? Delete this line, and the AI tool helps you.)
+My idea: a dice. I press the right button, and it shows a number from 1 to 6.
 
 I may not be a programmer. Use plain words.</pre>
             <button class="btn btn--primary btn--sm prompt__copy" type="button" data-copy="appPrompt">Copy the text</button>
@@ -123,9 +124,12 @@ I may not be a programmer. Use plain words.</pre>
             <p>An <b>AI coding tool</b> does the technical work on your computer. You say what you want, it shows you
               pictures of the result, and you decide. <a href="#ai">The text to start is at the top of this page.</a></p>
             <ol class="list">
-              <li><b>Answer three short questions.</b> The AI tool then knows how to talk with you. It asks before it installs anything.</li>
-              <li><b>Say your idea.</b> For example: <i>“A timer for the respawn wait.”</i>, <i>“Count my headshots.”</i> or
-                <i>“A small game for the break.”</i> No idea yet? The AI tool helps you to find one.</li>
+              <li><b>See a first picture after some minutes.</b> The AI tool makes a first version of your idea and shows you
+                the screen. It asks before it installs anything.</li>
+              <li><b>Answer two short questions.</b> The AI tool then knows how to talk with you.</li>
+              <li><b>Say what you want different, or a new idea.</b> For example: <i>“A timer for the respawn wait.”</i>,
+                <i>“Count my headshots.”</i> or <i>“A small game for the break.”</i> No idea yet? Write
+                <i>“I have no idea yet”</i> in place of the dice, and the AI tool helps you to find one.</li>
               <li><b>The AI tool tells you how it builds it:</b> as an app or as a firmware change. You do not have to know the difference.</li>
               <li><b>Look at the pictures and try it in the simulator.</b> The simulator is the real StatTrak software on your
                 computer. You press the buttons with the arrow keys. You do not need your StatTrak for this.</li>
@@ -159,7 +163,8 @@ I may not be a programmer. Use plain words.</pre>
               Not allowed: hate speech, attacks on real people, spam, advertising or links.
               <a href="https://stattrak.tridos.design/legal/rules.html">The store rules.</a></p>
             <p class="small">For AI tools and developers: the rules are in <code>AGENTS.md</code> of the firmware project, the app
-              language in <code>docs/APPS.md</code>, the app store check list in <code>docs/APP_STORE.md</code>.</p>
+              guide in <code>skills/stattrak-app/SKILL.md</code>, the app language in <code>docs/APPS.md</code>, the app store
+              check list in <code>docs/APP_STORE.md</code>.</p>
           </section>
 
           <!-- ================= WHAT ================= -->

@@ -135,9 +135,11 @@ docker run --rm -v "$PWD":/src -w /src emscripten/emsdk:4.0.10 \
 The keys are the same as in the window simulator. The page keeps counters and settings in
 the browser storage, and plays the buzzer with the browser sound (after the first key press).
 
-**Apps:** the quick way is `python tools/app.py sim apps/NAME/NAME.sts`: it builds this page
-when it is missing or old (`tools/websim.py`: Emscripten, or Docker with the image above) and
-opens it with the app installed and open.
+**Apps:** the quick way is `python tools/app.py sim apps/NAME/NAME.sts`: it opens this page
+with the app installed and open. It uses `build-web/simulator.html` when that file is up to
+date. If not, it uses the page of the web site (the newest official firmware, no install), or
+with `--build` it builds this page first (`tools/websim.py`: Emscripten, or Docker with the
+image above).
 
 - The address does it: `simulator.html#app=RUNNER` (an app of the catalog) or
   `simulator.html#app=<the package as base64url>`, and `&fresh` for a new device.
