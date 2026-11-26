@@ -217,9 +217,12 @@ Never ask for a password of the person, and never type one.
 
 1. Run `python tools/app.py store-check apps/<name>/<name>.sts`. Repair each line with `FIX`
    and run it again. Read each line with `NOTE`.
-2. **The name is taken** (`The store has an app ... already`)? The name of an app cannot change
-   after the upload, so pick a new one with the person: their own name for it, not `DICE 2`.
-   Change the line `app "NAME"` in the source. The folder and the file can keep their names.
+2. **`The store has an app ... already`?** Ask the person if that app is theirs.
+   - It is theirs: this is an update. Keep the name, and make the number in the line `version`
+     higher than the version in the store.
+   - It is the app of an other maker: the app needs a new name. A name cannot change after the
+     upload, so pick it with the person: their own name for it, not `DICE 2`. Change the line
+     `app "NAME"` in the source. The folder and the file can keep their names.
 3. Do the checks that a computer cannot do. The command lists them, and `docs/APP_STORE.md`
    section 2 has the details: a true description (what the app does, and what the buttons do;
    a button that does nothing needs no words), a title picture that shows what the app is,

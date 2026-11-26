@@ -10,6 +10,10 @@ A drawing of a screen is cheaper than code, and people decide faster with pictur
 **When:** the person describes a new screen, or a change to how a screen looks. Always for a
 Beginner. For other levels: when they ask for options, or the look is not clear.
 
+**Not for the first version of an app.** The app guide (`skills/stattrak-app/SKILL.md`) shows a
+first version that works, with no question first. Use this guide for an app when the person
+does not like the look of that version.
+
 **How:**
 
 1. Write 2 or 3 design files: `designs/<feature>-a.json`, `-b.json`, `-c.json`. Make them

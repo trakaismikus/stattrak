@@ -1148,12 +1148,11 @@ class NewAppAndStoreCheck(unittest.TestCase):
             self.assertIn("Look: the last picture is an empty screen", out.getvalue())
 
     def test_the_official_apps_run_the_store_sequence_without_notes(self):
-        # The apps of this project are the examples that an AI tool reads: no app error and no look note
-        apps_dir = os.path.join(REPO_ROOT, "apps")
-        for folder in sorted(os.listdir(apps_dir)):
-            path = os.path.join(apps_dir, folder, folder + ".sts")
-            if not os.path.isfile(path):
-                continue
+        # The official apps are the examples that an AI tool reads: no app error and no look note.
+        # Only these: the app of a person in apps/ can have a note that is right (an animation).
+        for folder in ("battery-log", "clip-marks", "headshot", "reaction", "respawn", "round-timer", "runner",
+                       "slots", "wallpaper"):
+            path = example_path(folder)
             machine, error = app.run_demo(app.compile_file(path)["package"], app.parse_demo(app.STANDARD_DEMO))
             self.assertIsNone(error, folder)
             self.assertEqual(machine.look_lines(), [], folder)
@@ -1180,6 +1179,23 @@ class NewAppAndStoreCheck(unittest.TestCase):
         data = found.group(1)
         self.assertEqual(base64.urlsafe_b64decode(data + "=" * (-len(data) % 4)), package)
         self.assertIn("This uses the simulator of the web site", said[0])
+
+    def test_sim_with_build_does_not_open_an_old_page(self):
+        # --build on a computer that cannot build: an error, not the old page (it is not the
+        # firmware of this folder)
+        import websim
+        package = compile_text(GOOD_STORE_APP)["package"]
+        with tempfile.TemporaryDirectory() as folder:
+            old = (websim.BUILD_DIR, websim.PAGE, websim.is_up_to_date, websim._builder)
+            websim.BUILD_DIR, websim.PAGE = folder, os.path.join(folder, "simulator.html")
+            websim.is_up_to_date, websim._builder = (lambda: False), (lambda: None)
+            with open(websim.PAGE, "w") as handle:
+                handle.write("old")
+            try:
+                with self.assertRaises(websim.WebSimError):
+                    websim.open_with_app(package, "DICE", browser=False, build_page=True, log=lambda text: None)
+            finally:
+                websim.BUILD_DIR, websim.PAGE, websim.is_up_to_date, websim._builder = old
 
 
 if __name__ == "__main__":

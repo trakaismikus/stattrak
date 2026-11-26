@@ -14,7 +14,7 @@ completely, before you start that task.**
 | 2 | Get the idea. No idea yet: help to find one | Section 4.1 |
 | 3 | Decide: no code, an app, or a firmware change. Say what it means | Section 4 |
 | 4 | An app: make it, try it in the simulator, put it on the StatTrak, share it in the app store | The app guide: `skills/stattrak-app/SKILL.md` |
-| 4 | A new screen, or a different look of a screen | The screens guide: `skills/stattrak-screens/SKILL.md` |
+| 4 | The person does not like the look of a screen, or a firmware change has a new screen | The screens guide: `skills/stattrak-screens/SKILL.md` |
 | 4 | A firmware change: make it, build it, put it on a device, share it as a pull request | The firmware guide: `skills/stattrak-firmware/SKILL.md` |
 
 The safety rules of section 3 are for each step.
@@ -328,7 +328,7 @@ guide that you do not need: it only fills your memory.
 | Guide | Read it when | What is in it |
 | --- | --- | --- |
 | `skills/stattrak-app/SKILL.md` | The idea is an app | The first version, the check of your own pictures, the simulator, the Screen Designer, the tests, the install on the StatTrak, the app store, the known faults of the tools |
-| `skills/stattrak-screens/SKILL.md` | A new screen, or the person does not like a look (an app or the firmware) | Design files, 2 or 3 proposals as pictures, the Screen Designer page, the "Send to AI" text |
+| `skills/stattrak-screens/SKILL.md` | The person does not like the look of a screen (an app or the firmware), or a firmware change has a new screen | Design files, 2 or 3 proposals as pictures, the Screen Designer page, the "Send to AI" text |
 | `skills/stattrak-firmware/SKILL.md` | The idea needs a firmware change | The work sequence, the firmware build, the update of a real device, the simulator, the pull request, the known faults of the tools |
 | `skills/stattrak-firmware/code.md` | Before you change firmware code | Where things are, views, drawing, values in flash, Bluetooth commands, the tests, the code style |
 

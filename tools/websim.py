@@ -119,11 +119,7 @@ def open_with_app(package, name, fresh=False, browser=True, rebuild=False, log=p
     newest official firmware, it needs no install, and it needs the internet."""
     page = "simulator.html"
     if rebuild or (build_page and not is_up_to_date()):
-        if os.path.isfile(PAGE) and _builder() is None and not rebuild:
-            # Still good for the app: the app goes into the address, not into the page
-            log("Note: build-web/simulator.html is older than the firmware code, and this computer cannot build it.")
-        else:
-            build(log)
+        build(log)    # no Emscripten and no Docker: an error. An old page is not the firmware of this folder
     elif not is_up_to_date():
         page = LIVE_PAGE
         log("This uses the simulator of the web site: the newest official firmware. It needs the internet.")
