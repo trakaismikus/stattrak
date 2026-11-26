@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.join(REPO_ROOT, "tools"))
 
 import design  # noqa: E402
 from helpers import (SimTestCase, BATTERY_NONE, BATTERY_USB, BATTERY_RCR123A, BATTERY_LIPO_1S,  # noqa: E402
-                     MODEL_UNSET, MODEL_DIY, MODEL_PEQ, SETTINGS_WITH_BATTERY)
+                     BATTERY_STEPS, MODEL_UNSET, MODEL_DIY, MODEL_PEQ, SETTINGS_WITH_BATTERY)
 from stattrak_sim import SETTING_ROWS  # noqa: E402
 from test_apps import KILLS, KILL_DEAD, STATS  # noqa: E402
 from test_data import DataTestCase, KIND_RESTORE, KIND_START_PIC, OK, app, picture, stbk, value, shows  # noqa: E402
@@ -332,7 +332,7 @@ class WarningTest(DeviceModelTestCase):
         self.assertEqual(state["view"], "SETTINGS")
         self.assertEqual(SETTING_ROWS[state["settings_row"]], "BATTERY_TYPE")
         self.assertTrue(shows(self.dev.frame(), "BATTERY:"), "BATTERY:")
-        self.dev.long_press(2, hold_ms=750)      # NONE -> USB/DC
+        self.dev.long_press(1, hold_ms=750)      # One step back from NONE: USB/DC, the last type
         self.assertEqual(self.battery(), BATTERY_USB)
         self.assertTrue(shows(self.dev.frame(), "USB/DC"), "USB/DC")
         self.dev.power_cut()
@@ -381,6 +381,61 @@ class BatteryInUseTest(DeviceModelTestCase):
         self.assertEqual(self.dev.view, "TOTAL")
         self.dev.run(1000)
         self.assertEqual(self.dev.frame(), bar)
+
+
+class BatteryListTest(DeviceModelTestCase):
+    """Settings > Battery on a DIY device: the types with a battery first, USB/DC last. Only the
+    sequence on the display is different: the number in flash of each type is the same as before."""
+
+    def open_battery(self, **flash):
+        self.first_boot(**flash)
+        self.dev.boot(voltage=3900)
+        self.open_row("BATTERY_TYPE")
+        self.dev.run(600)      # The list scrolls to the row
+
+    def step(self, button):
+        self.dev.long_press(button, hold_ms=750)
+        self.dev.run(600)      # The old text slides out
+        return self.battery()
+
+    def test_the_sequence_on_the_display(self):
+        self.open_battery()
+        self.assertEqual(self.battery(), BATTERY_NONE)
+        for number, text in BATTERY_STEPS[1:] + BATTERY_STEPS[:1]:
+            with self.subTest(text=text):
+                self.assertEqual(self.step(2), number)
+                self.assertTrue(shows(self.dev.frame(), "BATTERY:"), "BATTERY:")
+                self.assertTrue(shows(self.dev.frame(), text), text)
+
+    def test_the_sequence_back(self):
+        self.open_battery()
+        for number, text in reversed(BATTERY_STEPS):
+            with self.subTest(text=text):
+                self.assertEqual(self.step(1), number)
+                self.assertTrue(shows(self.dev.frame(), text), text)
+
+    def test_each_type_is_in_the_list_one_time(self):
+        self.open_battery()
+        seen = [self.step(2) for _ in BATTERY_STEPS]
+        self.assertEqual(sorted(seen), list(range(len(BATTERY_STEPS))))
+
+    def test_the_numbers_in_flash_are_the_same_as_before(self):
+        # The sequence of firmware 1.2.0-b4. A stored number must show the same text and give the
+        # same battery check in each firmware after it.
+        released = ["NONE", "USB/DC", "1xRCR123A", "3.7V(1S)", "7.4V(2S)", "11.1V(3S)", "3xAA/AAA",
+                    "9.6V(NiMH)"]
+        self.assertEqual([text for _, text in sorted(BATTERY_STEPS)], released)
+        for number, text in enumerate(released):
+            with self.subTest(text=text):
+                self.dev.power_cut()
+                self.open_battery(battery_type=number)
+                self.assertEqual(self.dev.state()["battery_type"], number)
+                self.assertTrue(shows(self.dev.frame(), text), text)
+
+    def test_usb_dc_is_one_step_back_from_none(self):
+        self.open_battery()
+        self.assertEqual(self.step(1), BATTERY_USB)
+        self.assertEqual(self.step(2), BATTERY_NONE)
 
 
 class SettingsTest(DeviceModelTestCase):

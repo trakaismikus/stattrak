@@ -27,6 +27,15 @@ BATTERY_USB = 1
 BATTERY_RCR123A = 2
 BATTERY_LIPO_1S = 3
 
+# Settings > Battery: the sequence of the types on the display (kBatteryOrder in
+# main/views/settings_view.c), as (number in flash, text). The numbers in flash are the positions
+# in main/battery.h: they are not in this sequence.
+BATTERY_STEPS = [
+    (0, "NONE"), (2, "1xRCR123A"), (3, "3.7V(1S)"), (4, "7.4V(2S)"), (5, "11.1V(3S)"),
+    (7, "9.6V(NiMH)"), (6, "3xAA/AAA"), (1, "USB/DC"),
+]
+BATTERY_ORDER = [number for number, _ in BATTERY_STEPS]
+
 # The device version (device_model_enum in main/app.h)
 MODEL_UNSET = 0
 MODEL_DIY = 1

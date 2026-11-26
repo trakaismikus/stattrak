@@ -67,7 +67,9 @@ This repository (`trakaismikus/stattrak`) is private until these are done:
   `1xRCR123A`, no row "Battery" in Settings. DIY: the battery type is `NONE` again and the
   warning "Battery type not set" (LATER / SET) shows at each power-on until the person sets it.
   Before the answer the device does no battery check. `USB` is now `USB/DC` (no battery check,
-  no warning; also for a constant DC supply). A hold on Settings > Version asks again and keeps
+  no warning; also for a constant DC supply) and is the last type in Settings > Battery;
+  `9.6V(NiMH)` is before `3xAA/AAA` (the sequence on the display only: the numbers in flash did
+  not change). Firmware 1.2.1-b1. A hold on Settings > Version asks again and keeps
   all data. A backup never changes the device version. docs/SAFETY.md section 6. In the
   simulator only: not tried on a device yet ("Next up", item 1).
 

@@ -450,6 +450,9 @@ Rules for values in flash:
 - Never rename or reuse a key. Never change what an old value means. Never add a value in
   the middle of a list of setting values: add it at the end. (A stored setting is the position
   in its list. A new value in the middle moves all values after it.)
+- To show the values of a setting in an other sequence, do not move the texts. Change only the
+  sequence of the steps on the display. Settings > Battery does this: `kBatteryOrder` in
+  `main/views/settings_view.c` (the types with a battery first, `USB/DC` last).
 - A device that gets the firmware by an update does not have the new entry in flash. The
   firmware writes the **default** value for it at the first start.
 - `max` is the largest valid value. A larger value in flash is replaced with the default at

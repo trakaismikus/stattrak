@@ -182,7 +182,16 @@ So this firmware does not guess. It has the flash value `device_model` (not set,
   (`main/views/battery_unset_view.c`). The type `USB/DC` (before: `USB`) is for a device
   without a battery to watch: no battery check and no warning.
 
+The sequence of the types in Settings > Battery is: `NONE`, `1xRCR123A`, `3.7V(1S)`, `7.4V(2S)`,
+`11.1V(3S)`, `9.6V(NiMH)`, `3xAA/AAA`, `USB/DC`. This is the sequence of the steps on the display
+only (`kBatteryOrder` in `main/views/settings_view.c`). The number in flash of each type is its
+position in `main/battery.h`, the same as in firmware 1.2.0-b4: `USB/DC` is 1, `3xAA/AAA` is 6,
+`9.6V(NiMH)` is 7.
+
 Rules for a change near this code:
+
+- To change the sequence of the battery types on the display, change `kBatteryOrder`. Do not
+  move a type in `main/battery.h` or a text in `SETTING_LIST`: that makes a third battery list.
 
 - Use `App_getBatteryTypeInUse()` for the battery type, not the flash value `battery_type`.
 - The question and the warning are normal views: the app menu (both buttons), power off and the

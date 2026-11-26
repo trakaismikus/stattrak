@@ -152,18 +152,60 @@ view_t g_settingsView = {
 };
 
 
+// The sequence of the battery types on the display (decision of 2026-11-26): the types with a
+// battery first, USB/DC last. The value in flash is still the position of the type in
+// SETTING_STR_VALUES (app.h) and in battery.h: only the sequence of the steps is different.
+// Each battery type is in this list one time.
+static const uint8_t kBatteryOrder[] = {
+  BATTERY_TYPE__UNKNOWN,
+  BATTERY_TYPE__RCR123A,
+  BATTERY_TYPE__LIPO_1S,
+  BATTERY_TYPE__LIPO_2S,
+  BATTERY_TYPE__LIPO_3S,
+  BATTERY_TYPE__NIMH_8S,
+  BATTERY_TYPE__NIMH_3S,
+  BATTERY_TYPE__USB,
+};
+static_assert(elemof(kBatteryOrder) == BATTERY_TYPE_COUNT, "Each battery type must be in kBatteryOrder");
+static_assert(elemof(kBatteryOrder) == (ENTRY_MAX__BATTERY_TYPE + 1), "kBatteryOrder: one step for each stored value");
+
+
+// The value one step after (dir = 1) or before (dir = -1) `value` on the display.
+// At the end of the list: the other end if `wrap`, -1 if not.
+static int32_t _stepValue(uint8_t settingId, int32_t value, int8_t dir, bool wrap) {
+  const int32_t count = kSettingEntries[settingId].valueCount;
+  const bool battery = (settingId == SETTING_ID__BATTERY_TYPE);
+  int32_t pos = value;
+
+  if(battery) {
+    pos = 0;
+    for(int32_t i = 0; i < (int32_t)elemof(kBatteryOrder); i++) {
+      if(kBatteryOrder[i] == value) {
+        pos = i;
+        break;
+      }
+    }
+  }
+
+  pos += dir;
+  if(pos < 0) {
+    if(!wrap)
+      return -1;
+    pos = count - 1;
+  } else if(pos >= count) {
+    if(!wrap)
+      return -1;
+    pos = 0;
+  }
+  return battery ? kBatteryOrder[pos] : pos;
+}
+
 static inline const char* _getNextValueStr(uint8_t settingId) {
-  int32_t value = s_settingValues[settingId] + 1;
-  if(value >= kSettingEntries[settingId].valueCount)
-    value = 0;
-  return (char*)kSettingEntries[settingId].valueStrs[value];
+  return kSettingEntries[settingId].valueStrs[_stepValue(settingId, s_settingValues[settingId], 1, true)];
 }
 
 static inline const char* _getPrevValueStr(uint8_t settingId) {
-  int32_t value = s_settingValues[settingId] - 1;
-  if(value < 0)
-    value = kSettingEntries[settingId].valueCount - 1;
-  return (char*)kSettingEntries[settingId].valueStrs[value];
+  return kSettingEntries[settingId].valueStrs[_stepValue(settingId, s_settingValues[settingId], -1, true)];
 }
 
 /* > Local Function Definitions *******************************************************************/
@@ -317,24 +359,14 @@ static bool _eventHandler(uint16_t event) {
       setting_entry_t* entry = &kSettingEntries[id];
       int32_t* valuePtr = &s_settingValues[id];
       
-      if(entry->cycle) {
-        (*valuePtr)--;
-        if(*valuePtr < 0)
-          *valuePtr = entry->valueCount - 1;
+      const int32_t previous = _stepValue(id, *valuePtr, -1, entry->cycle);
+      if(previous >= 0) {
+        *valuePtr = previous;
 
         s_animParamValue.offset = 0;
         s_animParamValue.value = -256;
         Animation_start(&s_animParam);
         App_click(1200);
-      } else {
-        if(*valuePtr > 0) {
-          (*valuePtr)--;
-
-          s_animParamValue.offset = 0;
-          s_animParamValue.value = -256;
-          Animation_start(&s_animParam);
-          App_click(1200);
-        }
       }
       App_updateSetting(id, *valuePtr);
     } return true;
@@ -345,24 +377,14 @@ static bool _eventHandler(uint16_t event) {
       setting_entry_t* entry = &kSettingEntries[id];
       int32_t* valuePtr = &s_settingValues[id];
 
-      if(entry->cycle) {
-        (*valuePtr)++;
-        if(*valuePtr >= entry->valueCount)
-          *valuePtr = 0;
+      const int32_t next = _stepValue(id, *valuePtr, 1, entry->cycle);
+      if(next >= 0) {
+        *valuePtr = next;
 
         s_animParamValue.offset = 0;
         s_animParamValue.value = 256;
         Animation_start(&s_animParam);
         App_click(1200);
-      } else {
-        if(*valuePtr < (entry->valueCount - 1)) {
-          (*valuePtr)++;
-
-          s_animParamValue.offset = 0;
-          s_animParamValue.value = 256;
-          Animation_start(&s_animParam);
-          App_click(1200);
-        }
       }
       App_updateSetting(id, *valuePtr);
     } return true;
