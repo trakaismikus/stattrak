@@ -159,12 +159,55 @@ reads the same values. This is why:
 
 <!-- TODO (TRIDOS): name the first official release that has this change. -->
 
+### The device version and the battery type
+
+Two battery lists exist on devices. The release `v1.0.1-added-rcr123a` (April 2026) put
+`1xRCR123A` at position 2 of the list. Firmware 1.0.1 and older has the list without it. The
+stored position does not say which list it is from, and the two 1.0.1 builds have the same
+version text (AUDIT, A4). A wrong battery type is a safety problem: no warning before a LiPo
+battery is discharged too far, or a device that switches off after each start.
+
+So this firmware does not guess. It has the flash value `device_model` (not set, DIY, PEQ):
+
+- **Not set** (a new device, a device after an update from an older firmware, after a factory
+  reset): the device does **no battery check**. The stored battery type is not used and not
+  changed. At a normal start the device shows the question "StatTrak version" with the two
+  hold buttons DIY and PEQ (`main/views/device_model_view.c`). Not in the accept view of a new
+  firmware: a firmware that is not accepted changes no battery value, so the old firmware finds
+  its values after it comes back.
+- **PEQ**: the battery type is always `1xRCR123A` (also if flash has an other value). Settings
+  has no row "Battery".
+- **DIY**: the answer sets the battery type to `NONE`. The person selects it again in Settings.
+  While it is `NONE`, the warning "Battery type not set" shows at each power-on
+  (`main/views/battery_unset_view.c`). The type `USB/DC` (before: `USB`) is for a device
+  without a battery to watch: no battery check and no warning.
+
+The sequence of the types in Settings > Battery is: `NONE`, `1xRCR123A`, `3.7V(1S)`, `7.4V(2S)`,
+`11.1V(3S)`, `9.6V(NiMH)`, `3xAA/AAA`, `USB/DC`. This is the sequence of the steps on the display
+only (`kBatteryOrder` in `main/views/settings_view.c`). The number in flash of each type is its
+position in `main/battery.h`, the same as in firmware 1.2.0-b4: `USB/DC` is 1, `3xAA/AAA` is 6,
+`9.6V(NiMH)` is 7.
+
+Rules for a change near this code:
+
+- To change the sequence of the battery types on the display, change `kBatteryOrder`. Do not
+  move a type in `main/battery.h` or a text in `SETTING_LIST`: that makes a third battery list.
+
+- Use `App_getBatteryTypeInUse()` for the battery type, not the flash value `battery_type`.
+- The question and the warning are normal views: the app menu (both buttons), power off and the
+  10 seconds hold at power-on work on them. Do not add them to the views in `main/main.c` that
+  stop the app menu. A person who leaves the question gets it again at the next power-on.
+- A backup never writes `device_model`. It writes `battery_type` only on a DIY device
+  (`main/backup.c`).
+- A wrong answer has a repair without a loss of data: a hold on Settings > Version shows the
+  question again. The same answer changes nothing; an other answer sets the battery type as
+  above.
+- `tests/test_device_model.py` has the tests. Keep them.
+
 ## 7. Known gaps
 
 See [AUDIT.md](AUDIT.md) and [ROADMAP.md](ROADMAP.md). The most important ones:
 
 - A firmware that was accepted and then crashes at each start has no automatic rescue.
-- The battery type list of the release `v1.0.1-added-rcr123a` has a new value in the middle.
-  After an update from 1.0.1 or older, check the battery type in the settings (AUDIT, A4).
 - A firmware that hangs does not restart by itself (the watchdog only prints a warning).
 - Anybody near the device can send firmware while the update view is open.

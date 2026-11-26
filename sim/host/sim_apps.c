@@ -76,6 +76,11 @@ static bool _canOpenSync(view_id_t view) {
     case VIEW_ID__APP_HOST:
     case VIEW_ID__APP_SETTINGS:
     case VIEW_ID__APP_SYNC:
+    // The question "StatTrak version" and the warning "Battery type not set" of the start: a
+    // person can leave them with the app menu (Settings > Apps: SYNC), so the simulator can too.
+    // They come one time for each power-on: the app does not get them again after the install.
+    case VIEW_ID__DEVICE_MODEL:
+    case VIEW_ID__BATTERY_UNSET:
       return true;
     default:
       return false;

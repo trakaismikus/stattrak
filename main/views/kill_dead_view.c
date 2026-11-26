@@ -163,7 +163,7 @@ static void _draw(void) {
   GUI_DRAW_ROUND_RECT(121, 2, 7, 28, 1);
 
   // Middle
-  if(Eeprom_read(ENTRY_ID__SHOW_BATTERY) && Eeprom_read(ENTRY_ID__BATTERY_TYPE) > BATTERY_TYPE__USB) {
+  if(Eeprom_read(ENTRY_ID__SHOW_BATTERY) && App_getBatteryTypeInUse() > BATTERY_TYPE__USB) {
     // Gfx_fillRect(61, 2, 6, 28, 1);
     GUI_DRAW_ROUND_RECT(61, 2, 6, 28, 1);
 

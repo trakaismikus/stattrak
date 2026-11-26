@@ -1402,6 +1402,7 @@
     ["init", 1, 1], ["total_kills", 0, 0xFFFFFFFF], ["total_deaths", 0, 0xFFFFFFFF], ["game_kills", 0, 0xFFFFFFFF],
     ["game_deaths", 0, 0xFFFFFFFF], ["battery_type", 0, 7], ["show_battery", 0, 1], ["brightness", 8, 10],
     ["dim_screen", 3, 7], ["dim_level", 2, 9], ["auto_off", 0, 5], ["counter", 0, 1], ["sound", 1, 1], ["low_bat", 0, 4],
+    ["device_model", 0, 2],     // 0 = not set, 1 = DIY, 2 = PEQ
   ];
   const DATA_APP_VALUES = 1024, DATA_ALL_VALUES = 2048;     // 4096 bytes for each app, 8192 bytes for all
   const LOG_MAX = 64, PICTURE_BYTES = 512, RESTORE_MAX = 4096, RESTORE_MIN = 6;
@@ -1410,7 +1411,9 @@
 
   P._dataInit = function () {
     const o = this.options;
-    this.config = CONFIG_ENTRIES.map(([key, value, max]) => ({ key, value: key in o.configValues ? o.configValues[key] >>> 0 : value, max }));
+    // A device that is set up, if the test does not say it: the person answered DIY to "StatTrak version"
+    const start = Object.assign({ device_model: 1 }, o.configValues);
+    this.config = CONFIG_ENTRIES.map(([key, value, max]) => ({ key, value: key in start ? start[key] >>> 0 : value, max }));
     this.dataStores = new Map();             // id -> { columns: [names], values: [i32] }
     for (const [id, store] of Object.entries(o.appData)) this.setAppData(Number(id), store.columns, store.rows);
     for (const [id, values] of Object.entries(o.appValues)) {
@@ -1712,7 +1715,9 @@
         if (length !== 1 + n + 4 || n < 1 || n > 15) { skip(); continue; }
         const key = cText(s, 1, n), value = get32(s, 1 + n);
         const entry = this.config.find((e) => e.key === key);
-        if (!entry || key === "init" || value > entry.max) { skip(); continue; }
+        // main/backup.c: never "init" and the device version; the battery type only for DIY
+        const model = this.config.find((e) => e.key === "device_model").value;
+        if (!entry || key === "init" || key === "device_model" || value > entry.max || (key === "battery_type" && model !== 1)) { skip(); continue; }
         entry.value = value;
         ok();
       } else if (type === 2) {

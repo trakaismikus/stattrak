@@ -12,10 +12,10 @@ Nothing at the moment.
 These need a decision by TRIDOS and a test on real devices. They change code that the
 simulator cannot test.
 
-1. **Battery type list (A4).** The release `v1.0.1-added-rcr123a` has the new battery type in
-   the middle of the list, so devices with two different lists exist. Decide: keep the new
-   order and show "Check battery type" one time after an update, or convert the stored value
-   at the first start. Must be decided before the next official release.
+1. **Try the device version question on real devices (A4).** Update from 1.0.1, from "1.0.1
+   with RCR123A" and from 1.2.0-b4; answer DIY and PEQ; factory reset; the repair with a hold on
+   Settings > Version; the update mode after each of them. Must be done before the next
+   official release.
 2. **Rescue from a firmware that crashes at each start (A3).** Count the starts in flash.
    After 3 starts that did not reach 10 seconds of normal operation, open the update view
    directly, before the normal views start. Option: go back to the other firmware slot.
@@ -59,6 +59,19 @@ This repository (`trakaismikus/stattrak`) is private until these are done:
 - Simulator: sound, and the real update task (`ota.c`) with a FreeRTOS stand-in.
 
 ## Shipped
+
+- **2026-11-26: the device version (DIY / PEQ) keeps the battery type right after an update
+  (A4).** Devices with two different battery lists exist, and the stored number does not say
+  which list it is from. The firmware now asks one time "StatTrak version": a new device, a
+  device after an update from an older firmware, and after a factory reset. PEQ: always
+  `1xRCR123A`, no row "Battery" in Settings. DIY: the battery type is `NONE` again and the
+  warning "Battery type not set" (LATER / SET) shows at each power-on until the person sets it.
+  Before the answer the device does no battery check. `USB` is now `USB/DC` (no battery check,
+  no warning; also for a constant DC supply) and is the last type in Settings > Battery;
+  `9.6V(NiMH)` is before `3xAA/AAA` (the sequence on the display only: the numbers in flash did
+  not change). Firmware 1.2.1-b1. A hold on Settings > Version asks again and keeps
+  all data. A backup never changes the device version. docs/SAFETY.md section 6. In the
+  simulator only: not tried on a device yet ("Next up", item 1).
 
 - **2026-11-18: app engine 4 (firmware 1.2.0-b4): apps that look like built-in screens.** Apps
   can have lists (`var rocks[16]`, `rocks[i]`, `len(rocks)`), 200 variables (was 48), 16 pictures

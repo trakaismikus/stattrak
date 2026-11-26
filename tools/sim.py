@@ -13,6 +13,11 @@ Build the simulator first: python tools/check.py --build-only
 Actions (done from left to right):
     boot              power on: hold both buttons, release them, wait for the start animation
     boot:MS           power on and keep both buttons held for MS milliseconds (10600 = update mode)
+    boot:ask          power on and stop at the first screen: a new device shows the question
+                      "StatTrak version" (long1 = DIY, long2 = PEQ), a DIY device without a
+                      battery type shows the warning "Battery type not set" (long1 = LATER,
+                      long2 = SET). The action boot answers DIY and LATER for you.
+    boot:peq          power on and answer PEQ to the question "StatTrak version"
     click1 click2     short press on button 1 (kill) or button 2 (death)
     both              short press on the two buttons (app menu / open the selected app)
     long1 long2       long press on button 1 or 2 (in settings: change the value)
@@ -55,7 +60,9 @@ def do_action(dev, action, out_dir, voltage):
     name, _, arg = action.partition(":")
 
     if name == "boot":
-        if arg:
+        if arg in ("ask", "peq"):
+            dev.boot(voltage=voltage, prompts="keep" if arg == "ask" else "peq")
+        elif arg:
             dev.power_on(hold="both", voltage=voltage)
             dev.run(int(arg))
             if dev.is_on:
@@ -125,7 +132,15 @@ def do_action(dev, action, out_dir, voltage):
 
 def tour(dev, out_dir):
     """Save a picture of each main view and of the app menu."""
-    dev.boot()
+    dev.boot(prompts="keep")
+    # A new device: the question "StatTrak version", then (DIY) the warning "Battery type not set"
+    for view, name, button in (("DEVICE_MODEL", "version", 1), ("BATTERY_UNSET", "battery_not_set", 1)):
+        if dev.view != view:
+            continue
+        print("--- %s (view %s)" % (name, dev.view))
+        print(dev.frame_text())
+        print("saved %s" % dev.save_png(os.path.join(out_dir, "tour_%s.png" % name)))
+        dev.long_press(button)      # DIY, LATER
     for _ in range(3):
         dev.click(1)
     for index, view in enumerate(("total", "kill_dead", "stats", "settings")):

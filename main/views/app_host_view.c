@@ -627,7 +627,7 @@ static int32_t _sys(void* ctx, uint8_t sysId, const int32_t* a, bool drawing) {
       return 0;
 
     case STAPP_SYS__BATTERY:
-      if(Eeprom_read(ENTRY_ID__BATTERY_TYPE) <= BATTERY_TYPE__USB)
+      if(App_getBatteryTypeInUse() <= BATTERY_TYPE__USB)
         return -1;
       return (int32_t)Battery_readLevel();
 
@@ -659,7 +659,7 @@ static int32_t _sys(void* ctx, uint8_t sysId, const int32_t* a, bool drawing) {
       return 1;
 
     case STAPP_SYS__BATTERY_MV:
-      if(Eeprom_read(ENTRY_ID__BATTERY_TYPE) <= BATTERY_TYPE__USB)
+      if(App_getBatteryTypeInUse() <= BATTERY_TYPE__USB)
         return -1;
       return (int32_t)Battery_readVoltage();
 

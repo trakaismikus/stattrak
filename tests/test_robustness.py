@@ -17,7 +17,7 @@ from stattrak_sim import Device, SimCrash
 EEPROM_KEYS = [
     "init", "total_kills", "total_deaths", "game_kills", "game_deaths", "battery_type",
     "show_battery", "brightness", "dim_screen", "dim_level", "auto_off", "counter", "sound",
-    "low_bat",
+    "low_bat", "device_model",
 ]
 
 # Values that an other firmware version, or a damaged flash, can leave behind.

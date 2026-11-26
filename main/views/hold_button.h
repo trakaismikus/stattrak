@@ -59,6 +59,10 @@ uint8_t HoldButtons_fillAny(const hold_buttons_t* hold);
 // it from the left (100 = the look of a pressed button).
 void    HoldButton_draw(int16_t x, int16_t w, const char* text, uint8_t fill);
 
+// A large button with a round frame (2 pixels) and a text in the title font at 2 x size (14 pixels
+// high): for two or three letters that must be easy to read. `fill` inverts it from the left.
+void    HoldButton_drawLarge(int16_t x, int16_t y, int16_t w, int16_t h, const char* text, uint8_t fill);
+
 // x of a button that ends HOLD_BUTTON_MARGIN before the right edge, and of a centered button
 #define HOLD_BUTTON_RIGHT_X(w)    ((int16_t)(128 - HOLD_BUTTON_MARGIN - (w)))
 #define HOLD_BUTTON_CENTER_X(w)   ((int16_t)((128 - (w)) / 2))

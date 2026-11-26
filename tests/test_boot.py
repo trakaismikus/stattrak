@@ -2,7 +2,7 @@
 
 import unittest
 
-from helpers import SimTestCase, DEFAULT_BRIGHTNESS
+from helpers import SimTestCase, DEFAULT_BRIGHTNESS, NO_PROMPTS
 
 
 class BootTest(SimTestCase):
@@ -27,7 +27,8 @@ class BootTest(SimTestCase):
         self.dev.release(1)
         self.dev.run(1000)
         self.assertTrue(self.dev.is_on)
-        self.assertEqual(self.dev.view, "TOTAL")
+        # A new device asks for its version first (tests/test_device_model.py)
+        self.assertEqual(self.dev.view, "DEVICE_MODEL")
 
     def test_later_start_needs_both_buttons(self):
         self.first_boot()
@@ -51,7 +52,7 @@ class BootTest(SimTestCase):
         self.assertTrue(self.dev.is_on, "session ended with: %s" % (self.dev.ended,))
 
     def test_buttons_are_ignored_until_released(self):
-        self.first_boot()
+        self.first_boot(**NO_PROMPTS)
         self.dev.power_on(hold="both")
         self.dev.run(3000)  # A long press on both buttons is "power off" in normal operation
         self.assertTrue(self.dev.is_on)
@@ -77,7 +78,7 @@ class BootTest(SimTestCase):
         self.assertEqual(state["ota_active"], 1)
 
     def test_hold_both_buttons_9_seconds_is_a_normal_start(self):
-        self.first_boot()
+        self.first_boot(**NO_PROMPTS)
         self.dev.power_on(hold="both")
         self.dev.run(9000)
         self.dev.release(1)

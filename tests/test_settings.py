@@ -3,7 +3,7 @@
 import unittest
 
 from stattrak_sim import SETTING_ROWS
-from helpers import SimTestCase, BATTERY_LIPO_1S, MAX_BRIGHTNESS, SETTINGS_NO_BATTERY
+from helpers import SimTestCase, BATTERY_LIPO_1S, BATTERY_ORDER, MAX_BRIGHTNESS, SETTINGS_NO_BATTERY
 
 
 class SettingsTest(SimTestCase):
@@ -94,7 +94,7 @@ class SettingsTest(SimTestCase):
     def test_battery_type_shows_the_battery_settings(self):
         self.boot_with(voltage=4000)
         self.open_setting("BATTERY_TYPE")
-        for _ in range(BATTERY_LIPO_1S):
+        for _ in range(BATTERY_ORDER.index(BATTERY_LIPO_1S)):
             self.dev.long_press(2)
         self.assertEqual(self.dev.state()["eeprom.battery_type"], BATTERY_LIPO_1S)
 

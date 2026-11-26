@@ -79,7 +79,7 @@ static void _draw(void) {
     snprintf(str, sizeof(str), "%d%% (%d.%02dV)", Battery_readLevel(), volts, frac);
     Gfx_drawString(45, 27, str, &font3x5, 1, 0, GFX_ROTATION__0);
   } else {
-    snprintf(str, sizeof(str), "%s (%d.%02dV)", (Battery_getType() == BATTERY_TYPE__USB) ? "USB" : "NONE", volts, frac);
+    snprintf(str, sizeof(str), "%s (%d.%02dV)", (Battery_getType() == BATTERY_TYPE__USB) ? "USB/DC" : "NONE", volts, frac);
     Gfx_drawString(45, 27, str, &font3x5, 1, 0, GFX_ROTATION__0);
   }
 

@@ -1,0 +1,30 @@
+{
+  "format": "stattrak-design",
+  "version": 1,
+  "name": "Battery type not set",
+  "screens": [
+    {
+      "id": "batteryNotSet",
+      "name": "Battery not set (LATER / SET)",
+      "note": "DIY devices only. Shows after the version question and at each power-on while the battery type is NONE. Hold the left button = LATER: close the warning, the start goes on. Hold the right button = SET: open Settings on the row Battery.",
+      "elements": [
+        { "type": "rect", "x": 32, "y": 0, "w": 64, "h": 7, "fill": true, "radius": 2 },
+        { "type": "text", "x": 64, "y": 1, "text": "WARNING", "font": "5x5", "align": "center", "color": "black" },
+
+        { "type": "text", "x": 64, "y": 11, "text": "BATTERY TYPE NOT SET", "font": "5x5", "align": "center" },
+
+        { "type": "line", "x1": 4, "y1": 22, "x2": 4, "y2": 28, "note": "hold button LATER (HoldButton_draw(4, 27, \"LATER\", fill))" },
+        { "type": "line", "x1": 30, "y1": 22, "x2": 30, "y2": 28 },
+        { "type": "line", "x1": 5, "y1": 21, "x2": 29, "y2": 21 },
+        { "type": "line", "x1": 5, "y1": 29, "x2": 29, "y2": 29 },
+        { "type": "text", "x": 17, "y": 23, "text": "LATER", "font": "3x5", "align": "center" },
+
+        { "type": "line", "x1": 101, "y1": 22, "x2": 101, "y2": 28, "note": "hold button SET (HoldButton_draw(101, 23, \"SET\", fill))" },
+        { "type": "line", "x1": 123, "y1": 22, "x2": 123, "y2": 28 },
+        { "type": "line", "x1": 102, "y1": 21, "x2": 122, "y2": 21 },
+        { "type": "line", "x1": 102, "y1": 29, "x2": 122, "y2": 29 },
+        { "type": "text", "x": 112, "y": 23, "text": "SET", "font": "3x5", "align": "center" }
+      ]
+    }
+  ]
+}

@@ -102,7 +102,7 @@ static void _draw(void) {
   int16_t xStep = 24;
 
 
-  if(Eeprom_read(ENTRY_ID__SHOW_BATTERY) && Eeprom_read(ENTRY_ID__BATTERY_TYPE) > BATTERY_TYPE__USB) {
+  if(Eeprom_read(ENTRY_ID__SHOW_BATTERY) && App_getBatteryTypeInUse() > BATTERY_TYPE__USB) {
     x = 4;
     xStep = 22;
 

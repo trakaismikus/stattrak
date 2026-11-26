@@ -58,10 +58,10 @@ test("CONFIG_INFO, the flash values with their keys, the saved values of an app"
     deviceLog: [{ reason: 5, battery: 41, flags: 1, boot: 17 }] });
   const info = await t.data.info();
   same({ version: info.version, count: info.valueCount, backup: info.backup, preview: info.preview, picture: info.picture, size: info.dataSize, app: info.dataAppSize, log: info.logCount },
-    { version: 1, count: 14, backup: true, preview: true, picture: 0, size: 8192, app: 4096, log: 1 });
+    { version: 1, count: 15, backup: true, preview: true, picture: 0, size: 8192, app: 4096, log: 1 });
   const entries = await t.data.entries(info.valueCount);
   same(entries.map((e) => e.key), ["init", "total_kills", "total_deaths", "game_kills", "game_deaths", "battery_type", "show_battery",
-    "brightness", "dim_screen", "dim_level", "auto_off", "counter", "sound", "low_bat"]);
+    "brightness", "dim_screen", "dim_level", "auto_off", "counter", "sound", "low_bat", "device_model"]);
   same(entries.find((e) => e.key === "total_kills"), { index: 1, key: "total_kills", value: 120, max: 0xFFFFFFFF });
   assert.equal(entries.find((e) => e.key === "brightness").value, 4);
   same(await t.data.appValues(RUNNER), [12, -5, 7]);
@@ -190,6 +190,35 @@ test("restore: the device skips values it cannot use, and the page lists them", 
   same(t.device.appSettings(RUNNER), [1, 0]);
   const after = await t.data.readAll();
   same(B.skipped(file, after, parts).map((r) => r.label).sort(), ["Bluetooth name", "Brightness", "RUNNER", "new_setting"].sort());
+});
+
+test("restore: the device version (DIY / PEQ) is not in a backup, and a PEQ device keeps 1xRCR123A", async () => {
+  // A backup of a DIY device with 7.4V(2S)
+  const file = await backupOf({ installedApps: APPS, configValues: { device_model: 1, battery_type: 4, brightness: 3 } });
+  assert.equal("device_model" in file.settings, false);
+  assert.equal(file.settings.battery_type, 4);
+
+  // Restored on a PEQ box
+  const t = await connect({ installedApps: APPS, configValues: { device_model: 2, battery_type: 2 } });
+  const device = await t.data.readAll();
+  const B = t.page.BackupFile;
+  const parts = { stats: false, settings: true, apps: false, deviceName: false, startPicture: false };
+  // A file of an older page can have the device version: the page does not send it
+  file.settings.device_model = 1;
+  const bytes = B.restoreData(file, device, parts);
+  assert.equal(String.fromCharCode(...bytes).includes("device_model"), false);
+  delete file.settings.device_model;
+  const result = await t.data.restore(bytes, null, () => setTimeout(() => t.device.holdButton2(), 20));
+  assert.equal(result.result, "done");
+  assert.equal(result.skipped, 1);                          // the battery type
+  assert.equal(t.device.configValue("device_model"), 2);
+  assert.equal(t.device.configValue("battery_type"), 2);
+  assert.equal(t.device.configValue("brightness"), 3);
+  const after = await t.data.readAll();
+  const lines = B.skipped(file, after, parts);
+  same(lines.map((r) => [r.label, r.device, r.file]), [["Battery", "1xRCR123A", "7.4V(2S)"]]);
+  // The option without a battery check has its new name
+  same(B.SETTINGS.battery_type[1].slice(0, 2), ["NONE", "USB/DC"]);
 });
 
 test("restore: only the ticked parts are sent", async () => {
