@@ -55,6 +55,8 @@ class Maker:
     def wait_dots(self, dots):
         while (self.dev.state()["t"] >> 9) & 3 != dots:
             self.dev.run(16)
+        # One more draw: at the first moment of the new count the display still has the frame before
+        self.dev.run(20)
 
     def hold_until(self, button, x, width, pixels):
         """Hold a button until `pixels` columns of the button at x are filled. Returns the fill."""

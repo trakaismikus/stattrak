@@ -47,6 +47,9 @@ SETTING_ROWS = [
 # The app menu has 12 apps at most (main/apps.h)
 APP_MENU_MAX = 12
 
+# The start animation after a power-on: boot() waits 400 ms + 1000 ms for it
+START_ANIMATION_MS = 1400
+
 # App manager commands (main/ble_commands.h, docs/APPS.md section 6)
 APP_CMD_INFO = 0x0110
 APP_CMD_LIST = 0x0111
@@ -166,14 +169,39 @@ class Device:
         )
         return self
 
-    def boot(self, pending=False, voltage=None, settle_ms=1000, reset=None):
-        """Normal start: hold both buttons, release them, wait for the start animation."""
+    def boot(self, pending=False, voltage=None, settle_ms=1000, reset=None, prompts="diy"):
+        """Normal start: hold both buttons, release them, wait for the start animation.
+
+        `prompts` says what the person does with the two screens of the start:
+        "diy" (the default): answers DIY to the question "StatTrak version" and LATER to the
+        warning "Battery type not set", so the test starts in the first app, as before these
+        screens. "peq": answers PEQ. "keep": does nothing, the screen stays (to test it).
+        """
         self.power_on(hold="both", pending=pending, voltage=voltage, reset=reset)
         self.run(400)
         if self.is_on:
             self.release(1)
             self.release(2)
             self.run(settle_ms)
+        if prompts != "keep":
+            self.answer_prompts(model=prompts)
+        return self
+
+    def answer_prompts(self, model="diy"):
+        """Answer the question "StatTrak version" and close the warning "Battery type not set"."""
+        for name, button in (("DEVICE_MODEL", 2 if model == "peq" else 1), ("BATTERY_UNSET", 1)):   # 1 = DIY, LATER
+            if not self.is_on:
+                break
+            state = self.state()
+            if state["view_next"] != name:
+                continue
+            # A press in the start animation is lost (main/main.c clears the button events at its
+            # end), and a hold that starts while the screen slides in does not count
+            if state["t"] < START_ANIMATION_MS:
+                self.run(START_ANIMATION_MS - state["t"])
+            if state["view"] != name:
+                self.run(400)
+            self.long_press(button)
         return self
 
     def power_cut(self):
@@ -370,7 +398,9 @@ class Device:
             row = self.state()["settings_row"]
             if row == target:
                 break
-            self.click(2 if row < target else 1, settle_ms=200)
+            # The full wait of a click: with 200 ms the press (180 ms after the release, then the
+            # debounce and the main loop) was sometimes still on its way, and the row was read too early
+            self.click(2 if row < target else 1)
         self.long_press(2)
         if self.view != "APP_SYNC":
             raise SimError("could not open Apps: SYNC (view %s)" % self.view)

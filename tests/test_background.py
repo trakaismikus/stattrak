@@ -10,6 +10,7 @@ import unittest
 from stattrak_sim import SETTING_ROWS
 from test_apps import KILLS, KILL_DEAD, STATS, OK, counter_app
 from test_data import DataTestCase, shows, app
+from helpers import NO_PROMPTS
 
 DELETE = 0x0117       # APP_CMD_DELETE
 SET_HIDDEN = 0x0119   # APP_CMD_SET_HIDDEN
@@ -360,6 +361,7 @@ class SafetyTest(BackgroundTestCase):
         for builtin in (KILLS, KILL_DEAD, STATS):     # The background app is the first app of the menu
             self.assertEqual(self.cmd(SET_HIDDEN, struct.pack("<IB", builtin, 1))[0], OK)
         self.dev.power_cut()
+        self.dev.write_flash(NO_PROMPTS)              # No warning "Battery type not set" before the app
         self.dev.power_on(hold="both")
         self.dev.run(10500)                           # Held for 10 s: the update mode
         self.dev.release(1)

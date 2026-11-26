@@ -10,6 +10,7 @@ from stattrak_sim import Device  # noqa: E402
 
 # Settings in the order of the settings view (SETTING_LIST in main/app.h).
 # SHOW_BATTERY and LOW_BAT are hidden when the battery type is NONE or USB.
+# BATTERY_TYPE is in the list only for the device version DIY (the default of Device.boot()).
 SETTINGS_WITH_BATTERY = [
     "GAME_RESET", "COUNTER", "APP_SYNC", "BATTERY_TYPE", "AUTO_OFF", "SHOW_BATTERY", "LOW_BAT",
     "BRIGHTNESS", "DIM_SCREEN", "DIM_LEVEL", "SOUND", "FW_UPDATE", "FACTORY_RESET",
@@ -25,6 +26,25 @@ BATTERY_NONE = 0
 BATTERY_USB = 1
 BATTERY_RCR123A = 2
 BATTERY_LIPO_1S = 3
+
+# Settings > Battery: the sequence of the types on the display (kBatteryOrder in
+# main/views/settings_view.c), as (number in flash, text). The numbers in flash are the positions
+# in main/battery.h: they are not in this sequence.
+BATTERY_STEPS = [
+    (0, "NONE"), (2, "1xRCR123A"), (3, "3.7V(1S)"), (4, "7.4V(2S)"), (5, "11.1V(3S)"),
+    (7, "9.6V(NiMH)"), (6, "3xAA/AAA"), (1, "USB/DC"),
+]
+BATTERY_ORDER = [number for number, _ in BATTERY_STEPS]
+
+# The device version (device_model_enum in main/app.h)
+MODEL_UNSET = 0
+MODEL_DIY = 1
+MODEL_PEQ = 2
+
+# Flash values of a device that is set up: DIY (the answer of Device.boot()) with the battery type
+# USB/DC. It starts without the question "StatTrak version" and without the warning "Battery type
+# not set". For a test that starts the device by hand (power_on) and looks at the first app.
+NO_PROMPTS = {"battery_type": BATTERY_USB}
 
 # Brightness that the display driver gets for the default setting (80 %).
 MAX_BRIGHTNESS = 0xFF + 0x35
@@ -74,10 +94,13 @@ class SimTestCase(unittest.TestCase):
 
     def open_setting(self, name, battery=None):
         """Go to the settings view and move the cursor to the setting `name`."""
+        state = self.dev.state()
         if battery is None:
-            # The two battery settings are in the list only for a real battery type
-            battery = self.dev.state()["eeprom.battery_type"] > BATTERY_USB
+            # The two battery settings are in the list only for a real battery type (the type in use)
+            battery = state["battery_type"] > BATTERY_USB
         order = SETTINGS_WITH_BATTERY if battery else SETTINGS_NO_BATTERY
+        if state["eeprom.device_model"] != MODEL_DIY:
+            order = [row for row in order if row != "BATTERY_TYPE"]
         target = order.index(name)
         self.go_to_view("SETTINGS")
         while self._setting_idx < target:

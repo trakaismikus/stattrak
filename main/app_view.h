@@ -54,7 +54,9 @@ Gfx_drawVLine(x + (len * font5x5.x_advance), y, font5x5.height, 1);  \
   VIEW(MSG, msg) \
   VIEW(AUTO_OFF, autoOff) \
   VIEW(BATTERY_LOW, batteryLow) \
-  VIEW(BATTERY_CRITICAL, batteryCritical)
+  VIEW(BATTERY_CRITICAL, batteryCritical) \
+  VIEW(DEVICE_MODEL, deviceModel) \
+  VIEW(BATTERY_UNSET, batteryUnset)
 
 
 /* > Enumerations *********************************************************************************/

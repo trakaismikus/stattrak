@@ -48,6 +48,7 @@
 #include "eeprom.h"
 #include "ota.h"
 #include "board.h"
+#include "battery.h"
 #include "sim_apps.h"
 #include "stapp.h"
 
@@ -87,6 +88,8 @@ static void _printState(void) {
   printf("clicks=%lu\n", (unsigned long)HostBuzzer_getClickCount());
   printf("click_freq=%u\n", (unsigned)HostBuzzer_getLastFreq());
   printf("voltage=%u\n", (unsigned)HostBoard_getVoltage());
+  printf("battery_type=%u\n", (unsigned)Battery_getType());      /* The type in use (App_getBatteryTypeInUse) */
+  printf("battery_level=%u\n", (unsigned)Battery_readLevel());
   printf("btn1=%d\n", HostButton_getLevel(0) ? 1 : 0);
   printf("btn2=%d\n", HostButton_getLevel(1) ? 1 : 0);
   printf("ota_active=%d\n", HostOta_isActive() ? 1 : 0);

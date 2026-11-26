@@ -135,7 +135,7 @@ const BackupFile = (() => {
   // main/app.h SETTING_LIST: the names and the value texts of the settings
   const SETTINGS = {
     counter: ["Counter", ["TOTAL", "GAME"]],
-    battery_type: ["Battery", ["NONE", "USB", "1xRCR123A", "3.7V(1S)", "7.4V(2S)", "11.1V(3S)", "3xAA/AAA", "9.6V(NiMH)"]],
+    battery_type: ["Battery", ["NONE", "USB/DC", "1xRCR123A", "3.7V(1S)", "7.4V(2S)", "11.1V(3S)", "3xAA/AAA", "9.6V(NiMH)"]],
     auto_off: ["Auto off", ["OFF", "30 min", "1 h", "2 h", "6 h", "12 h"]],
     show_battery: ["Show battery", ["OFF", "ON"]],
     low_bat: ["Low battery", ["OFF", "0%", "10%", "20%", "30%"]],
@@ -159,7 +159,8 @@ const BackupFile = (() => {
   function make(read, now) {
     const stats = {}, settings = {};
     for (const e of read.entries) {
-      if (e.key === "init") continue;
+      // "init" and the device version (DIY / PEQ) are of this device: not in a backup
+      if (e.key === "init" || e.key === "device_model") continue;
       if (STATS.includes(e.key)) stats[e.key] = e.value; else settings[e.key] = e.value;
     }
     return {
@@ -225,7 +226,7 @@ const BackupFile = (() => {
     const u32 = (v) => [v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255];
     const section = (type, bytes) => out.push(type, ...u16(bytes.length), ...bytes);
     const value = (key, v) => {
-      if (!/^[\x20-\x7E]{1,15}$/.test(key) || key === "init" || !isU32(v)) return;
+      if (!/^[\x20-\x7E]{1,15}$/.test(key) || key === "init" || key === "device_model" || !isU32(v)) return;
       section(SECTION.VALUE, [key.length, ...Array.from(key, (c) => c.charCodeAt(0)), ...u32(v)]);
     };
     if (parts.stats) for (const key of Object.keys(file.stats)) value(key, file.stats[key]);

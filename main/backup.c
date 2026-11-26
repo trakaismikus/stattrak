@@ -116,8 +116,11 @@ static void _value(const uint8_t* d, uint16_t length) {
     const char* key = App_getEntryKey(i);
     if(key == NULL || strlen(key) != keyLength || memcmp(key, &d[1], keyLength) != 0)
       continue;
-    // "init" marks the first start: never from a backup
-    if(i == ENTRY_ID__INIT || value > App_getEntryMax(i)) {
+    // "init" marks the first start: never from a backup. The device version is the answer of the
+    // person on this device: never from a backup. The battery type only for DIY: PEQ is always
+    // 1xRCR123A, and a device without a device version does not use it.
+    if(i == ENTRY_ID__INIT || i == ENTRY_ID__DEVICE_MODEL || value > App_getEntryMax(i) ||
+       (i == ENTRY_ID__BATTERY_TYPE && App_getDeviceModel() != DEVICE_MODEL__DIY)) {
       _count(&s_skipped, 1);
       return;
     }

@@ -138,7 +138,7 @@ A JSON file, `stattrak-backup-<date>.json`:
 }
 ```
 
-`settings` has all flash values of CONFIG_ENTRY except `init` and the 4 stats, by key name.
+`settings` has all flash values of CONFIG_ENTRY except `init`, `device_model` and the 4 stats, by key name.
 `startPicture` is `null` when the device has none. `deviceLog` is never written back.
 
 ### 5.4 The restore data (kind 1)
@@ -157,7 +157,9 @@ type 6 START_PIC    u8 show (0 delete the picture, 1 on, 2 off), then 512 bytes 
 The firmware first walks all sections. A section outside the data = status 10, nothing is
 written. Then it writes, and **skips** (counts in "skipped") each value that it cannot use:
 
-- VALUE: an unknown key, `init`, or a value above the largest valid value.
+- VALUE: an unknown key, `init`, `device_model` (the answer DIY / PEQ of the person on this
+  device), or a value above the largest valid value. `battery_type` on a device that is not DIY
+  (PEQ is always `1xRCR123A`; a device without a device version does not use it).
 - APP_ORDER: not exactly the apps of the device (then the order and the hidden flags stay).
   Hidden flags: shown apps first, then hidden ones; the last shown app is never hidden.
 - APP_SETTINGS: an app that is not installed, an other setting count; each value above its range.

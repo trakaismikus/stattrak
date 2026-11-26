@@ -23,6 +23,7 @@
 void SettingsView_init(void);
 void SettingsView_setBatteryType(uint8_t type);
 uint8_t SettingsView_getSelectedId(void);   // The setting at the cursor (setting_id_t)
+void SettingsView_select(uint8_t settingId); // The cursor on this setting, if its row is in the list
 // Settings > Background: the values again from the installed apps (the row comes or goes), and the
 // app of a value (APPS_ID__NONE for OFF)
 void SettingsView_refreshBackground(void);

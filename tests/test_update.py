@@ -8,7 +8,7 @@ that a new firmware waits for the "accept" before it goes to normal operation.
 
 import unittest
 
-from helpers import SimTestCase, BATTERY_LIPO_1S, MINUTE
+from helpers import SimTestCase, BATTERY_LIPO_1S, MINUTE, NO_PROMPTS
 
 OTA_IDLE, OTA_STARTED, OTA_WRITING, OTA_FINISHED, OTA_ACCEPTED, OTA_ERROR = range(6)
 
@@ -198,6 +198,7 @@ class NewFirmwareTest(SimTestCase):
         self.assertEqual(state["ota_update_allowed"], 1)
 
     def test_a_long_ok_does_not_act_on_the_view_after_it(self):
+        self.first_boot(**NO_PROMPTS)
         self.update_firmware()
         self.dev.boot()
         self.assertTrue(self.dev.ota_accept())
@@ -209,6 +210,7 @@ class NewFirmwareTest(SimTestCase):
         self.assertEqual(state["eeprom.total_kills"], kills)
 
     def test_new_firmware_waits_for_accept(self):
+        self.first_boot(**NO_PROMPTS)
         self.update_firmware()
         self.dev.boot()
         state = self.dev.state()

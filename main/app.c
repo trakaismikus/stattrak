@@ -120,6 +120,11 @@ static bool     s_lowBatteryShown = false;
 static uint32_t s_lowBatteryTime;
 static uint32_t s_criticalBatteryTime;
 
+// The question "StatTrak version" and the warning "Battery type not set" come one time for each
+// power-on. A person who leaves one of them with the app menu gets it again at the next power-on.
+static bool     s_modelAsked = false;
+static bool     s_batteryUnsetShown = false;
+
 
 /* > Function Definitions *************************************************************************/
 
@@ -169,7 +174,7 @@ uint32_t App_getEntryMax(uint8_t index) {
 void App_reloadSettings(void) {
   // Replace stored values that this firmware version cannot use
   _sanitizeEntries();
-  Battery_setType(Eeprom_read(ENTRY_ID__BATTERY_TYPE));
+  Battery_setType(App_getBatteryTypeInUse());
 
   SettingsView_init();
 
@@ -177,6 +182,80 @@ void App_reloadSettings(void) {
   s_brightnessDimValue = (s_brightnessSetValue * Eeprom_read(ENTRY_ID__DIM_LEVEL)) / 10;
   s_brightness = s_brightnessSetValue;
   Ssd1307_setBrightness(s_brightness);
+}
+
+
+uint8_t App_getDeviceModel(void) {
+  const uint32_t model = Eeprom_read(ENTRY_ID__DEVICE_MODEL);
+  return (model <= DEVICE_MODEL__PEQ) ? (uint8_t)model : DEVICE_MODEL__UNSET;
+}
+
+// The stored battery type is in use only for DIY. A device that comes from an older firmware can
+// have a type from an other list (docs/AUDIT.md, A4): it is not used before the person answered.
+uint8_t App_getBatteryTypeInUse(void) {
+  switch(App_getDeviceModel()) {
+    case DEVICE_MODEL__DIY: return (uint8_t)Eeprom_read(ENTRY_ID__BATTERY_TYPE);
+    case DEVICE_MODEL__PEQ: return BATTERY_TYPE__RCR123A;
+    default:                return BATTERY_TYPE__UNKNOWN;
+  }
+}
+
+void App_answerDeviceModel(uint8_t model) {
+  if(model != DEVICE_MODEL__DIY && model != DEVICE_MODEL__PEQ)
+    return;
+
+  // The same answer again (Settings > Version, by mistake) changes nothing
+  if(model != App_getDeviceModel()) {
+    Eeprom_write(ENTRY_ID__DEVICE_MODEL, model);
+    Eeprom_write(ENTRY_ID__BATTERY_TYPE, (model == DEVICE_MODEL__PEQ) ? BATTERY_TYPE__RCR123A : BATTERY_TYPE__UNKNOWN);
+    Battery_setType(App_getBatteryTypeInUse());
+    SettingsView_init();
+    s_lowBatteryShown = false;
+  }
+  s_modelAsked = true;
+
+  if(model == DEVICE_MODEL__DIY && Eeprom_read(ENTRY_ID__BATTERY_TYPE) == BATTERY_TYPE__UNKNOWN) {
+    s_batteryUnsetShown = true;
+    AppView_set(VIEW_ID__BATTERY_UNSET);
+  } else {
+    AppView_set(Launcher_getStartView());
+  }
+}
+
+void App_closeBatteryUnset(bool openSetting) {
+  if(openSetting && App_getDeviceModel() == DEVICE_MODEL__DIY) {
+    SettingsView_select(SETTING_ID__BATTERY_TYPE);
+    AppView_set(VIEW_ID__SETTINGS);
+  } else {
+    AppView_set(Launcher_getStartView());
+  }
+}
+
+// A normal start asks here (Launcher_getStartView()), before the first app opens: an installed
+// app must not get "on open", "on close" and "on open" again for one power-on.
+uint8_t App_takeStartPrompt(void) {
+  const uint8_t model = App_getDeviceModel();
+  if(model == DEVICE_MODEL__UNSET && !s_modelAsked) {
+    s_modelAsked = true;
+    return VIEW_ID__DEVICE_MODEL;
+  }
+  if(model == DEVICE_MODEL__DIY && !s_batteryUnsetShown &&
+     Eeprom_read(ENTRY_ID__BATTERY_TYPE) == BATTERY_TYPE__UNKNOWN) {
+    s_batteryUnsetShown = true;
+    return VIEW_ID__BATTERY_UNSET;
+  }
+  return VIEW_ID__BLANK;
+}
+
+// A start with a new firmware shows the accept view first, and its OK opens the kill counter
+// (main/views/fw_accept_view.c): the question or the warning comes over that one.
+static void _startPrompts(void) {
+  if(AppView_get() != VIEW_ID__FW_ACCEPT || AppView_getNext() != VIEW_ID__TOTAL)
+    return;
+
+  const view_id_t prompt = (view_id_t)App_takeStartPrompt();
+  if(prompt != VIEW_ID__BLANK)
+    AppView_set(prompt);
 }
 
 
@@ -220,6 +299,9 @@ void App_update(void) {
     // Reset critical battery timer
     s_criticalBatteryTime = now;
   }
+
+  // The question "StatTrak version" and the warning "Battery type not set"
+  _startPrompts();
 
   // Allow low battery warning only when OTA is not active
   if(!Ota_isBusy(otaState) && !s_lowBatteryShown) {
@@ -298,10 +380,19 @@ void App_updateSetting(uint8_t id, uint32_t value) {
       AppView_set(VIEW_ID__ASK);
       break;
     
-    case SETTING_ID__BATTERY_TYPE: 
+    case SETTING_ID__BATTERY_TYPE:
+      // The row is in the list only for DIY (PEQ is always 1xRCR123A)
+      if(App_getDeviceModel() != DEVICE_MODEL__DIY)
+        break;
       Battery_setType(value);
       Eeprom_write(ENTRY_ID__BATTERY_TYPE, value);
       SettingsView_setBatteryType(value);
+      break;
+
+    case SETTING_ID__VERSION:
+      // A hold on the row Version: the question "StatTrak version" again (a wrong answer can be
+      // repaired without a factory reset). All data stays.
+      AppView_set(VIEW_ID__DEVICE_MODEL);
       break;
     
     case SETTING_ID__SHOW_BATTERY:
@@ -431,6 +522,10 @@ static void _factoryReset(bool confirm) {
 
     // TODO: reset!
     App_init();
+
+    // The device version is "not set" again: the question comes at the next power-on
+    s_modelAsked = true;
+    s_batteryUnsetShown = true;
   }
 
   AppView_set(confirm ? VIEW_ID__TOTAL : VIEW_ID__SETTINGS);

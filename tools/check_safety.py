@@ -67,14 +67,14 @@ REQUIRED_PINS = {
 RELEASED_NVS_KEYS = [
     "init", "total_kills", "total_deaths", "game_kills", "game_deaths", "battery_type",
     "show_battery", "brightness", "dim_screen", "dim_level", "auto_off", "counter", "sound",
-    "low_bat",
+    "low_bat", "device_model",
 ]
 
 # The value lists of the settings that were released. A stored setting is the position of its value
 # in the list, and a backup file (docs/DATA.md) has these positions too. New values go at the end only.
 RELEASED_SETTING_VALUES = {
     "COUNTER": ["TOTAL", "GAME"],
-    "BATTERY_TYPE": ["NONE", "USB", "1xRCR123A", "3.7V(1S)", "7.4V(2S)", "11.1V(3S)", "3xAA/AAA", "9.6V(NiMH)"],
+    "BATTERY_TYPE": ["NONE", "USB/DC", "1xRCR123A", "3.7V(1S)", "7.4V(2S)", "11.1V(3S)", "3xAA/AAA", "9.6V(NiMH)"],
     "AUTO_OFF": ["OFF", "30 min", "1 h", "2 h", "6 h", "12 h"],
     "SHOW_BATTERY": ["OFF", "ON"],
     "LOW_BAT": ["OFF", "0%", "10%", "20%", "30%"],
