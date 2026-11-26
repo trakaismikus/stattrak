@@ -80,4 +80,11 @@ computer are older or newer than the tools of the store. Get the newest version 
 project (the official `main` branch), build again and upload both files again.
 
 **An update of a live app:** the same name, a higher `version`, the same steps. Owners see
-"Update available" on the page. Their saved values of the app stay.
+"Update available" on the page.
+
+The saved values of the owners (a high score, a counter) stay only when the new version has the
+same app id (the same name), the same number of `saved` values, in the same order and with the
+same meaning. A different number of saved values sets all of them back to their start values
+on each device. So do not add, remove or reorder a `saved` line in an update if you can avoid
+it. If you must, tell the person, and say it in the description ("this update resets the high
+score").

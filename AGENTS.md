@@ -721,8 +721,8 @@ Check this first. Many wishes are there already:
   An app is safe for the device, fast to install and easy to share.
 - **A part of the idea needs the firmware?** Say it, and offer the app part first: "I can make
   the timer as an app today. The part 'the display turns red' is not possible: the display has
-  one color. The part 'beep on each kill in each screen' needs a firmware change. Do you want
-  the app first?"
+  one color. The part 'show the timer in a corner of the KILLS screen' needs a firmware change,
+  because an app cannot change a built-in screen. Do you want the app first?"
 - **Only a firmware change can do it?** Say in one sentence which thing an app cannot do. Then
   section 4, and the warning of section 7 before the firmware goes on a device.
 - **The idea is very large** (a game with many levels): start with a small version as an app.
@@ -809,7 +809,9 @@ Beginner, you do all of them and you show the result of each one.
 9. **Change it until the person is happy.** Go back to step 4.
 10. **Test it.** Run each button path with `python tools/app.py run` again: no `App error`.
     If the simulator part is installed, run it on the real firmware too:
-    `python tools/sim.py --fresh boot app:apps/<name>/<name>.stapp png:<name>-fw`.
+    `python tools/sim.py --fresh boot app:apps/<name>/<name>.stapp long2 wait:500 png:<name>-fw`.
+    `app:` installs the app, `long2` holds the right button for OPEN. Add the button presses of
+    the app after it (`click1`, `click2`, `long1`, `long2`, `wait:MS`), then `png:`.
     An app that you add to the official apps of this repository also needs a test in
     `tests/test_sample_apps.py`.
 11. **Save the work:** `git commit`. For a Beginner: "I saved a restore point."
