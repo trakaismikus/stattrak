@@ -12,6 +12,9 @@ This page is the specification. It is for AI coding tools and developers.
 - Try it in the simulator: `python tools/sim.py boot app:apps/<name>/<name>.stapp ...` (installs it
   directly, like a phone would).
 - Put it on a device: the "My device" tab of the web page (connect, then **From file**).
+- Share it with other owners: the app store, [APP_STORE.md](APP_STORE.md).
+- What an app can do and what needs a firmware change, in a short list: `AGENTS.md` section 16.
+  The work sequence with a person: `AGENTS.md` section 17.
 
 ## 1. The parts
 
@@ -649,6 +652,10 @@ and the built-in screen in the simulator (`python tools/sim.py ... png:...`).
    come after the release) or `up1` / `up2` (only the release). It prints the clicks too. This engine is a Python copy for previews; the
    simulator runs the real one (`python tools/sim.py boot app:...`).
 
+   When the app stops with an error, the output has a line that starts with `App error`
+   (`App error after press1: too many steps`, `App error after wait:100: bad index`): also for
+   an error in `draw` or `tick` during a `wait:`. No such line = the app ran all actions.
+
    Play it by hand on the real firmware, in the browser:
 
    ```
@@ -662,6 +669,9 @@ and the built-in screen in the simulator (`python tools/sim.py ... png:...`).
 4. Put it into the catalog of the web updater: `python tools/app.py catalog` builds every
    `apps/*/*.sts` into `updater/apps/<name>.stapp` and writes `updater/apps/catalog.json`.
 5. Tests: `tests/test_app_tool.py` (`cd tests` then `python -m unittest test_app_tool`).
+6. Share it in the app store of the web page: [APP_STORE.md](APP_STORE.md). The store reads one
+   more line of the source, a comment: `# demo: wait 1000, press 1, wait 3000, hold 2`. It is
+   the button script of the preview film. The compiler does not read it.
 
 Python code can use the tool directly: `import app` (with `tools/` in `sys.path`), then
 `app.compile_file(path)`, `app.compile_source(text)`, `app.check(data)` -> (result, info),

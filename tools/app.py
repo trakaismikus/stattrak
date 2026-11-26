@@ -2320,10 +2320,19 @@ def _binary(name, a, b):
     raise ValueError(name)
 
 
+def _new_error(machine, had_error):
+    """The result text of an action that runs draw / tick: the app error, if it is new"""
+    if machine.error is not None and not had_error:
+        return result_text(machine.error)
+    return "ok"
+
+
 def run_actions(machine, actions):
-    """Actions of the `run` command. Return the text output."""
+    """Actions of the `run` command. Return the text output. An app error in `draw` or `tick`
+    (during wait:, frame or png:) is said one time, like an error in a button event."""
     out = []
     for action in actions:
+        had_error = machine.error is not None
         if action in ("press1", "press2", "long1", "long2", "down1", "down2", "up1", "up2", "tick", "kill", "death"):
             result = machine.run(action)
         elif action.startswith("background:"):
@@ -2331,7 +2340,7 @@ def run_actions(machine, actions):
             result = "ok"
         elif action.startswith("wait:"):
             machine.wait(int(action[5:]))
-            result = "ok"
+            result = _new_error(machine, had_error)
         elif action.startswith("counter:"):
             key, value = action[8:].split("=")
             index = BUILTIN_NAMES[key] if key in BUILTIN_NAMES else int(key)
@@ -2346,7 +2355,7 @@ def run_actions(machine, actions):
             result = "ok"
         elif action == "frame":
             out.extend(machine.frame())
-            result = "ok"
+            result = _new_error(machine, had_error)
         elif action.startswith("battery:"):
             machine.battery = int(action[8:])
             result = "ok"
@@ -2361,7 +2370,7 @@ def run_actions(machine, actions):
         elif action.startswith("png:"):
             write_png(action[4:], machine.frame())
             out.append("Wrote %s" % action[4:])
-            result = "ok"
+            result = _new_error(machine, had_error)
         else:
             raise AppError("Unknown action %r. Actions: press1 press2 long1 long2 down1 down2 up1 up2 tick kill death "
                            "wait:MS frame png:FILE counter:NAME=N setting:N=V random:SEED battery:PERCENT "
@@ -2484,7 +2493,10 @@ def main(argv=None):
                 print("App error in open: %s" % result)
             lines = run_actions(machine, args.actions)
             if not args.actions or not (args.actions[-1] == "frame" or args.actions[-1].startswith("png:")):
+                had_error = machine.error is not None
                 lines.extend(machine.frame())
+                if _new_error(machine, had_error) != "ok":
+                    lines.append("App error in draw: %s" % result_text(machine.error))
             if machine.clicks:
                 lines.append("Clicks: %s" % ", ".join("%d Hz at %d ms" % (freq, at) for at, freq in machine.clicks))
             print("\n".join(lines))

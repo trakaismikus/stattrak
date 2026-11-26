@@ -884,6 +884,29 @@ class CommandLine(unittest.TestCase):
                 handle.write(b"\xAA")
             self.assertEqual(app.main(["check", out]), 1)
 
+    def test_run_says_an_app_error_in_draw_one_time(self):
+        # An error in draw or tick (during wait:, frame, png:) must not be silent: a person who
+        # tries an app before the app store sees it here, as the review of the store does
+        package = compile_text('app "BAD"\nvar a[3]\nvar i = 5\non draw {\n  a[i] = 1\n}\n')["package"]
+        machine = app.Machine(package)
+        self.assertEqual(machine.run("open"), "ok")
+        lines = app.run_actions(machine, ["wait:100", "wait:100", "frame"])
+        errors = [line for line in lines if line.startswith("App error")]
+        self.assertEqual(errors, ["App error after wait:100: bad index"])
+        # The same app with no action: the last screen of the command says it
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "bad.stapp")
+            with open(path, "wb") as handle:
+                handle.write(package)
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                app.main(["run", path])
+            self.assertEqual(out.getvalue().count("App error in draw:"), 1)
+        # A good app has no such line
+        good = app.compile_file(example_path("reaction"))["package"]
+        lines = app.run_actions(app.Machine(good), ["wait:800", "press1", "wait:1500", "frame"])
+        self.assertEqual([line for line in lines if line.startswith("App error")], [])
+
 
 if __name__ == "__main__":
     unittest.main()

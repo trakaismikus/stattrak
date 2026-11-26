@@ -4,6 +4,20 @@ This file is for AI coding tools (Claude Code, Codex, Cursor, Copilot, Gemini an
 Read all of it before you change this repository. The person who works with you has probably
 not read it, and may not be a programmer. You are the guide.
 
+**The way of a person through this file:**
+
+| Step | What you do | Section |
+| --- | --- | --- |
+| 1 | Learn who the person is, check the computer, show the device | 1 |
+| 2 | Get the idea. No idea yet: help to find one | 16.1 |
+| 3 | Decide: no code, an app, or a firmware change. Explain what it means | 16 |
+| 4 | Build it: an app | 17 |
+| 4 | Build it: a firmware change | 4, 6, 7 |
+| 5 | Share it: an app in the app store | 18 |
+| 5 | Share it: a firmware feature or a fix as a pull request | 13 |
+
+The safety rules of section 3 are for each step.
+
 ## 1. Start here (each new conversation)
 
 Do these three steps before any other work.
@@ -20,10 +34,17 @@ Do not ask more than these three.
 2. **Have you built or changed electronics before, for example with Arduino or ESP32?**
    (a) No. (b) A little. (c) Yes.
 3. **What do you want to do today?** (a) Look around and try the simulator.
-   (b) Change something small. (c) I have an idea for a new feature.
-   (d) Make an app for my StatTrak.
+   (b) I have an idea for something new. (c) I want to change something that my StatTrak
+   does now. (d) I have no idea yet. Show me what is possible.
 
-Then write `.stattrak/profile.md` with the answers and the level that you selected:
+If the first message of the person has an idea already, do not ask question 3.
+
+**Never ask the person "do you want an app or a firmware change?".** Most people cannot know
+the difference. You decide with section 16, and you tell the person what your decision means
+for them.
+
+Then write `.stattrak/profile.md` with the answers, the idea (if there is one) and the level
+that you selected:
 
 | Level | Who | How you talk and work |
 | --- | --- | --- |
@@ -51,6 +72,11 @@ Install only the simulator part now. It is small (about 550 MB) and stays in the
 4 GB) is necessary only when the person wants to put a firmware on a real device. Ask at that
 time.
 
+An app needs less: the app tool (`python tools/app.py`) needs only Python. If the person does
+not want to install the simulator part, you can still make an app and show pictures of it
+(section 17). Then skip step 3 and show the pictures of an example app:
+`python tools/app.py run apps/slots/slots.sts wait:1000 png:out/slots.png`.
+
 If Python is missing, the person must install it first: https://www.python.org/downloads/
 (on Windows: tick "Add python.exe to PATH" in the installer). If Git is missing:
 https://git-scm.com/downloads
@@ -59,16 +85,14 @@ https://git-scm.com/downloads
 
 Run `python tools/sim.py --tour` and show the pictures from `out/` to the person. This is the
 real firmware, running on the computer. Tell the person in two sentences what they see.
-Then ask what they want to do, or start with their idea.
 
-**An app** (answer (d), or the person asks for an app): an app is a screen that the person
-installs from the web page, with no firmware change. Use the work sequence of section 4 and the
-screen designs of section 5. For steps 4 to 6 (the code, the tests, the pictures) follow
-`docs/APPS.md` section 8: the app script, `python tools/app.py`, `tests/test_app_tool.py`. Skip
-steps 10 and 11 and sections 6 and 7: an app needs no firmware build. The person installs the
-`.stapp` file on the "My device" tab of the web page (**From file**). If the app uses a list,
-`held()` or more than the old limits, it needs firmware 1.2.0-b4 or newer (`docs/APPS.md`
-section 7.5): tell the person this before they install it.
+Then go on with the answer to question 3:
+
+| Answer | What you do next |
+| --- | --- |
+| (a) Look around | Offer the simulator in the browser, so the person can press the buttons: `sim/README.md`, or the page https://stattrak.tridos.design/sim/simulator.html . Show the app store (https://stattrak.tridos.design/#store): these are things that other owners made. Then ask for an idea. |
+| (b) An idea, or (c) a change | Section 16: decide what the idea is (no code, an app, a firmware change) and tell the person. Then section 17 (an app) or section 4 (a firmware change). |
+| (d) No idea yet | Section 16.1: help the person to find an idea. |
 
 ## 2. What this repository is
 
@@ -136,7 +160,11 @@ the update mode and the start sequence.
   `main/board.c`, `main/board/`, `partitions.csv` or `sdkconfig.*`: stop and tell the user
   that this is a high-risk change, before you make it. Read `docs/SAFETY.md`.
 
-## 4. The work sequence for a change or a new feature
+## 4. The work sequence for a firmware change
+
+First decide with section 16 what the idea is. Most ideas are an **app**: an app has its own
+work sequence in section 17, and it needs no firmware build. This section is for a change of
+the firmware itself.
 
 Do these steps in this order. Do not skip a step. For a Beginner, you do all of them and
 you show the result of each one.
@@ -162,7 +190,7 @@ you show the result of each one.
 11. **Put it on the device:** section 7. Go through it with the person, step by step.
 12. **Report:** what changed, what `tools/check.py` printed, the pictures, and the warning
     from "Limits of what you can know".
-13. **Offer to share it.** If the feature is good for other users: section 13.
+13. **Offer to share it.** If the feature or the fix is good for other owners: section 13.
 
 ## 5. Screen designs: show options before you build
 
@@ -190,6 +218,16 @@ Beginner. For other levels: when they ask for options, or the look is not clear.
    screen with the exact `Gfx_*` calls. Put it into the view (section 10) and replace the
    fixed texts with the real values.
 5. Keep the final design file in `designs/`. Delete the proposals that were not picked.
+
+**For an app** the steps are the same, but the draw code is StatTrak Script and not C. Use the
+positions and sizes that `python tools/design.py describe designs/<feature>-a.json` prints, and
+write them as the drawing calls of `docs/APPS.md` section 4 (`text`, `num`, `bignum`, `rrect`,
+`fill`, `bitmap`). Then compare the picture of the app (`python tools/app.py run ... png:...`)
+with the picture of the design.
+
+**The person is not happy with how a screen looks?** Do not guess a third and a fourth time.
+Offer both ways: "I can draw two or three new proposals, or you can draw the screen yourself in
+the Screen Designer. Which do you want?"
 
 The pictures are exact: `tools/design.py` uses the fonts of the firmware, and a test compares
 its drawing with the real firmware draw functions.
@@ -370,7 +408,8 @@ tests/                   tests (Python: full firmware in the simulator, unit/: C
 tools/                   setup.py, check.py, check_safety.py, sim.py, design.py, build.py
 updater/                 the web site (stattrak.tridos.design, updater/README.md): index.html = Firmware
                          and My device, start/ = Get started, designer/ = the Screen Designer
-docs/                    SAFETY.md, BLUETOOTH.md, DESIGNS.md, AUDIT.md, ROADMAP.md
+docs/                    SAFETY.md, BLUETOOTH.md, DESIGNS.md, APPS.md, APP_STORE.md (the app store), DATA.md,
+                         GUIDE.md (the user guide), AUDIT.md, ROADMAP.md
 CONTRIBUTING.md          how to share a feature with all users
 ```
 
@@ -512,24 +551,68 @@ python tools/check.py --fast   # faster, while you work (run the full check at t
 On Windows with the tools from `.venv`, the build has no memory checker. The memory checker
 runs on Linux and macOS with gcc or clang, and in the GitHub checks of a pull request.
 
-## 13. Share a feature with all users
+## 13. Share a firmware feature or a fix with all owners
 
-If the person made something that other users will like, offer to send it to the official
-firmware. `CONTRIBUTING.md` has the rules in plain words. Read it, then do the technical
-steps for the person:
+An app goes to the app store (section 18), not here. This section is for a change of the
+firmware, the tools or the documents: a new feature, an improvement, or a fix of a fault.
+
+**When you offer it.** The person is happy with the change, and one of these is true:
+
+- Other owners will like the feature, and it does not disturb an owner who does not want it.
+- It repairs a fault of the official firmware, of a tool or of a document. A fix is welcome
+  also when it is one line.
+
+Do not offer it for a change that is only for this person (their name on a screen, their team
+logo). Ask first: "Do you want to send this to TRIDOS, so that all owners can get it?"
+
+`CONTRIBUTING.md` has the rules in plain words. Read it, then do the technical steps for the
+person.
+
+### 13.1 Prepare
 
 1. The person needs a free GitHub account. Explain: "GitHub is the website where the firmware
    lives. Your change goes there as a proposal. The TRIDOS team looks at it and tests it on a
    real device before it becomes part of the official firmware."
-2. Make a copy of the repository in the account of the person (a "fork"), put the branch
-   there and open a "pull request" (the proposal). Use the `gh` program if it is installed
+2. **One change in one proposal.** The work branch of a person often has more than one change.
+   Make a new branch from the newest official `main` (`share/<short-name>`) and bring only
+   this change to it. For a Beginner: "I make a clean copy with only this one change."
+3. Do not change `version.txt`. Do not change the files that section 3 protects.
+4. Run `python tools/check.py` (the full check). All 4 steps must show `OK`. The change has a
+   test in `tests/` (section 12). For a fix: the test fails without the fix.
+5. Get the pictures from the simulator: the screen before and after, or each step of the feature.
+6. If the firmware build part is installed: `python tools/build.py`, and write down the size.
+
+### 13.2 Write the text so that each person understands it
+
+`CONTRIBUTING.md`, "Write the text of your proposal", has the rules and examples. Follow it.
+In short:
+
+- **The title** says what an owner gets, in plain words: `Kill streak: a sound after 5 kills
+  in a row`, not `Update app.c`.
+- **The first part** is for a person who never saw code. A feature: what the owner sees and
+  which button does what. A fix: **Before** (what went wrong), **How to see the fault** (the
+  steps), **Now** (what happens with the fix). Then the pictures from the simulator.
+- **The second part** is for the reviewer: the files and why, new values in flash, the
+  firmware size, what you ran.
+- **The truth about the device.** "Tested in the simulator only", or exactly what the person
+  did on a real device. Never write that it works on a device when only the simulator ran.
+
+### 13.3 Send it
+
+1. Make a copy of the repository in the account of the person (a "fork"), put the branch there
+   and open the "pull request" (the proposal). Use the `gh` program if it is installed
    (`gh repo fork`, `gh pr create`). If not, guide the person through the GitHub website.
-3. Fill in the pull request text from `.github/PULL_REQUEST_TEMPLATE.md`: what the feature
-   does, pictures from the simulator, the output of `python tools/check.py`, and if it was
-   tried on a real device.
-4. One feature in one pull request. No changes to the files that section 3 protects.
+2. The `gh` program cannot add pictures. Give the person the address of the pull request and
+   say: "Drag the pictures from the folder `out/` into the text field, below the heading
+   Pictures." Give the full paths of the picture files.
+3. Tell the person what comes next: the automatic checks take about 10 minutes. A person of
+   the team answers, usually in one or two weeks. A request for a change is normal and not a
+   "no".
+4. When the team asks for a change, the person gives you the comment. Repair the cause on the
+   same branch and answer in plain words what you changed.
 
 Only an idea, no code? Help the person to open an "issue" with the form "Feature idea".
+A fault that you cannot repair? The form "Fault report".
 
 ## 14. When you are not sure
 
@@ -547,3 +630,224 @@ If the person needs help from people: the "Issues" page of the repository on Git
 - `snprintf` with `sizeof(buffer)`. No `sprintf`, no `strcpy`.
 - A firmware file that is also in the simulator must compile without ESP-IDF headers.
   Hardware code goes in `main/board/` or `components/`.
+
+## 16. No code, an app, or a firmware change: you decide
+
+The person has an idea. They do not know how it must be built, and they must not have to
+know. You decide, in this order:
+
+1. **No code.** The StatTrak or the web page can do it now (section 16.2). Say so and show how.
+2. **An app.** The app engine can do it (section 16.3). This is the normal way. Section 17.
+3. **A firmware change.** Only when an app cannot do it (section 16.4). Section 4.
+
+Then tell the person what your decision means for them (section 16.5), before you build.
+
+### 16.1 The person has no idea yet
+
+Do not show a list of 20 ideas. Do this:
+
+1. Ask one question: "What do you want to see or do in a game that your StatTrak does not do
+   now?" If the answer is "I do not know", ask: "Do you want something for the game, or
+   something for fun in the break?"
+2. Give four examples from different groups, each in one line. Use the table below. Add the
+   apps that other owners made: the app store, https://stattrak.tridos.design/#store .
+3. Show one or two example apps as pictures, so the person sees what is possible:
+   `python tools/app.py run apps/slots/slots.sts wait:1000 png:out/slots.png` (the apps are in
+   the folder `apps/`).
+4. When the person picks one, change it with them: "Which numbers do you want to see? What
+   must the left button do?"
+
+| Group | Ideas |
+| --- | --- |
+| Counters | Headshots, knife kills or hits on me in each game. A kill streak with a sound after 5 in a row. Shots that are left in the magazine. |
+| Timers | The wait at the respawn point. A bomb timer that beeps faster at the end. The time of the game. |
+| Games for the break | A reaction game. A dice for "who goes first". A coin flip. A small jump game. |
+| Tools | A battery log. Time marks for a video. A score for two teams. |
+| The look | My own start picture. My own counter screen with larger digits or my team name. |
+
+The device has two buttons, a display of 128 x 32 pixels (on or off, no colors), a buzzer and
+Bluetooth. It has no clock, no internet, no sensor for shots. Tell the person when an idea
+cannot work, and why, and offer the nearest thing that can work.
+
+### 16.2 Things that need no code
+
+Check this first. Many wishes are there already:
+
+| The wish | How, without code |
+| --- | --- |
+| My own picture when the device starts | Screen Designer, **Download PNG**, then the web page, My device, **Boot image** |
+| A different first screen at the start | My device: move that app to the first place |
+| Remove a screen that I do not use | My device: hide the app (the built-in ones too) |
+| A name for my StatTrak | My device: the Bluetooth name |
+| A copy of my stats and settings | My device: **Backup** |
+| An app that another owner made | The app store on the web page: **Install** |
+
+### 16.3 What an app can do
+
+`docs/APPS.md` is the full specification (sections 2 and 4). The short list:
+
+| An app can | Details |
+| --- | --- |
+| Draw each pixel of the display | Text in 4 fonts, numbers, the big dotted digits, lines, boxes, up to 16 pictures of its own, animation (a new picture each 10 ms) |
+| Use the two buttons | Short press, long press, "the button goes down now" (fast games), "the button is held" |
+| Read the counters | Total kills, total deaths, kills and deaths of the game |
+| Change the counters | With the permission `counters`, in a button event |
+| Make sound | A click or a note on the buzzer, also a tune (permission `sound`) |
+| Measure time | Milliseconds since the start: a stopwatch, a countdown, a game speed |
+| Use random numbers | A dice, a slot machine, enemies in a game |
+| Read the battery | The level in percent and the voltage |
+| Keep values | 16 numbers stay after power-off: a high score, its own counters |
+| Have settings | 4 settings with 2 to 6 values each. The firmware draws the settings screen |
+| Log data | Rows of numbers (4 KB) that the person downloads as a file from My device |
+| Keep the device on | With the permission `awake`, while the app is on the screen |
+| Run in the background | One app: it gets each kill and death, counts time, and comes on the screen for an alarm (permission `background`) |
+| Be the main screen | The person puts it first in the app menu and hides the built-in counter. So "my own kill counter screen" is an app |
+
+| An app cannot | Then it is |
+| --- | --- |
+| Change a built-in screen (KILLS, KILLS + DEAD, STATS), the Settings list, the app menu, the power-on animation | A firmware change. Or an app that is a new screen next to them |
+| Change what both buttons do (short = app menu, long = power off) | Not possible. Section 3 protects it |
+| Use Bluetooth: talk to a phone, to a computer or to another StatTrak | A firmware change (section 9) |
+| Change how the device works: dim, auto-off, brightness, battery warnings, a new device setting | A firmware change |
+| Show a text that the person types, or more than 32 fixed texts of 20 characters | A firmware change |
+| Know the date or the time of the day | Not possible: the device has no clock |
+| Be larger than 4 KB, or do more than 16000 steps for one event | Make it smaller, or a firmware change |
+| Run in the background together with a second background app | Not possible: one at a time |
+| Use new hardware: a sensor, a light, a different display | Not possible with this device |
+
+### 16.4 The rule
+
+- **If an app can do it, make an app.** Also when a firmware change looks more elegant to you.
+  An app is safe for the device, fast to install and easy to share.
+- **A part of the idea needs the firmware?** Say it, and offer the app part first: "I can make
+  the timer as an app today. The part 'the display turns red' is not possible: the display has
+  one color. The part 'beep on each kill in each screen' needs a firmware change. Do you want
+  the app first?"
+- **Only a firmware change can do it?** Say in one sentence which thing an app cannot do. Then
+  section 4, and the warning of section 7 before the firmware goes on a device.
+- **The idea is very large** (a game with many levels): start with a small version as an app.
+  Let the person play it. Then make it larger.
+- Not sure after you read `docs/APPS.md`? Write a small test app and run it
+  (`python tools/app.py run`). That is faster than a guess.
+
+### 16.5 Tell the person what it means
+
+Say it before you build, in words for their level. Do not ask the person to choose. Say what
+you will do and why, and let them stop you.
+
+| | An app | A firmware change |
+| --- | --- | --- |
+| How it goes on the StatTrak | In some seconds, from the web page (My device). The StatTrak asks `INSTALL?` | The whole firmware goes on over Bluetooth. Some minutes, then a restart |
+| The risk | An app runs in a closed box. A faulty app shows an error, and after 3 errors the StatTrak switches it off. It cannot damage the device | A fault that the tests did not find can make the device unusable. The risk is the person's (section 7) |
+| What the computer needs | Python only | The simulator part (550 MB). For a real device also the firmware build part (4 GB) |
+| An official firmware update later | The app stays | The official firmware replaces the change. You must build the own firmware again |
+| Take it off again | Delete the app | Install the official firmware again |
+| Share it | The app store: each owner installs it with one click. A review within 24 hours (section 18) | A proposal on GitHub. The team tests it on a real device. It comes with the next official firmware (section 13) |
+| The limits | The list of section 16.3 | All that the hardware can do |
+
+A text for a Beginner (an app): "Your idea works as an **app**. That is the safe way: an app
+cannot damage your StatTrak, it goes on in a few seconds, and you can delete it again. I make it
+now and show you pictures."
+
+A text for a Beginner (a firmware change): "Your idea needs a change of the **firmware**, the
+main software of the StatTrak. An app cannot do it, because (the reason). I can make it, and
+you see it on the computer first. It takes longer, and when you put it on your StatTrak there
+is a small risk for the device. Do you want that, or do you want a simpler version as an app?"
+
+## 17. Make an app: the work sequence
+
+An app needs no firmware build and no firmware update. Do these steps in this order. For a
+Beginner, you do all of them and you show the result of each one.
+
+1. **Understand the idea.** Say it back in two or three sentences: what each screen shows and
+   what each button does. Ask two questions at most. Read `docs/APPS.md` (sections 2, 4, 7 and
+   8) and the example app in `apps/` that is nearest to the idea.
+2. **Design the screens first** (section 5). Always for a Beginner. Make 2 or 3 different
+   proposals, show the pictures, let the person pick.
+3. **Make a safe place for the work.** Create a git branch (`my/<short-name>`).
+4. **Write the app:** `apps/<name>/<name>.sts`. Put these lines in from the start, so the app
+   is ready for the app store later (section 18): a true `description`, the app's own title
+   picture (`picture { ... }` or its own icon), and a `# demo:` line.
+5. **Build and check it:**
+
+   ```sh
+   python tools/app.py build apps/<name>/<name>.sts     # makes apps/<name>/<name>.stapp
+   python tools/app.py check apps/<name>/<name>.stapp   # the same check as the firmware
+   ```
+
+6. **Show it.** Take a picture of each step and show them in order. Say which button press
+   leads to which picture.
+
+   ```sh
+   python tools/app.py run apps/<name>/<name>.sts wait:500 png:out/<name>-1.png press1 wait:2000 png:out/<name>-2.png
+   python tools/app.py picture apps/<name>/<name>.sts   # the title picture of the app menu
+   ```
+
+   The output must have no line that starts with `App error`. Press each button in each state
+   of the app at least one time.
+7. **Offer the simulator. Do this each time, before the app goes on a StatTrak.** Say: "Do you
+   want to play it on your computer first? You do not need your StatTrak for that."
+
+   ```sh
+   python tools/app.py sim apps/<name>/<name>.sts
+   ```
+
+   It opens the browser with the real firmware and the app in it. The arrow keys LEFT and RIGHT
+   are the two buttons. LEFT + RIGHT together open the app menu.
+
+   This command builds the simulator page the first time. That needs Emscripten or Docker. If
+   the computer has neither, do **not** ask a Beginner to install them. Use the page on the
+   web: open https://stattrak.tridos.design/sim/simulator.html , and tell the person: "In the
+   box Apps on the right, click **Other app file (.stapp)** and pick this file:" with the full
+   path of `apps/<name>/<name>.stapp`.
+8. **Not happy with the look? Offer the Screen Designer.** Say: "You can draw the screen
+   yourself, with the mouse, on the real pixels." Make a design file of the screens as they are
+   now (`designs/<name>.json`, `docs/DESIGNS.md`) and open the designer with it (section 5).
+   The person changes it and clicks **Send to AI**. Then you build exactly what they drew. With
+   a StatTrak that is connected, **Show on StatTrak** in the designer shows the drawing on the
+   real display.
+9. **Change it until the person is happy.** Go back to step 4.
+10. **Test it.** Run each button path with `python tools/app.py run` again: no `App error`.
+    If the simulator part is installed, run it on the real firmware too:
+    `python tools/sim.py --fresh boot app:apps/<name>/<name>.stapp png:<name>-fw`.
+    An app that you add to the official apps of this repository also needs a test in
+    `tests/test_sample_apps.py`.
+11. **Save the work:** `git commit`. For a Beginner: "I saved a restore point."
+12. **Put it on the StatTrak**, when the person wants that. The person does it, you guide:
+    1. The web page https://stattrak.tridos.design/#device in Chrome, Edge or Opera, on a
+       computer or an Android phone. Not Firefox, not Safari, not an iPhone.
+    2. On the StatTrak: Settings, then `Apps: SYNC`, hold the right button.
+    3. On the page: **Connect**, pick the StatTrak, then **From file** and the file
+       `apps/<name>/<name>.stapp`. Give the full path.
+    4. The StatTrak asks `INSTALL <NAME>?`. Hold the right button for yes.
+
+    If the page says **Update the firmware first**: the StatTrak needs a newer official
+    firmware (the Firmware tab of the page). An app with a list or `held()` needs firmware
+    1.2.0-b4 or newer (`docs/APPS.md` section 7.5). Tell the person this before the install.
+13. **Report:** what the app does, the pictures, what you tested. Say plainly: "I tested it on
+    the computer. I cannot test it on your StatTrak."
+14. **Offer to share it:** "Do you want other StatTrak owners to get your app? I can make it
+    ready for the app store." Section 18.
+
+## 18. Share an app in the app store
+
+The app store is on the web page: https://stattrak.tridos.design/#store . Each owner can
+install an app from it with one click. Each new app and each new version gets a review within
+24 hours.
+
+**When you offer it:** the person is happy with the app, and it ran without an error.
+
+**Tell the person first**, and wait for a "yes":
+
+1. "Your app becomes **open source**: each person can download the app and its source text."
+2. "You sign in on the page with a Google or a GitHub account. Your maker name is public."
+3. "A review looks at the app. It can take 24 hours. It can say no, with a reason."
+4. "You upload the files yourself. I cannot sign in for you."
+
+Never ask for a password of the person, and never type one.
+
+**Then read `docs/APP_STORE.md` and follow it.** It has the check list of the review (the
+name, the version, a true description, the app's own title picture, no picture files, the
+`# demo:` line, the content rules, the two files that must fit together), the upload steps for
+the person, and what to do when the review says no. Do the whole check list before the person
+uploads: a maker can upload only 5 versions in one day.

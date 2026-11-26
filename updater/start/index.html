@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>StatTrak™ · Get started</title>
-  <meta name="description" content="What StatTrak is, how to update its firmware, install apps, design screens and make your own apps." />
+  <meta name="description" content="Make your own apps and functions for your StatTrak with an AI coding tool. Update the firmware, install apps and design screens in your browser." />
   <link rel="icon" href="../favicon.ico" sizes="32x32" />
   <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="../apple-touch-icon.png" />
@@ -44,10 +44,38 @@ try { if (window.parent !== window && window.parent.AppsTab) document.documentEl
       <!-- ================= HERO ================= -->
       <section class="hero">
         <div class="hero__text">
-          <div class="eyebrow">StatTrak tools</div>
-          <h1 class="hero__title">Everything for your StatTrak. In your browser.</h1>
-          <p class="hero__lead">Update the firmware, install apps and draw your own screens. You do not install anything.</p>
+          <div class="eyebrow">Get started</div>
+          <h1 class="hero__title">Make your StatTrak yours.</h1>
+          <p class="hero__lead">Tell an AI coding tool your idea: an app, a game, a new function. It builds it and shows it
+            to you on your computer. You do not have to be a programmer.</p>
         </div>
+
+        <!-- The text that starts the work with an AI tool: the first thing on the page -->
+        <div class="ai" id="ai">
+          <ol class="ai__steps">
+            <li><b>Copy this text.</b></li>
+            <li><b>Paste it into an AI coding tool</b> on your computer: Claude Code, Codex, Cursor, GitHub Copilot
+              (agent mode) or Gemini CLI. A chat website alone is not enough.</li>
+            <li><b>Say your idea.</b> The AI tool builds it, shows you pictures and lets you try it in a simulator.
+              You do not need your StatTrak to start.</li>
+            <li class="ai__more"><a href="#own-app">How it works, step by step ↓</a></li>
+          </ol>
+          <div class="prompt prompt--big">
+            <pre id="appPrompt">I have a StatTrak kill counter. I want to make something new for it: an app, a game or a new function. Help me, step by step.
+
+1. Download the StatTrak project to this computer:
+   git clone https://github.com/trakaismikus/stattrak.git
+2. Open the folder "stattrak" and read the file AGENTS.md completely. Follow it. Start with section 1 "Start here".
+3. Ask me before you install anything on my computer. Tell me what it is and how large it is.
+
+My idea: (write your idea here. No idea yet? Delete this line, and the AI tool helps you.)
+
+I may not be a programmer. Use plain words.</pre>
+            <button class="btn btn--primary btn--sm prompt__copy" type="button" data-copy="appPrompt">Copy the text</button>
+          </div>
+        </div>
+
+        <div class="eyebrow hero__or">Or use the tools in your browser</div>
         <div class="tools">
           <a class="tool" href="../index.html#firmware">
             <span class="tool__icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>
@@ -78,16 +106,61 @@ try { if (window.parent !== window && window.parent.AppsTab) document.documentEl
         <!-- ================= CONTENTS ================= -->
         <nav class="toc" aria-label="On this page">
           <div class="toc__title">On this page</div>
+          <a href="#own-app">Make your own app</a>
           <a href="#what">What is StatTrak?</a>
           <a href="#firmware">Update the firmware</a>
           <a href="#apps">Install apps</a>
           <a href="#designer">Design a screen</a>
-          <a href="#own-app">Make your own app</a>
           <a href="#device">Use the device</a>
           <a href="#help">If something goes wrong</a>
         </nav>
 
         <div class="guide__body">
+
+          <!-- ================= OWN APP ================= -->
+          <section class="sec" id="own-app">
+            <h2 class="sec__title">Make your own app or function</h2>
+            <p>An <b>AI coding tool</b> does the technical work on your computer. You say what you want, it shows you
+              pictures of the result, and you decide. <a href="#ai">The text to start is at the top of this page.</a></p>
+            <ol class="list">
+              <li><b>Answer three short questions.</b> The AI tool then knows how to talk with you. It asks before it installs anything.</li>
+              <li><b>Say your idea.</b> For example: <i>“A timer for the respawn wait.”</i>, <i>“Count my headshots.”</i> or
+                <i>“A small game for the break.”</i> No idea yet? The AI tool helps you to find one.</li>
+              <li><b>The AI tool tells you how it builds it:</b> as an app or as a firmware change. You do not have to know the difference.</li>
+              <li><b>Look at the pictures and try it in the simulator.</b> The simulator is the real StatTrak software on your
+                computer. You press the buttons with the arrow keys. You do not need your StatTrak for this.</li>
+              <li><b>Not happy with the look?</b> Draw the screen yourself in the <a href="../designer/index.html">Designer</a> and
+                click <b>Send to AI</b>, or ask the AI tool for new proposals.</li>
+              <li><b>Put it on your StatTrak.</b> An app: the AI tool gives you a file that ends in <code>.stapp</code>. Open
+                <a href="../index.html#device">My device</a>, connect, click <b>From file</b> and pick the file.
+                A firmware change: a file that ends in <code>.bin</code>, for the <a href="../index.html#firmware">Firmware</a> page.</li>
+            </ol>
+
+            <h3 class="sec__sub">An app or a firmware change?</h3>
+            <p>The AI tool decides this for you, and tells you. Most ideas are an app.</p>
+            <div class="table-wrap">
+              <table class="table table--3">
+                <tr><th></th><th>An app</th><th>A firmware change</th></tr>
+                <tr><td>What it is</td><td>A new screen that you add: a game, a timer, a counter</td><td>A change of the main software of the StatTrak</td></tr>
+                <tr><td>Good for</td><td>Almost every new idea</td><td>Things that an app cannot do: change a built-in screen, the settings, Bluetooth</td></tr>
+                <tr><td>It goes on in</td><td>Some seconds</td><td>Some minutes, with a restart</td></tr>
+                <tr><td>The risk</td><td>None for the device. An app runs in a closed box</td><td>A faulty firmware can make a device unusable. You change the firmware at your own risk</td></tr>
+                <tr><td>Share it</td><td>In the app store. Each owner installs it with one click</td><td>As a proposal on GitHub. TRIDOS tests it, then it is in the official firmware</td></tr>
+              </table>
+            </div>
+            <p class="small">The device has two buttons, a 128 × 32 display, a buzzer and Bluetooth. It has no clock and no internet.
+              The AI tool tells you when an idea cannot work, and why.</p>
+
+            <h3 class="sec__sub">Share your app</h3>
+            <p>Other owners can install your app with one click from the <a href="https://stattrak.tridos.design/#store">app store</a>.
+              Tell your AI tool: <i>“I want to share this app in the app store.”</i> It checks the app and gives you two files.
+              You upload them on the page <a href="https://stattrak.tridos.design/#myapps">My apps</a>. A review checks each app within 24 hours.</p>
+            <p class="small">What every app needs: its own title picture, a true description, and no error when it runs.
+              Not allowed: hate speech, attacks on real people, spam, advertising or links.
+              <a href="https://stattrak.tridos.design/legal/rules.html">The store rules.</a></p>
+            <p class="small">For AI tools and developers: the rules are in <code>AGENTS.md</code> of the firmware project, the app
+              language in <code>docs/APPS.md</code>, the app store check list in <code>docs/APP_STORE.md</code>.</p>
+          </section>
 
           <!-- ================= WHAT ================= -->
           <section class="sec" id="what">
@@ -162,47 +235,6 @@ try { if (window.parent !== window && window.parent.AppsTab) document.documentEl
             </ul>
           </section>
 
-          <!-- ================= OWN APP ================= -->
-          <section class="sec" id="own-app">
-            <h2 class="sec__title">Make your own app</h2>
-            <p>You do not have to be a programmer. An <b>AI coding tool</b> writes the app for you, tests it in a simulator of the
-              device and shows you the screens. You decide.</p>
-            <div class="what-you-need">
-              <div class="eyebrow">What you need</div>
-              <ul class="list">
-                <li>A computer with Windows, macOS or Linux.</li>
-                <li>An AI coding tool that can work on your computer, for example Claude Code, Codex, Cursor, GitHub Copilot
-                  (agent mode) or Gemini CLI. A chat website alone is not enough.</li>
-              </ul>
-            </div>
-            <ol class="list">
-              <li><b>Open your AI coding tool in an empty folder and paste this text:</b>
-                <div class="prompt">
-                  <pre id="appPrompt">I have a StatTrak kill counter and I want to make my own app for it. Help me, step by step.
-
-1. Download the firmware project to this computer:
-   git clone https://github.com/trakaismikus/stattrak.git
-2. Open the folder "stattrak" and read the file AGENTS.md completely. Follow it.
-   Start with section 1 "Start here".
-3. Ask me before you install anything on my computer. Tell me what it is and how large it is.
-
-The app: (say here what it must do)
-
-I may not be a programmer. Use plain words.</pre>
-                  <button class="btn btn--ghost btn--sm prompt__copy" type="button" data-copy="appPrompt">Copy</button>
-                </div>
-              </li>
-              <li><b>Say what the app must do.</b> For example: <i>“Count down from 10 minutes and beep at the end.”</i> or
-                <i>“A small game for the break between two rounds.”</i> The device has two buttons, a 128 × 32 display and a buzzer.
-                It has no clock and no internet.</li>
-              <li><b>Look at the screens.</b> The AI tool runs your app in the simulator and shows you the pictures. Ask for changes until you like it.</li>
-              <li><b>Install it.</b> The AI tool gives you a file that ends in <code>.stapp</code>. Open <a href="../index.html#device">My device</a>,
-                connect, click <b>From file</b> and pick the file.</li>
-            </ol>
-            <p class="small">For AI tools and developers: the app language and the rules are in <code>docs/APPS.md</code> of the firmware project.
-              With the same AI tool you can also change the firmware itself: say what you want instead of an app.</p>
-          </section>
-
           <!-- ================= DEVICE ================= -->
           <section class="sec" id="device">
             <h2 class="sec__title">Use the device</h2>
@@ -252,6 +284,7 @@ I may not be a programmer. Use plain words.</pre>
   <script>
     // "Copy" next to a text to paste into an AI tool
     document.querySelectorAll("[data-copy]").forEach((button) => {
+      const label = button.textContent;
       button.addEventListener("click", async () => {
         const text = document.getElementById(button.dataset.copy).textContent;
         try {
@@ -265,7 +298,7 @@ I may not be a programmer. Use plain words.</pre>
           selection.addRange(range);
           button.textContent = "Press Ctrl+C";
         }
-        setTimeout(() => { button.textContent = "Copy"; }, 2000);
+        setTimeout(() => { button.textContent = label; }, 2000);
       });
     });
   </script>

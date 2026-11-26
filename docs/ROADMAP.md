@@ -60,6 +60,17 @@ This repository (`trakaismikus/stattrak`) is private until these are done:
 
 ## Shipped
 
+- **2026-11-26: the start with an AI tool is simpler.** The text to paste into an AI coding
+  tool is the first thing in the README and on the Get started page, and it is the same text
+  for an app and for a firmware change. The README is short (under 200 lines, was 420); the long
+  parts are the user guide, docs/GUIDE.md. AGENTS.md: the AI tool never asks "an app or a
+  firmware change?". It decides (no code, an app, a firmware change), tells the person what
+  that means, and helps a person without an idea to find one (section 16). An app has its own
+  work sequence, with the simulator and the Screen Designer offered each time (section 17).
+  The app store: docs/APP_STORE.md has the check list of the review for AI tools (section 18).
+  A pull request: how to write a text that each person understands (section 13,
+  CONTRIBUTING.md, the pull request form). Fix: `python tools/app.py run` now says an app
+  error that happens in `draw` or `tick` during a `wait:` (it was silent).
 - **2026-11-18: app engine 4 (firmware 1.2.0-b4): apps that look like built-in screens.** Apps
   can have lists (`var rocks[16]`, `rocks[i]`, `len(rocks)`), 200 variables (was 48), 16 pictures
   (was 8), 3.5 KB of code (was 2 KB) and 16000 steps for each event (was 4000). `held(1)` /
