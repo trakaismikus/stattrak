@@ -9,6 +9,7 @@
 #include "app.h"
 #include "gfx.h"
 #include "font.h"
+#include "font_glyph.h"
 #include "time.h"
 #include "sdkconfig.h"
 
@@ -70,4 +71,14 @@ void HoldButton_draw(int16_t x, int16_t w, const char* text, uint8_t fill) {
   const int16_t width = (int16_t)(((w - 2) * fill + 50) / 100);
   if(width > 0)
     Gfx_invertRect(x + 1, y + 1, width, HOLD_BUTTON_H - 2);
+}
+
+void HoldButton_drawLarge(int16_t x, int16_t y, int16_t w, int16_t h, const char* text, uint8_t fill) {
+  Gfx_drawRoundRect(x, y, w, h, 2, 1);
+  Gfx_drawStringScaledAligned(x + w / 2, y + (h - 2 * 7) / 2, text, &kFontNightverbBig, 1, 2, 0, GFX_ALIGN__CENTER);
+
+  // Inside the round corners
+  const int16_t width = (int16_t)(((w - 4) * fill + 50) / 100);
+  if(width > 0)
+    Gfx_invertRect(x + 2, y + 2, width, h - 4);
 }

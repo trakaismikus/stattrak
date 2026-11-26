@@ -69,6 +69,14 @@ enum event_enum {
 #endif
 
 
+// The version of the device (docs/SAFETY.md, "The device version and the battery type"). The person
+// answers the question "StatTrak version" one time. Not set: the device does no battery check.
+enum device_model_enum {
+  DEVICE_MODEL__UNSET = 0,  // A new device, a device after an update from an older firmware, after a factory reset
+  DEVICE_MODEL__DIY,        // The person connects a battery of their own and sets its type in Settings
+  DEVICE_MODEL__PEQ,        // The PEQ box: always 1xRCR123A, no row "Battery" in Settings
+};
+
 // Values that stay in flash (NVS) when the power is off.
 //
 // ENTRY(_id, _key, _default, _max)
@@ -93,7 +101,8 @@ enum event_enum {
   ENTRY(AUTO_OFF,      auto_off,      AUTO_OFF__OFF,          AUTO_OFF__12_H) \
   ENTRY(COUNTER,       counter,       0, /* Totals or Game */ COUNTER__GAME) \
   ENTRY(SOUND,         sound,         1,                      1) \
-  ENTRY(LOW_BAT,       low_bat,       LOW_BAT__OFF,           LOW_BAT__30)
+  ENTRY(LOW_BAT,       low_bat,       LOW_BAT__OFF,           LOW_BAT__30) \
+  ENTRY(DEVICE_MODEL,  device_model,  DEVICE_MODEL__UNSET,    DEVICE_MODEL__PEQ)
 
 typedef enum entry_id_enum {
   #define ENTRY(_id, _key, _default, _max) ENTRY_ID__ ## _id,
@@ -112,7 +121,7 @@ typedef enum entry_id_enum {
   SETTING(GAME_RESET,   Game,         "Game",       0, false,  SETTING_STR_VALUES("RESET")) \
   SETTING(COUNTER,      Counter,      "Counter",    1, true,   SETTING_STR_VALUES("TOTAL", "GAME")) \
   SETTING(APP_SYNC,     Apps,         "Apps",       0, false,  SETTING_STR_VALUES("SYNC"))   SETTING(BACKGROUND,   Background,   "Background", 0, true,   SETTING_STR_VALUES("OFF")) \
-  SETTING(BATTERY_TYPE, Battery,      "Battery",    1, true,   SETTING_STR_VALUES("NONE", "USB", "1xRCR123A","3.7V(1S)", "7.4V(2S)", "11.1V(3S)", "3xAA/AAA", "9.6V(NiMH)")) \
+  SETTING(BATTERY_TYPE, Battery,      "Battery",    1, true,   SETTING_STR_VALUES("NONE", "USB/DC", "1xRCR123A","3.7V(1S)", "7.4V(2S)", "11.1V(3S)", "3xAA/AAA", "9.6V(NiMH)")) \
   SETTING(AUTO_OFF,     AutoOff,      "Auto Off",   1, false,  SETTING_STR_VALUES("OFF", "30 min", "1 h", "2 h", "6 h", "12 h")) \
   SETTING(SHOW_BATTERY, ShowBat,      "Show Bat",   1, true,   SETTING_STR_VALUES("OFF", "ON")) \
   SETTING(LOW_BAT,      LowBat,       "Low Bat",    1, false,  SETTING_STR_VALUES("OFF", "0%", "10%", "20%", "30%")) \
@@ -187,6 +196,16 @@ void App_reloadSettings(void);   // The settings from flash into use (after a re
 uint8_t     App_getEntryCount(void);
 const char* App_getEntryKey(uint8_t index);
 uint32_t    App_getEntryMax(uint8_t index);
+
+// The device version (device_model_enum) and the battery type that is in use for it:
+// not set = none (no battery check), PEQ = 1xRCR123A, DIY = the type of Settings > Battery
+uint8_t App_getDeviceModel(void);
+uint8_t App_getBatteryTypeInUse(void);
+// The answer to the question "StatTrak version" (DIY or PEQ). A new answer sets the battery type
+// (DIY: not set, PEQ: 1xRCR123A); the same answer changes nothing. Then the next screen opens.
+void App_answerDeviceModel(uint8_t model);
+// The warning "Battery type not set" closes: the normal start goes on, or Settings > Battery opens
+void App_closeBatteryUnset(bool openSetting);
 
 void App_updateSetting(uint8_t id, uint32_t value);
 void App_updateActivity(uint32_t time);

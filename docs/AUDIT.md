@@ -89,7 +89,7 @@ other firmware version, (2) what happens after the accept, and (3) the Bluetooth
   firmware slot). See `docs/ROADMAP.md`, item 2. This changes the start sequence, so it
   needs a decision and a test on real devices.
 
-### A4. The newest commit changes the meaning of the stored battery type. OPEN
+### A4. The newest commit changes the meaning of the stored battery type. FIXED
 
 - **Where:** commit `b51fa0c` ("Added 1xRCR123A to battery selection"), `main/battery.h`,
   `main/battery.c`, `main/app.h`. It is the one commit after the tag `v1.0.1`.
@@ -112,12 +112,16 @@ other firmware version, (2) what happens after the accept, and (3) the Bluetooth
   the latest release and was downloaded 8 times. So two groups of devices exist: devices with
   the old list (1.0.1 and older) and devices with the new list. The stored value does not say
   which list it is from.
-- **Not changed in this branch.** To move `1xRCR123A` to the end now repairs the first group
-  and breaks the second group. The decision needs a fact that the code does not show: which
-  firmware do the sold devices have? Options: (1) keep the new order and show a one-time
-  message "Check battery type" after the update, (2) find the group from the firmware version
-  in the other firmware slot at the first start and convert the value. Both change code that
-  must be tested on devices. See `docs/ROADMAP.md`.
+- **More facts, found 26 November 2026:** the two builds `v1.0.1` and `v1.0.1-added-rcr123a`
+  have the same version text (`1.0.1`), so the firmware version in the other firmware slot does
+  not tell the groups apart. The release `v1.0.1-added-rcr123a` had 15 downloads. A guess from
+  the battery voltage was refused: a discharged 11.1 V LiPo is near 9.6 V.
+- **Fixed (decision of TRIDOS, 26 November 2026):** the list keeps the new order. The firmware
+  does not use a stored battery type that it cannot trust. It asks one time "StatTrak version"
+  (DIY or PEQ). PEQ is always `1xRCR123A`. DIY sets the battery type to `NONE`, and a warning
+  at each power-on asks the person to set it. Before the answer the device does no battery
+  check, so the 3xAA case does not switch off. See `docs/SAFETY.md`, "The device version and
+  the battery type", and `tests/test_device_model.py`. Not tried on a real device yet.
 
 ## B. Other bugs
 

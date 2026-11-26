@@ -455,6 +455,10 @@ Rules for values in flash:
 - `max` is the largest valid value. A larger value in flash is replaced with the default at
   start. Do not use a flash value as an array index without this limit.
 - Do not write to flash often (flash wears out). Never write in `draw` or each loop.
+- The battery type in use is `App_getBatteryTypeInUse()`, not the flash value `battery_type`.
+  The flash value `device_model` (not set, DIY, PEQ) decides it: `docs/SAFETY.md`, "The device
+  version and the battery type". A new device shows the question "StatTrak version" first, and a
+  DIY device without a battery type shows the warning "Battery type not set" at each power-on.
 
 To add a setting `MY_SETTING` with the values OFF / ON:
 
@@ -492,6 +496,10 @@ python tools/check.py --fast   # faster, while you work (run the full check at t
   `tests/stattrak_sim.py` has all functions of `self.dev` (click, long_press, run, state,
   frame, write_flash, ota_transfer, ble_command, ...).
 - `tests/unit/*.c`: unit tests of single modules.
+- `self.dev.boot()` answers the two screens of the start for you (DIY to "StatTrak version",
+  LATER to "Battery type not set"), so a test starts in the first app. `boot(prompts="keep")`
+  leaves them on the display, `boot(prompts="peq")` answers PEQ. In `tools/sim.py`: `boot`,
+  `boot:ask` and `boot:peq`. `tests/test_device_model.py` has the tests of these screens.
 - `tests/test_robustness.py` starts the firmware with bad flash values and presses buttons at
   random. After each case the update mode must still open. Keep these tests.
 - `tests/test_update.py` and `tests/test_boot.py` protect the update mode and the start

@@ -135,6 +135,7 @@ static uint8_t s_settingOrderList[SETTING_ID_COUNT] = {
 };
 static uint8_t s_settingCount = elemof(s_settingOrderList);
 static bool s_batteryRows = true;     // Show Bat and Low Bat: only for a battery type with a battery
+static bool s_batteryTypeRow = true;  // Battery: only for the device version DIY (PEQ is always 1xRCR123A)
 
 // Settings > Background (docs/APPS.md section 4.6): OFF, then the installed apps with the permission
 // "background", in the order of the app list. The row is in the list only if there is such an app.
@@ -185,8 +186,10 @@ void SettingsView_init(void) {
       s_settingValues[settingId] = 0;
   }
 
-  // If battery type is NONE or USB, remove it from setting order list
-  s_batteryRows = (Eeprom_read(ENTRY_ID__BATTERY_TYPE) > BATTERY_TYPE__USB);
+  // If battery type is NONE or USB, remove it from setting order list. The type that is in use:
+  // PEQ is always 1xRCR123A, and a device without a device version has no battery check.
+  s_batteryRows = (App_getBatteryTypeInUse() > BATTERY_TYPE__USB);
+  s_batteryTypeRow = (App_getDeviceModel() == DEVICE_MODEL__DIY);
   SettingsView_refreshBackground();
 
   // Get FW Version
@@ -203,6 +206,18 @@ void SettingsView_init(void) {
 
 uint8_t SettingsView_getSelectedId(void) {
   return SETTING_GET_ID(s_settingsView.idx);
+}
+
+
+void SettingsView_select(uint8_t settingId) {
+  for(uint8_t i = 0; i < s_settingCount; i++) {
+    if(s_settingOrderList[i] != settingId)
+      continue;
+    s_settingsView.idx = (int16_t)i;
+    s_animValue.value = (int16_t)(i * 256);
+    s_animValue.offset = s_animValue.value;
+    return;
+  }
 }
 
 
@@ -248,6 +263,8 @@ static void _buildOrder(void) {
   uint8_t count = 0;
   for(uint8_t id = 0; id < SETTING_ID_COUNT; id++) {
     if(!s_batteryRows && (id == SETTING_ID__SHOW_BATTERY || id == SETTING_ID__LOW_BAT))
+      continue;
+    if(!s_batteryTypeRow && id == SETTING_ID__BATTERY_TYPE)
       continue;
     if(id == SETTING_ID__BACKGROUND && kSettingEntries[SETTING_ID__BACKGROUND].valueCount < 2)
       continue;

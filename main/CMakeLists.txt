@@ -45,6 +45,8 @@ set(SRC_FILES
   "views/auto_off_view.c"
   "views/battery_low_view.c"
   "views/battery_critical_view.c"
+  "views/battery_unset_view.c"
+  "views/device_model_view.c"
 )
 
 set(INC_DIRS
