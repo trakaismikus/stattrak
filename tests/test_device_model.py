@@ -8,6 +8,7 @@ the device does no battery check.
 
 import json
 import os
+import struct
 import sys
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -17,7 +18,8 @@ import design  # noqa: E402
 from helpers import (SimTestCase, BATTERY_NONE, BATTERY_USB, BATTERY_RCR123A, BATTERY_LIPO_1S,  # noqa: E402
                      MODEL_UNSET, MODEL_DIY, MODEL_PEQ, SETTINGS_WITH_BATTERY)
 from stattrak_sim import SETTING_ROWS  # noqa: E402
-from test_data import DataTestCase, KIND_RESTORE, KIND_START_PIC, OK, picture, stbk, value, shows  # noqa: E402
+from test_apps import KILLS, KILL_DEAD, STATS  # noqa: E402
+from test_data import DataTestCase, KIND_RESTORE, KIND_START_PIC, OK, app, picture, stbk, value, shows  # noqa: E402
 
 BATTERY_LIPO_2S = 4
 BATTERY_LIPO_3S = 5     # In the list of firmware 1.0.1 and older, 5 was "3xAA/AAA"
@@ -32,6 +34,21 @@ def design_frame(name, screen_id):
     assert problems == [], problems
     screen = [s for s in clean["screens"] if s["id"] == screen_id][0]
     return design.draw_frame(screen, assets)
+
+
+def opens_app():
+    """An app that adds a row at each "on open": the time, battery() and battery_mv()."""
+    source = """app "OPENS"
+data "T" "BAT" "MV"
+var ok
+on open {
+  ok = log(time(), battery(), battery_mv())
+}
+on draw {
+  num(0, 0, log_count(), 0, text, on, left)
+}
+"""
+    return app.compile_source(source)["package"]
 
 
 class DeviceModelTestCase(SimTestCase):
@@ -331,6 +348,41 @@ class WarningTest(DeviceModelTestCase):
         self.assertEqual(state["eeprom.total_kills"], 12)
 
 
+class BatteryInUseTest(DeviceModelTestCase):
+    """Each screen uses the battery type that is in use, not the stored one."""
+
+    def counter_frame(self, model, **flash):
+        """The kill counter of a device with these flash values, opened through the app menu."""
+        self.dev.power_cut()
+        self.first_boot(**flash)
+        if model is None:
+            self.dev.write_flash({}, remove=("device_model",))
+        self.dev.boot(voltage=3900, prompts="keep")
+        if self.dev.view != "TOTAL":
+            self.dev.click_both()
+            self.assertEqual(self.dev.view, "LAUNCHER")
+            self.dev.click_both()
+        self.assertEqual(self.dev.view, "TOTAL")
+        self.dev.run(1000)
+        return self.dev.frame()
+
+    def test_no_battery_bar_without_a_device_version(self):
+        bar = self.counter_frame(MODEL_DIY, battery_type=BATTERY_LIPO_1S, show_battery=1)
+        no_bar = self.counter_frame(MODEL_DIY, battery_type=BATTERY_LIPO_1S, show_battery=0)
+        self.assertNotEqual(bar, no_bar, "the test must see the battery bar")
+        unset = self.counter_frame(None, battery_type=BATTERY_LIPO_1S, show_battery=1)
+        self.assertEqual(unset, no_bar)
+
+    def test_peq_shows_the_battery_bar_with_an_other_stored_type(self):
+        bar = self.counter_frame(MODEL_DIY, battery_type=BATTERY_RCR123A, show_battery=1)
+        self.dev.power_cut()
+        self.dev.write_flash({"device_model": MODEL_PEQ, "battery_type": BATTERY_NONE})
+        self.dev.boot(voltage=3900, prompts="keep")
+        self.assertEqual(self.dev.view, "TOTAL")
+        self.dev.run(1000)
+        self.assertEqual(self.dev.frame(), bar)
+
+
 class SettingsTest(DeviceModelTestCase):
 
     def test_diy_has_the_row_battery(self):
@@ -430,6 +482,65 @@ class SettingsTest(DeviceModelTestCase):
         self.dev.power_cut()
         self.dev.boot(voltage=7400, prompts="keep")
         self.assertEqual(self.dev.view, "DEVICE_MODEL")
+
+
+class InstalledAppTest(DataTestCase):
+    """An installed app as the first app of the menu: it opens after the start screens."""
+
+    def first_app(self):
+        package = opens_app()
+        self.assert_installed(package)
+        self.open_sync()
+        for builtin in (KILLS, KILL_DEAD, STATS):
+            self.assertEqual(self.cmd(0x0119, struct.pack("<IB", builtin, 1))[0], OK)   # SET_HIDDEN
+        self.dev.power_cut()
+        return struct.unpack_from("<I", package, 8)[0]
+
+    def rows(self, app_id):
+        self.assertEqual(self.dev.view, "APP_HOST")
+        self.assertEqual(self.dev.state()["app_error"], 0, self.dev.state()["app_error_text"])
+        self.open_sync()          # closes the app: the rows go to flash in the next loop
+        return self.read_rows(app_id)
+
+    def test_the_app_opens_one_time_after_the_warning(self):
+        # Before: "on open", "on close" for the warning, and "on open" again after LATER
+        app_id = self.first_app()           # DIY without a battery type
+        self.dev.boot(prompts="keep")
+        self.assertEqual(self.dev.view, "BATTERY_UNSET")
+        self.dev.long_press(1)              # LATER
+        self.assertEqual(len(self.rows(app_id)), 1)
+
+    def test_the_app_opens_one_time_after_the_question(self):
+        app_id = self.first_app()
+        self.dev.write_flash({}, remove=("device_model",))
+        self.dev.boot(voltage=3900, prompts="keep")
+        self.assertEqual(self.dev.view, "DEVICE_MODEL")
+        self.dev.long_press(2)              # PEQ
+        rows = self.rows(app_id)
+        self.assertEqual(len(rows), 1)
+        self.assertTrue(0 <= rows[0][1] <= 100, rows)       # battery(): PEQ has a battery
+
+    def test_an_app_gets_no_battery_without_a_device_version(self):
+        app_id = self.first_app()
+        self.dev.write_flash({"battery_type": BATTERY_LIPO_1S}, remove=("device_model",))
+        self.dev.boot(voltage=3900, prompts="keep")
+        self.dev.click_both()               # The app menu, then the app, without an answer
+        self.dev.click_both()
+        rows = self.rows(app_id)
+        self.assertEqual([row[1:] for row in rows], [[-1, -1]])
+
+    def test_an_app_gets_the_battery_of_peq_with_an_other_stored_type(self):
+        app_id = self.first_app()
+        self.dev.write_flash({"device_model": MODEL_PEQ, "battery_type": BATTERY_NONE})
+        self.dev.boot(voltage=3900, prompts="keep")
+        # The app opens at the power-on, before the first battery measurement: open it again
+        self.dev.click_both()
+        self.dev.click_both()
+        rows = self.rows(app_id)
+        self.assertEqual(len(rows), 2)
+        self.assertNotEqual(rows[0][1], -1, rows)
+        self.assertTrue(0 < rows[1][1] <= 100, rows)
+        self.assertTrue(3800 <= rows[1][2] <= 4000, rows)
 
 
 class StartPictureTest(DataTestCase):

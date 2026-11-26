@@ -204,6 +204,10 @@ uint8_t App_getBatteryTypeInUse(void);
 // The answer to the question "StatTrak version" (DIY or PEQ). A new answer sets the battery type
 // (DIY: not set, PEQ: 1xRCR123A); the same answer changes nothing. Then the next screen opens.
 void App_answerDeviceModel(uint8_t model);
+// The question or the warning that is due at this power-on (VIEW_ID__DEVICE_MODEL,
+// VIEW_ID__BATTERY_UNSET), or VIEW_ID__BLANK for none. Each one is given one time for each
+// power-on: the caller must show the view that it gets. Returns a view_id_t.
+uint8_t App_takeStartPrompt(void);
 // The warning "Battery type not set" closes: the normal start goes on, or Settings > Battery opens
 void App_closeBatteryUnset(bool openSetting);
 

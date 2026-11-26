@@ -231,25 +231,31 @@ void App_closeBatteryUnset(bool openSetting) {
   }
 }
 
-// The question and the warning of the start. They come over an app or the start picture only: not
-// over the accept view of a new firmware, the update view, a warning or the app menu.
+// A normal start asks here (Launcher_getStartView()), before the first app opens: an installed
+// app must not get "on open", "on close" and "on open" again for one power-on.
+uint8_t App_takeStartPrompt(void) {
+  const uint8_t model = App_getDeviceModel();
+  if(model == DEVICE_MODEL__UNSET && !s_modelAsked) {
+    s_modelAsked = true;
+    return VIEW_ID__DEVICE_MODEL;
+  }
+  if(model == DEVICE_MODEL__DIY && !s_batteryUnsetShown &&
+     Eeprom_read(ENTRY_ID__BATTERY_TYPE) == BATTERY_TYPE__UNKNOWN) {
+    s_batteryUnsetShown = true;
+    return VIEW_ID__BATTERY_UNSET;
+  }
+  return VIEW_ID__BLANK;
+}
+
+// A start with a new firmware shows the accept view first, and its OK opens the kill counter
+// (main/views/fw_accept_view.c): the question or the warning comes over that one.
 static void _startPrompts(void) {
-  const view_id_t next = AppView_getNext();
-  if(next != VIEW_ID__TOTAL && next != VIEW_ID__KILL_DEAD && next != VIEW_ID__STATS &&
-     next != VIEW_ID__APP_HOST && next != VIEW_ID__INTRO)
+  if(AppView_get() != VIEW_ID__FW_ACCEPT || AppView_getNext() != VIEW_ID__TOTAL)
     return;
 
-  const uint8_t model = App_getDeviceModel();
-  if(model == DEVICE_MODEL__UNSET) {
-    if(!s_modelAsked) {
-      s_modelAsked = true;
-      AppView_set(VIEW_ID__DEVICE_MODEL);
-    }
-  } else if(model == DEVICE_MODEL__DIY && !s_batteryUnsetShown &&
-            Eeprom_read(ENTRY_ID__BATTERY_TYPE) == BATTERY_TYPE__UNKNOWN) {
-    s_batteryUnsetShown = true;
-    AppView_set(VIEW_ID__BATTERY_UNSET);
-  }
+  const view_id_t prompt = (view_id_t)App_takeStartPrompt();
+  if(prompt != VIEW_ID__BLANK)
+    AppView_set(prompt);
 }
 
 

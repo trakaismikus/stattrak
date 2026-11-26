@@ -141,6 +141,12 @@ void Launcher_update(uint32_t now) {
 }
 
 view_id_t Launcher_getStartView(void) {
+  // The question "StatTrak version" or the warning "Battery type not set" first (one time for
+  // each power-on). After the answer this function gives the start picture or the first app.
+  const view_id_t prompt = (view_id_t)App_takeStartPrompt();
+  if(prompt != VIEW_ID__BLANK)
+    return prompt;
+
   // The start picture first (only when the person set one and it is on), else the first app
   if(StartPic_getState() == START_PIC_STATE__ON)
     return VIEW_ID__INTRO;
