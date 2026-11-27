@@ -180,7 +180,8 @@ static void _drawCounter(void) {
 }
 ```
 
-Put the function into the view that shows the screen (see "Views" in `AGENTS.md`) and call it
+Put the function into the view that shows the screen (see "Views" in
+`skills/stattrak-firmware/code.md`) and call it
 from the `draw` function of the view. Replace the fixed texts with the real values
 (`snprintf` into a small buffer). Free pixels become a `static const uint8_t` table in the
 picture format of the firmware.
@@ -191,7 +192,7 @@ animation or a state. The `note` of the screen says what it must do.
 ## Rules for AI tools
 
 - Make the design files first, show the pictures, and build after the person picked one
-  (`AGENTS.md`, section 5).
+  (the screens guide, `skills/stattrak-screens/SKILL.md`).
 - Use the notes. Each screen says when it shows and what the buttons do. Each text that is a
   live value says so in its `note`.
 - Keep texts away from the edges by 1 pixel or more, if the design allows it. Lines of text

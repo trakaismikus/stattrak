@@ -6,7 +6,7 @@ one menu (Get started, Firmware, My device, Designer):
 | Page | What it is |
 | --- | --- |
 | `index.html` | The web updater: sends a firmware file to a StatTrak over Bluetooth (tab "Firmware"), and manages the apps on the device (tab "My device"). Most of this file is about it. |
-| `start/index.html` | Get started: what StatTrak is, how to update, install apps, design screens and make your own app. Pictures in `start/img/` (copies of `docs/images/`). |
+| `start/index.html` | Get started: first the text that starts the work with an AI coding tool (the same text as in the `README.md` of the repository: change both together), then how to make your own app, what StatTrak is, how to update, install apps and design screens. Pictures in `start/img/` (copies of `docs/images/`). |
 | `designer/index.html` | The Screen Designer (docs/DESIGNS.md). It also works from a disk, without the internet. |
 
 - The pages have no build step and no packages. They share `css/`, `fonts/` and `assets/`.

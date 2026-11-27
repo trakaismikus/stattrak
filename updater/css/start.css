@@ -88,6 +88,27 @@
 }
 .prompt__copy { position: absolute; top: 10px; right: 10px; padding: 6px 12px; font-size: 13px; min-height: 32px; }
 
+/* The text for an AI tool, at the top of the page: the steps on the left, the text on the right */
+.ai {
+  display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 28px; align-items: start;
+  padding: 24px; background: var(--bg-card); border: 1px solid var(--accent); border-radius: var(--r-md);
+  scroll-margin-top: 20px;
+}
+.ai__steps { margin: 0; padding-left: 24px; display: flex; flex-direction: column; gap: 12px; color: var(--fg2); }
+.ai__steps b { color: var(--fg1); }
+.ai__steps li::marker { color: var(--accent); font-weight: 700; }
+.ai__steps li.ai__more { list-style: none; font-weight: 700; }
+.ai .prompt { margin: 0; }
+.prompt--big pre { padding-right: 18px; padding-bottom: 66px; overflow-wrap: anywhere; }
+.prompt--big .prompt__copy { top: auto; bottom: 14px; right: 14px; padding: 8px 18px; font-size: 15px; min-height: 40px; }
+.hero__or { margin: 6px 0 -12px; color: var(--fg3); }
+.sec__sub {
+  font-family: var(--font-stencil); font-weight: 800; font-style: italic; text-transform: uppercase;
+  font-size: 24px; line-height: 1.1; margin: 26px 0 10px;
+}
+.table.table--3 td:first-child { width: 20%; }
+.table.table--3 td { width: 40%; }
+
 .table-wrap { overflow-x: auto; }
 .table { width: 100%; border-collapse: collapse; font-size: 16px; }
 .table th, .table td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--stroke-1); }
@@ -99,6 +120,7 @@
 /* --- tablet and phone -------------------------------------------------------- */
 @media (max-width: 960px) {
   .guide { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .ai { grid-template-columns: minmax(0, 1fr); gap: 18px; padding: 18px; }
   .toc { position: static; flex-direction: row; flex-wrap: wrap; gap: 6px; margin-bottom: 28px; }
   .toc__title { width: 100%; }
   .start .toc a { border: 1px solid var(--stroke-1); border-radius: var(--r-pill, 999px); padding: 4px 12px; font-size: 15px; }

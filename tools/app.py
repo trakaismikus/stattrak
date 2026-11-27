@@ -5,6 +5,7 @@ An app is written in StatTrak Script (a .sts file, docs/APPS.md section 7). This
 package that the firmware installs, and it checks a package with the same rules as the engine
 of the firmware (components/stapp/stapp_check.c).
 
+    python tools/app.py new      "NAME"                               start a new app: apps/name/name.sts
     python tools/app.py build    apps/NAME/NAME.sts [-o NAME.stapp]   make the package
     python tools/app.py check    FILE.stapp                           the full check, and the info
     python tools/app.py describe FILE.stapp|FILE.sts                  all parts as text, with the code
@@ -12,9 +13,10 @@ of the firmware (components/stapp/stapp_check.c).
     python tools/app.py run      FILE.sts|FILE.stapp [ACTIONS...]     run the app in Python, show the screen
     python tools/app.py catalog                                       build apps/*/ for the web updater
     python tools/app.py sim      FILE.sts|FILE.stapp [--fresh]        the web simulator, with the app open
+    python tools/app.py store-check apps/NAME/NAME.sts [--open]       the checks of the app store, before the upload
 
 Other Python code can use the functions: compile_source(), compile_file(), check(), describe(),
-disassemble(), picture_rows(), Machine (runs a package) and build_catalog().
+disassemble(), picture_rows(), Machine (runs a package), build_catalog(), new_app() and store_check().
 
 Python 3.8 or newer, no extra packages.
 """
@@ -96,6 +98,8 @@ SYS_ENGINE2 = (26, 27, 28, 29, 30, 31)
 SYS_ENGINE3 = (32,)
 SYS_ENGINE4 = (33,)
 FIRMWARE_ENGINE4 = "1.2.0-b4"   # The first firmware with engine 4
+# The first firmware that runs a package with this engine byte (1.2.0-b1: the first one with apps)
+FIRMWARE_FOR_ENGINE = {1: "1.2.0-b1", 2: "1.2.0-b2", 3: "1.2.0-b3", 4: FIRMWARE_ENGINE4}
 
 
 def limit(engine, v4, v3):
@@ -2010,19 +2014,31 @@ class RunError(Exception):
 
 
 class Screen(design.Frame):
-    """The 128 x 32 display. Color 2 inverts a pixel."""
+    """The 128 x 32 display. Color 2 inverts a pixel.
+
+    capture: None, or [set of the pixels on the screen, count of the pixels off the screen] of
+    the draw calls since it was set (the look notes of Machine use it for one text)."""
+
+    capture = None
 
     def pixel(self, x, y, color):
         if 0 <= x < design.WIDTH and 0 <= y < design.HEIGHT:
             self.pixels[y][x] = (self.pixels[y][x] ^ 1) if color == 2 else (1 if color else 0)
+            if self.capture is not None:
+                self.capture[0].add((x, y))
+        elif self.capture is not None:
+            self.capture[1] += 1
 
 
 class Machine:
     """Runs a checked package with the rules of docs/APPS.md section 4, and draws with the Python copy
     of the firmware draw functions (tools/design.py). The firmware engine is components/stapp/;
-    this one is for previews and tests."""
+    this one is for previews and tests.
 
-    def __init__(self, package, seed=1):
+    look=True: collect the look notes (look_lines()): a text that the edge of the screen cuts, a text
+    that is not on the screen, two texts on the same pixels. The app runs the same with it."""
+
+    def __init__(self, package, seed=1, look=False):
         self.parts = package_parts(package)
         self.package = package
         self.globals = [0] * MAX_GLOBALS
@@ -2042,6 +2058,40 @@ class Machine:
         self.saves = 0
         self.error = None
         self.screen = None
+        self.look = look
+        self.draws = 0             # count of the draw events (for the look notes)
+        self.look_notes = {}       # note text -> in how many draws it was true
+        self._draw_texts = []      # the texts of the draw that runs now: (text, its pixels)
+        self._draw_notes = set()
+
+    def _text(self, shown, draw):
+        """Draw one text (draw() does it). With look notes on, also note what a person would see as
+        a fault: the text is cut, is not there, or is on the pixels of an other text."""
+        if not self.look:
+            draw()
+            return
+        self.screen.capture = [set(), 0]
+        draw()
+        pixels, cut = self.screen.capture
+        self.screen.capture = None
+        notes = []
+        if cut and pixels:
+            notes.append("the text \"%s\" is cut off at the edge of the screen" % shown)
+        elif cut:
+            notes.append("the text \"%s\" is not on the screen (all of it is outside)" % shown)
+        for other, other_pixels in self._draw_texts:
+            if other != shown and pixels & other_pixels:
+                notes.append("the texts \"%s\" and \"%s\" are on the same pixels" % (other, shown))
+        self._draw_texts.append((shown, pixels))
+        for note in notes:
+            if note not in self._draw_notes:
+                self._draw_notes.add(note)
+                self.look_notes[note] = self.look_notes.get(note, 0) + 1
+
+    def look_lines(self):
+        """The look notes as lines of text (an empty list: nothing to say)"""
+        return ["Look: %s (in %d of %d pictures). Not an animation? Then repair it."
+                % (note, count, self.draws) for note, count in self.look_notes.items()]
 
     def run(self, event):
         """Run one handler. Return the result text ("ok" or the error). The button events also set
@@ -2057,6 +2107,9 @@ class Machine:
         start = self.parts["handlers"][index]
         if event == "draw":
             self.screen = Screen(_assets())
+            self.draws += 1
+            self._draw_texts = []
+            self._draw_notes = set()
         if start == NO_HANDLER:
             return "ok"
         try:
@@ -2198,11 +2251,12 @@ class Machine:
                     x, y, value, digits, font, c, align = args
                     text = "%0*d" % (max(0, min(digits, 10)), value)
                 if 0 <= font < len(FONT_NAMES) and 0 <= align <= 2:
-                    screen.text(FONT_NAMES[font], x, y, ("left", "center", "right")[align], c, 0, text)
+                    self._text(text, lambda: screen.text(FONT_NAMES[font], x, y, ("left", "center", "right")[align],
+                                                         c, 0, text))
             elif name == "bignum":
                 x, y, value, digits, scale, c = args
                 text = "%0*d" % (max(0, min(digits, 10)), value)
-                screen.text("5x7", x, y, "left", c, 0, text, max(2, min(scale, 4)), 1)
+                self._text(text, lambda: screen.text("5x7", x, y, "left", c, 0, text, max(2, min(scale, 4)), 1))
             elif name == "bitmap":
                 x, y, bitmap_id, c = args
                 if not 0 <= bitmap_id < len(self.parts["bitmaps"]):
@@ -2320,10 +2374,23 @@ def _binary(name, a, b):
     raise ValueError(name)
 
 
+RUN_ACTIONS = ("press1 press2 long1 long2 down1 down2 up1 up2 tick kill death wait:MS frame png:FILE "
+               "counter:NAME=N setting:N=V random:SEED battery:PERCENT mv:MILLIVOLTS background:0|1 data")
+
+
+def _new_error(machine, had_error):
+    """The result text of an action that runs draw / tick: the app error, if it is new"""
+    if machine.error is not None and not had_error:
+        return result_text(machine.error)
+    return "ok"
+
+
 def run_actions(machine, actions):
-    """Actions of the `run` command. Return the text output."""
+    """Actions of the `run` command. Return the text output. An app error in `draw` or `tick`
+    (during wait:, frame or png:) is said one time, like an error in a button event."""
     out = []
     for action in actions:
+        had_error = machine.error is not None
         if action in ("press1", "press2", "long1", "long2", "down1", "down2", "up1", "up2", "tick", "kill", "death"):
             result = machine.run(action)
         elif action.startswith("background:"):
@@ -2331,7 +2398,7 @@ def run_actions(machine, actions):
             result = "ok"
         elif action.startswith("wait:"):
             machine.wait(int(action[5:]))
-            result = "ok"
+            result = _new_error(machine, had_error)
         elif action.startswith("counter:"):
             key, value = action[8:].split("=")
             index = BUILTIN_NAMES[key] if key in BUILTIN_NAMES else int(key)
@@ -2346,7 +2413,7 @@ def run_actions(machine, actions):
             result = "ok"
         elif action == "frame":
             out.extend(machine.frame())
-            result = "ok"
+            result = _new_error(machine, had_error)
         elif action.startswith("battery:"):
             machine.battery = int(action[8:])
             result = "ok"
@@ -2361,14 +2428,392 @@ def run_actions(machine, actions):
         elif action.startswith("png:"):
             write_png(action[4:], machine.frame())
             out.append("Wrote %s" % action[4:])
-            result = "ok"
+            result = _new_error(machine, had_error)
         else:
-            raise AppError("Unknown action %r. Actions: press1 press2 long1 long2 down1 down2 up1 up2 tick kill death "
-                           "wait:MS frame png:FILE counter:NAME=N setting:N=V random:SEED battery:PERCENT "
-                           "mv:MILLIVOLTS background:0|1 data" % action)
+            raise AppError("Unknown action %r. Actions: %s" % (action, RUN_ACTIONS))
         if result != "ok":
             out.append("App error after %s: %s" % (action, result))
     return out
+
+
+# --- A new app, and the checks of the app store (docs/APP_STORE.md) --------------------------------
+
+STORE_PAGE = "https://stattrak.tridos.design/#myapps"
+STORE_LIST = "https://stattrak.tridos.design/store-data/store.json"
+DEMO_MAX_MS = 12000        # the app store plays 12 seconds of the demo at most
+DEMO_WORDS = {"press": "press", "hold": "long", "down": "down", "up": "up"}
+# Without a demo line, the store presses and holds each button
+STANDARD_DEMO = "wait 800, press 1, wait 1500, press 2, wait 1500, press 1, wait 1500, hold 1, wait 1500, hold 2, wait 1500"
+
+NEW_DESCRIPTION = "Write here what the app does and what the buttons do."
+NEW_PICTURE = (
+    "####################",
+    "#..................#",
+    "#......######......#",
+    "#.....##....##.....#",
+    "#...........##.....#",
+    "#..........##......#",
+    "#.........##.......#",
+    "#........##........#",
+    "#........##........#",
+    "#..................#",
+    "#........##........#",
+    "#........##........#",
+    "#..................#",
+    "####################",
+)
+NEW_SOURCE = """# {name}: say here in one line what the app does.
+#   Button 1 (left): one less.
+#   Button 2 (right): one more.
+#   Hold button 2: back to zero.
+# "python tools/app.py new" made this text. It is a small counter that works. Change all of it.
+
+app "{name}"
+version 1
+description "{description}"
+
+# The title picture of the app menu: 80 x 24 at most, # = on, . = off.
+# Draw your own picture here. The app store does not accept this one.
+picture {{
+{picture}
+}}
+
+# The app store plays this line to make the preview film of the app (12 seconds at most).
+# Words: wait <ms>, press 1|2, hold 1|2, down 1|2, up 1|2. Show the main thing of the app first.
+# demo: wait 1000, press 2, wait 600, press 2, wait 600, press 1, wait 1000, hold 2, wait 1000
+
+var count = 0
+
+on press1 {{
+  if count > 0 {{ count = count - 1 }}
+}}
+
+on press2 {{
+  if count < 999 {{ count = count + 1 }}
+}}
+
+on long2 {{
+  count = 0
+}}
+
+on draw {{
+  text(64, 1, "{name}", small, on, center)
+  bignum(38, 9, count, 3, 3, on)
+}}
+"""
+
+
+def app_folder_name(name):
+    """The folder and file name of an app: "RESPAWN TIMER" -> "respawn-timer" """
+    return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+
+
+def new_app(name, apps_dir=None):
+    """Write the start source of a new app: <apps_dir>/<folder>/<folder>.sts. Return the path."""
+    name = name.strip().upper()
+    folder = app_folder_name(name)
+    if not folder:
+        raise AppError("The name needs a letter or a digit.")
+    path = os.path.join(apps_dir or os.path.join(ROOT, "apps"), folder, folder + ".sts")
+    if os.path.exists(path):
+        raise AppError("%s is there already. Use an other name, or change that file." % path)
+    source = NEW_SOURCE.format(name=name, description=NEW_DESCRIPTION,
+                               picture="\n".join("  \"%s\"" % row for row in NEW_PICTURE))
+    try:
+        compile_source(source, folder + ".sts")   # A name that an app cannot have stops here
+    except AppError as error:
+        raise AppError("Cannot make the app %s: %s" % (name, str(error).split(": ", 1)[-1]))
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8", newline="\n") as handle:
+        handle.write(source)
+    return path
+
+
+def demo_line(source):
+    """The text of the line "# demo: ..." of a source, or None"""
+    found = re.search(r"^[ \t]*#[ \t]*demo[ \t]*:(.*)$", source, re.M | re.I)
+    return found.group(1).strip() if found else None
+
+
+def parse_demo(text):
+    """A demo text ("wait 1000, press 1, hold 2") as actions of the `run` command
+    (["wait:1000", "press1", "long2"]). AppError for a word that the app store does not know."""
+    actions = []
+    for part in text.split(","):
+        words = part.lower().split()
+        if len(words) == 2 and words[0] == "wait" and words[1].isdigit():
+            actions.append("wait:%d" % int(words[1]))
+        elif len(words) == 2 and words[0] in DEMO_WORDS and words[1] in ("1", "2"):
+            actions.append(DEMO_WORDS[words[0]] + words[1])
+        else:
+            raise AppError("The demo line has a part that the app store does not know: %r. "
+                           "Possible: wait <ms>, press 1|2, hold 1|2, down 1|2, up 1|2, with commas between them."
+                           % part.strip())
+    return actions
+
+
+def run_demo(package, actions, seed=1):
+    """Run a package with demo actions, 12 seconds at most (as the app store does).
+    Return (machine, the first app error or None)."""
+    machine = Machine(package, seed=seed, look=True)
+    result = machine.run("open")
+    if result != "ok":
+        return machine, "open: %s" % result
+    left = DEMO_MAX_MS
+    for action in actions:
+        if left <= 0:
+            break
+        if action.startswith("wait:"):
+            ms = min(int(action[5:]), left)
+            left -= ms
+            action = "wait:%d" % ms
+        lines = run_actions(machine, [action])
+        if lines:
+            return machine, lines[0][len("App error after "):]
+    machine.frame()
+    if machine.error is not None:
+        return machine, "draw: %s" % result_text(machine.error)
+    return machine, None
+
+
+def read_store_list(url=STORE_LIST, timeout=8):
+    """The apps of the app store: a list of dicts (name, version, maker, official). None: no answer."""
+    import urllib.request
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as answer:
+            return json.loads(answer.read().decode("utf-8")).get("apps", [])
+    except (OSError, ValueError):
+        return None
+
+
+def official_app_names(skip_path=None, apps_dir=None):
+    """The names of the apps in apps/ (the official apps of this project), without the app of skip_path"""
+    names = {}
+    apps_dir = apps_dir or os.path.join(ROOT, "apps")
+    if not os.path.isdir(apps_dir):
+        return names
+    for folder in sorted(os.listdir(apps_dir)):
+        path = os.path.join(apps_dir, folder, folder + ".sts")
+        if not os.path.isfile(path) or (skip_path and os.path.abspath(path) == os.path.abspath(skip_path)):
+            continue
+        with open(path, "r", encoding="utf-8") as handle:
+            found = re.search(r"^[ \t]*app[ \t]+\"([^\"]+)\"", handle.read(), re.M)
+        if found:
+            names[found.group(1).upper()] = path
+    return names
+
+
+def picture_kind(program):
+    """How a source makes its title picture: (kind, text for a person). The kinds: "own" (drawn in
+    the source), "builtin" (a built-in icon), "text" (texts only), "name" (no picture line), "file"."""
+    if program.picture is None:
+        return "name", "the name of the app only (the source has no line \"picture\")"
+    kind, icon = program.picture[0], program.picture[1]
+    if kind == "rows":
+        return "own", "a picture that is drawn in the source"
+    if kind == "icon" and icon not in app_icons.ICONS:
+        return "own", "the icon \"%s\" that is drawn in the source, with a text" % icon
+    if kind == "icon":
+        return "builtin", "the built-in icon \"%s\"" % icon
+    if kind == "text":
+        return "text", "a text only"
+    return "file", "a picture file"
+
+
+def store_check(path, store_apps=None, online=True, out_dir=None, apps_dir=None):
+    """The checks of the app store that a computer can do, before the upload (docs/APP_STORE.md).
+    It also builds the package next to the source, so that the two files fit together.
+
+    store_apps: the list of the store (read_store_list()); None: read it (online) or skip the check.
+    Return (lines of text, count of the things to repair, info dict or None)."""
+    lines = ["Store check of %s" % path, ""]
+    fixes = [0]
+
+    def say(kind, text):
+        if kind == "FIX":
+            fixes[0] += 1
+        lines.append("  %-5s %s" % (kind, text))
+
+    def done(info=None):
+        lines.append("")
+        if fixes[0]:
+            lines.append("Result: %d thing%s to repair (the lines with FIX). Repair, then run this check again."
+                         % (fixes[0], "" if fixes[0] == 1 else "s"))
+        return lines, fixes[0], info
+
+    if not path.lower().endswith(".sts"):
+        say("FIX", "Give the source file (.sts). The store needs the source and the package.")
+        return done()
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            source = handle.read()
+    except (OSError, UnicodeDecodeError) as error:
+        say("FIX", "Cannot read the file: %s" % error)
+        return done()
+
+    # Picture files: the store takes only the source text
+    for number, line in enumerate(source.splitlines(), 1):
+        if re.match(r"\s*(picture\s+bitmap\b|bitmap\s+\w+\s+\")", line):
+            say("FIX", "Line %d uses a picture file. The store takes only the source text: draw the picture "
+                       "in the source as rows of # and . (docs/APPS.md section 7.4)." % number)
+    if fixes[0]:
+        return done()
+
+    try:
+        result = compile_source(source, os.path.basename(path), os.path.dirname(os.path.abspath(path)))
+    except AppError as error:
+        say("FIX", "The source does not compile: %s" % error)
+        return done()
+    program, package, info = result["program"], result["package"], result["info"]
+    name = info["name"]
+    say("OK", "The source compiles: %s, version %d, %d of %d bytes." % (name, info["version"], info["size"], MAX_SIZE))
+    engine = package_parts(package)["engine"]
+    say("NOTE" if engine >= 4 else "OK",
+        "The app installs on a StatTrak with firmware %s or newer%s."
+        % (FIRMWARE_FOR_ENGINE.get(engine, FIRMWARE_ENGINE4),
+           " (it uses a thing of app engine 4). Say this to the person" if engine >= 4 else ""))
+
+    # The name
+    official = official_app_names(path, apps_dir)
+    if name in official:
+        say("FIX", "The official app %s has the name %s. Use an other name." % (official[name], name))
+    if store_apps is None and online:
+        store_apps = read_store_list()
+        if store_apps is None:
+            say("NOTE", "No answer from the app store, so the name is not checked. Look in the store that no "
+                        "other app has the name %s: https://stattrak.tridos.design/#store" % name)
+    if store_apps is None and not online:
+        say("NOTE", "The name is not checked against the app store (--offline).")
+    if store_apps is not None:
+        same = [entry for entry in store_apps if str(entry.get("name", "")).upper() == name]
+        if not same:
+            say("OK", "No app in the store has the name %s." % name)
+        else:
+            entry = same[0]
+            who = "an official app" if entry.get("official") else "the maker is %s" % entry.get("maker", "?")
+            if info["version"] <= int(entry.get("version", 0)):
+                say("FIX", "The store has an app %s already (version %d, %s). Not your app: use an other name. "
+                           "Your app: this is an update, and the line \"version\" must be higher than %d (it is %d)."
+                           % (name, entry["version"], who, entry["version"], info["version"]))
+            else:
+                say("NOTE", "The store has an app %s already (version %d, %s). Your app: this is an update, and "
+                            "version %d is right. Not your app: use an other name."
+                            % (name, entry["version"], who, info["version"]))
+
+    # The description
+    description = (program.description or "").strip()
+    if not description:
+        say("FIX", "The line description \"...\" is missing. Say what the app does and what the buttons do.")
+    elif description == NEW_DESCRIPTION:
+        say("FIX", "The description is still the text of \"app.py new\". Say what the app does and what the "
+                   "buttons do.")
+    else:
+        say("OK", "The description is there (%d of 120 characters). You check that it is true."
+                  % len(description))
+
+    # The title picture
+    kind, kind_text = picture_kind(program)
+    picture = base64.b64encode(package_parts(package)["picture"]).decode("ascii")
+    same_picture = next((str(entry.get("name")) for entry in store_apps or []
+                         if entry.get("picture") == picture and str(entry.get("name", "")).upper() != name), None)
+    if kind == "own" and program.picture[0] == "rows" and tuple(program.picture[3]) == NEW_PICTURE:
+        say("FIX", "The title picture is still the picture of \"app.py new\". Draw the app's own picture.")
+    elif kind == "own" and same_picture:
+        say("FIX", "The title picture is the same as the picture of the app %s. Draw the app's own picture."
+                   % same_picture)
+    elif kind == "own":
+        say("OK", "The title picture is the app's own (%s)." % kind_text)
+    else:
+        say("FIX", "The title picture is %s. The store does not accept that at once: the app then waits "
+                   "for a person of TRIDOS. Draw the app's own picture: picture { rows of # and . } "
+                   "(docs/APPS.md section 7.4)." % kind_text)
+
+    # Links
+    texts = [name, description] + list(package_parts(package)["strings"])
+    if any(re.search(r"https?://|www\.|\.(com|net|org|io|gg|lv)\b", text, re.I) for text in texts):
+        say("FIX", "A text of the app has a link or a web address. The store does not allow links.")
+
+    # The demo: the line of the source, and the button sequence that the store uses without one
+    demo = demo_line(source)
+    runs = [("the standard button sequence of the store", parse_demo(STANDARD_DEMO))]
+    if demo is None:
+        say("NOTE", "There is no demo line. The store then makes the preview film with a standard button "
+                    "sequence, and that often shows an app badly. Add a comment line, for example: "
+                    "# demo: wait 1000, press 1, wait 3000, hold 2")
+    else:
+        try:
+            actions = parse_demo(demo)
+            total = sum(int(action[5:]) for action in actions if action.startswith("wait:"))
+            if total > DEMO_MAX_MS:
+                say("NOTE", "The demo is %.1f seconds long. The store plays the first 12 seconds only."
+                            % (total / 1000.0))
+            if total < 1500:
+                say("NOTE", "The demo is %.1f seconds long: the preview film shows very little. Add wait steps."
+                            % (total / 1000.0))
+            if any(handler != NO_HANDLER for handler in package_parts(package)["handlers"][8:10]) and not any(
+                    action.startswith("down") for action in actions):
+                say("NOTE", "The app has an \"on down1\" or \"on down2\" part, and the demo has no \"down\" word. "
+                            "A real button sends down first: write \"down 1, press 1\" in the demo.")
+            runs.insert(0, ("the demo line", actions))
+        except AppError as error:
+            say("FIX", str(error))
+    machine = None
+    for what, actions in runs:
+        error = None
+        for seed in (1, 7, 23):       # an app with random() gets more than one try
+            tried, error = run_demo(package, actions, seed)
+            if machine is None:
+                machine = tried       # the pictures and the look notes come from the first run
+            if error:
+                break
+        buttons = sum(1 for action in actions if not action.startswith("wait:"))
+        if error:
+            say("FIX", "The app stops with an error (%s) in %s. Repair the cause." % (error, what))
+        else:
+            say("OK", "The app runs %s without an app error (%d button steps)." % (what, buttons))
+    for note in machine.look_lines():
+        say("NOTE", note[len("Look: "):])
+    screen = machine.frame()
+    if machine.error is None and not any("#" in row for row in screen):
+        say("NOTE", "The screen is empty at the end of the demo. Is that right?")
+    base = os.path.join(out_dir or os.path.join(ROOT, "out"), app_folder_name(name) or "app")
+    try:
+        os.makedirs(os.path.dirname(base), exist_ok=True)
+        write_png(base + "_demo.png", screen)
+        write_png(base + "_picture.png", bitmap_to_rows(package_parts(package)["picture"], PICTURE_W, PICTURE_H), 4)
+        pictures = (base + "_picture.png", base + "_demo.png")
+    except OSError:
+        pictures = None
+
+    # The two files fit together: build the package now
+    package_path = os.path.splitext(path)[0] + ".stapp"
+    try:
+        with open(package_path, "wb") as handle:
+            handle.write(package)
+        say("OK", "Built %s from the source: the two files fit together." % package_path)
+    except OSError as error:
+        say("FIX", "Cannot write %s: %s" % (package_path, error))
+
+    lines.append("")
+    lines.append("You check (a computer cannot):")
+    lines.append("  - The description is true. It says what the app does and what the buttons do.")
+    lines.append("  - The title picture shows what the app is (a ship for a space game, a dice for a dice app).")
+    lines.append("  - The content is allowed, and no text tells the review what to do (docs/APP_STORE.md, checks 8 and 9).")
+    if pictures:
+        lines.append("  Look at them: %s (the title picture), %s (the screen at the end of the demo)." % pictures)
+    if fixes[0]:
+        return done()
+    lines.append("")
+    lines.append("Result: ready for the upload. The person does these steps:")
+    lines.append("  1. Open %s and sign in with Google or GitHub." % STORE_PAGE)
+    lines.append("  2. In \"Upload an app or a new version\", pick these two files:")
+    lines.append("       %s" % os.path.abspath(package_path))
+    lines.append("       %s" % os.path.abspath(path))
+    lines.append("  3. Pick the category (Games, Timers, Counters or Tools: say which one fits) and paste this "
+                 "description:")
+    lines.append("       %s" % description)
+    lines.append("  4. Click \"Send for review\". The review answers within 24 hours.")
+    return lines, 0, {"name": name, "package": package_path, "source": path, "description": description}
 
 
 # --- Catalog for the web updater -----------------------------------------------------------------
@@ -2416,6 +2861,9 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="StatTrak apps: build, check and show app packages",
                                      epilog="Specification: docs/APPS.md")
     sub = parser.add_subparsers(dest="action", required=True)
+    new = sub.add_parser("new", help="start a new app: write apps/name/name.sts, a small app that works")
+    new.add_argument("name", help="the name of the app, 1 to 14 characters, for example DICE")
+    new.add_argument("--offline", action="store_true", help="do not look in the app store for the name")
     build = sub.add_parser("build", help="compile a .sts script to a .stapp package")
     build.add_argument("file")
     build.add_argument("-o", "--out", help="the package file (default: next to the script)")
@@ -2426,19 +2874,44 @@ def main(argv=None):
     picture.add_argument("-o", "--out", help="the PNG file (default: out/NAME_picture.png)")
     run = sub.add_parser("run", help="run the app in Python and print the screen")
     run.add_argument("file")
-    run.add_argument("actions", nargs="*", help="press1 press2 long1 long2 down1 down2 tick kill death wait:MS "
-                                                "frame png:FILE counter:NAME=N setting:N=V random:SEED "
-                                                "background:0|1 (a frame at the end)")
+    run.add_argument("actions", nargs="*", help=RUN_ACTIONS + ". The last screen is printed as text at the end, "
+                                                "if the last action is not frame or png:")
     sub.add_parser("catalog", help="build apps/*/ into updater/apps/ with catalog.json")
     sim = sub.add_parser("sim", help="open the web simulator with the app installed and running")
     sim.add_argument("file")
     sim.add_argument("--fresh", action="store_true", help="a new device (no counters, settings or other apps)")
+    sim.add_argument("--build", action="store_true",
+                     help="build the simulator page from the firmware code of this folder, if it is not up to date "
+                          "(needs Emscripten or Docker). Without it: the page of the web site")
     sim.add_argument("--rebuild", action="store_true", help="build the simulator page again")
     sim.add_argument("--no-browser", action="store_true", help="only make the page, do not open it")
+    store = sub.add_parser("store-check", help="the checks of the app store, before the upload; builds the package")
+    store.add_argument("file", help="the source of the app (.sts)")
+    store.add_argument("--offline", action="store_true", help="do not read the list of the store (no name check)")
+    store.add_argument("--open", action="store_true", help="when all is right, open the upload page in the browser")
     args = parser.parse_args(argv)
 
     try:
-        if args.action == "build":
+        if args.action == "new":
+            path = new_app(args.name)
+            print("Wrote %s: a small counter that works." % path)
+            name = args.name.strip().upper()
+            taken = [] if args.offline else [entry for entry in read_store_list(timeout=4) or []
+                                             if str(entry.get("name", "")).upper() == name]
+            if taken:
+                print("Note: the app store has an app %s already. That is no problem on your own StatTrak. To share "
+                      "the app in the store later, it needs an other name: change the line app \"%s\"." % (name, name))
+            print("Change it, then look at it:  python tools/app.py run %s png:out/%s.png"
+                  % (path, os.path.splitext(os.path.basename(path))[0]))
+        elif args.action == "store-check":
+            lines, fixes, info = store_check(args.file, online=not args.offline)
+            print("\n".join(lines))
+            if fixes:
+                return 1
+            if args.open:
+                import webbrowser
+                webbrowser.open(STORE_PAGE)
+        elif args.action == "build":
             result = compile_file(args.file)
             for warning in result["warnings"]:
                 print("Note: %s" % warning, file=sys.stderr)
@@ -2474,7 +2947,7 @@ def main(argv=None):
             write_png(out, bitmap_to_rows(parts["picture"], PICTURE_W, PICTURE_H), 4)
             print(out)
         elif args.action == "run":
-            machine = Machine(load_package(args.file))
+            machine = Machine(load_package(args.file), look=True)
             # background:0|1 is the mode from the start: open sees it too
             for action in args.actions:
                 if action.startswith("background:"):
@@ -2484,9 +2957,16 @@ def main(argv=None):
                 print("App error in open: %s" % result)
             lines = run_actions(machine, args.actions)
             if not args.actions or not (args.actions[-1] == "frame" or args.actions[-1].startswith("png:")):
+                had_error = machine.error is not None
                 lines.extend(machine.frame())
+                if _new_error(machine, had_error) != "ok":
+                    lines.append("App error in draw: %s" % result_text(machine.error))
             if machine.clicks:
                 lines.append("Clicks: %s" % ", ".join("%d Hz at %d ms" % (freq, at) for at, freq in machine.clicks))
+            lines.extend(machine.look_lines())
+            if (machine.error is None and machine.screen is not None
+                    and not any("#" in row for row in machine.screen.lines())):
+                lines.append("Look: the last picture is an empty screen. Is that right?")
             print("\n".join(lines))
         elif args.action == "catalog":
             catalog = build_catalog()
@@ -2502,7 +2982,7 @@ def main(argv=None):
                 return 1
             try:
                 websim.open_with_app(data, info["name"], fresh=args.fresh, browser=not args.no_browser,
-                                     rebuild=args.rebuild)
+                                     rebuild=args.rebuild, build_page=args.build)
             except websim.WebSimError as error:
                 print(error, file=sys.stderr)
                 return 1

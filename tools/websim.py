@@ -7,6 +7,9 @@ The page is one HTML file: build-web/simulator.html. It runs the real firmware. 
 simulator.html#app=<package as base64url> installs the app like the web updater, answers yes and
 opens it; "&fresh" starts a new device.
 
+Without a build, `app.py sim` opens the same page on the web site (LIVE_PAGE): the newest
+official firmware, no install. `--build` builds the page from the firmware code of this folder.
+
 The build needs Emscripten: `emcmake` (the Emscripten SDK), or Docker with the image
 emscripten/emsdk (on Windows also the Docker of WSL). A build takes about 1 minute; the next
 builds are faster.
@@ -23,6 +26,7 @@ import webbrowser
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BUILD_DIR = os.path.join(ROOT, "build-web")
 PAGE = os.path.join(BUILD_DIR, "simulator.html")
+LIVE_PAGE = "https://stattrak.tridos.design/sim/simulator.html"   # the same page, with the official firmware
 EMSDK_IMAGE = "emscripten/emsdk:4.0.10"   # the same as the CI job "Web simulator build"
 SOURCES = ("sim", "main", "components", "version.txt", os.path.join("updater", "apps"))   # the apps of the panel
 
@@ -107,16 +111,22 @@ def build(log=print):
     log("Built %s" % PAGE)
 
 
-def open_with_app(package, name, fresh=False, browser=True, rebuild=False, log=print):
-    """Open the simulator page with the app installed and running. Return the launcher file path."""
-    if rebuild or not is_up_to_date():
-        if os.path.isfile(PAGE) and _builder() is None and not rebuild:
-            # Still good for the app: the app goes into the address, not into the page
-            log("Note: build-web/simulator.html is older than the firmware code, and this computer cannot build it.")
-        else:
-            build(log)
+def open_with_app(package, name, fresh=False, browser=True, rebuild=False, log=print, build_page=False):
+    """Open the simulator page with the app installed and running. Return the launcher file path.
+
+    Which page: build-web/simulator.html (the firmware code of this folder) when it is up to date,
+    or when build_page or rebuild asks for a build. Else the page of the web site: it has the
+    newest official firmware, it needs no install, and it needs the internet."""
+    page = "simulator.html"
+    if rebuild or (build_page and not is_up_to_date()):
+        build(log)    # no Emscripten and no Docker: an error. An old page is not the firmware of this folder
+    elif not is_up_to_date():
+        page = LIVE_PAGE
+        log("This uses the simulator of the web site: the newest official firmware. It needs the internet.")
+        log("For the firmware code of this folder, add --build (it needs Emscripten or Docker).")
+    os.makedirs(BUILD_DIR, exist_ok=True)
     data = base64.urlsafe_b64encode(bytes(package)).decode("ascii").rstrip("=")
-    address = "simulator.html#app=" + data + ("&fresh" if fresh else "")
+    address = page + "#app=" + data + ("&fresh" if fresh else "")
     # A small page that goes to the address: a file:// address with a long "#..." part does not
     # go through all programs that open a browser (Windows drops it)
     safe = "".join(c if c.isalnum() else "-" for c in name.lower()).strip("-") or "app"
