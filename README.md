@@ -30,8 +30,6 @@ I may not be a programmer. Use plain words.
 **The dice is an example.** Write your own idea in its place, in your own words. No idea yet?
 Write "I have no idea yet", and the AI tool helps you to find one.
 
-<!-- TODO (TRIDOS): replace the address above with the final public address of this repository. -->
-
 **What you need:** a computer (Windows, macOS or Linux) and an AI coding tool that can work on
 your computer, for example Claude Code, Codex, Cursor, GitHub Copilot (agent mode) or Gemini
 CLI. A chat website alone is not enough. You do **not** need your StatTrak to start:
@@ -162,6 +160,7 @@ docs/          the documents below, and images/
 | Document | What is in it |
 | --- | --- |
 | [docs/GUIDE.md](docs/GUIDE.md) | **User guide:** the buttons, the firmware update, apps, the Screen Designer |
+| [CHANGELOG.md](CHANGELOG.md) | **What is new** in each firmware version |
 | [AGENTS.md](AGENTS.md) | The rules for AI coding tools (and for you): the start, the safety rules, an app or a firmware change |
 | [skills/](skills/) | The guides for AI coding tools: [make an app](skills/stattrak-app/SKILL.md), [design a screen](skills/stattrak-screens/SKILL.md), [change the firmware](skills/stattrak-firmware/SKILL.md) |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to share an app, a feature or an idea |

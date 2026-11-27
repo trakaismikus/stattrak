@@ -157,7 +157,7 @@ reads the same values. This is why:
 - Before you go back from your firmware to official firmware 1.0.1 or older,
   do a factory reset in your firmware.
 
-<!-- TODO (TRIDOS): name the first official release that has this change. -->
+The first official release with these checks is firmware 2.0.0.
 
 ### The device version and the battery type
 
