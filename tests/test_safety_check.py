@@ -242,7 +242,18 @@ class SafetyCheckTest(unittest.TestCase):
 
     def test_radio_start_name_in_a_text_is_not_a_call(self):
         self.append("main/views/stats_view.c",
-                    self.USER_VIEW + 'void MyView_log(void) { printf("Ota_init() comes later"); }\n')
+                    self.USER_VIEW + 'void MyView_log(void) { printf("Ota_init() // comes later"); }\n')
+        code, output = self.check()
+        self.assertEqual(code, 0, output)
+
+    def test_direct_call_after_a_text_with_two_slashes(self):
+        self.append("main/views/stats_view.c",
+                    self.USER_VIEW + 'void MyView_log(void) { printf("https://x"); _myStart(); }\n')
+        self.assert_fails("radio-start")
+
+    def test_start_function_with_an_attribute(self):
+        self.append("main/views/stats_view.c",
+                    self.USER_VIEW.replace("static void _myStart", "static void __attribute__((noinline)) _myStart"))
         code, output = self.check()
         self.assertEqual(code, 0, output)
 

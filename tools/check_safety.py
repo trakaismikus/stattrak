@@ -440,10 +440,16 @@ class Checker:
                 self.fail("update-views", "main/ble_commands.c: the app commands are handled only in _handleApp().")
 
     @staticmethod
-    def blank_strings(code):
-        """The same text with spaces in place of what is in "..." and '...': a name in a text is not a call."""
-        return re.sub(r'"(?:\\.|[^"\\\n])*"|\'(?:\\.|[^\'\\\n])*\'',
-                      lambda m: m.group(0)[0] + " " * (len(m.group(0)) - 2) + m.group(0)[-1], code)
+    def code_only(text):
+        """The same text with spaces in place of the comments and of what is in "..." and '...'.
+        One pass, so "//" in a text is not a comment and a quote in a comment is not a text.
+        The positions and the line ends stay."""
+        def blank(match):
+            token = match.group(0)
+            if token[0] == "/":
+                return re.sub(r"[^\n]", " ", token)
+            return token[0] + re.sub(r"[^\n]", " ", token[1:-1]) + token[-1]
+        return re.sub(r'//[^\n]*|/\*.*?\*/|"(?:\\.|[^"\\\n])*"|\'(?:\\.|[^\'\\\n])*\'', blank, text, flags=re.S)
 
     def check_radio_start(self):
         # The check reads the text of one file. It does not follow a macro or a function pointer, and
@@ -455,7 +461,7 @@ class Checker:
             text = self.read(relative)
             if text is None:
                 continue
-            code = self.blank_strings(self.strip_comments(text))
+            code = self.code_only(text)
             found = list(re.finditer(calls, code))
             if not found:
                 continue
@@ -471,9 +477,8 @@ class Checker:
             # Only BtStart calls a start function. A direct call starts the radio with the full screen lit.
             for name in names:
                 for use in re.finditer(r"\b%s\s*\(" % re.escape(name), code):
-                    before = re.search(r"(\w+|\*)\s*$", code[:use.start()])
-                    if before and before.group(1) not in ("return", "else", "do"):
-                        continue    # The definition or a prototype: a type is in front of the name
+                    if code.count("{", 0, use.start()) == code.count("}", 0, use.start()):
+                        continue    # Not in a function: the definition or a prototype
                     self.fail("radio-start", "%s: the start function %s() is called directly. Only BtStart calls "
                               "it, when the display shows only the Bluetooth sign." % (relative, name))
             for name, where in (("BtStart_draw", "draw"), ("BtStart_cancel", "deinit")):
