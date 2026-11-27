@@ -85,8 +85,9 @@ Rules for a command:
 ## When is Bluetooth on?
 
 Bluetooth uses battery power and it is a door into the device. The official firmware keeps it
-off, except in two views: the **update view** (Settings, `Firmware: UPDATE`) and the **accept
-view** (after an update). User commands work there too.
+off, except in three views: the **update view** (Settings, `Firmware: UPDATE`), the **accept
+view** (after an update) and the **app sync view** (Settings, `Apps: SYNC`). User commands work
+there too.
 
 A feature that needs Bluetooth at other times switches it on in a view of its own, with the
 soft radio start (see "Radio start" below):
@@ -150,7 +151,10 @@ So the update view, the accept view and the app sync start the radio softly
 
 `tests/test_radio_start.py` checks that at most 150 pixels are lit from the radio start to
 0.4 s after it, for each of the three views and for the 10 s hold. Use the same start in each
-new view that switches Bluetooth on.
+new view that switches Bluetooth on. `python tools/check_safety.py` (rule `radio-start`) fails
+when code in `main/` calls `Ota_init()` outside the start function of `BtStart_begin()`, or when
+that view does not call `BtStart_draw()` and `BtStart_cancel()`. Add your view to
+`tests/test_radio_start.py` too: only that test counts the lit pixels.
 
 ## The other side: a web page or an app
 

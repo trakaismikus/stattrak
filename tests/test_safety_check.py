@@ -207,8 +207,53 @@ class SafetyCheckTest(unittest.TestCase):
         self.edit("main/app.c", "  // Update Battery Level", "  Ota_setUpdateAllowed(false);")
         self.assert_fails("update-views")
 
+    # A view of a user feature with Bluetooth, as docs/BLUETOOTH.md shows it ("When is Bluetooth on?")
+    USER_VIEW = ("\nstatic void _myStart(void) { Ota_init(); Ota_setUpdateAllowed(false); }\n"
+                 "void MyView_init(void) { BtStart_begin(VIEW_ID__STATS, _myStart); }\n"
+                 "void MyView_deinit(void) { BtStart_cancel(VIEW_ID__STATS); Ota_deinit(); }\n"
+                 "void MyView_draw(void) { if(!BtStart_draw(VIEW_ID__STATS, _draw)) _draw(); }\n")
+
     def test_user_view_can_refuse_new_firmware(self):
-        self.append("main/views/stats_view.c", "\nvoid MyView_init(void) { Ota_init(); Ota_setUpdateAllowed(false); }\n")
+        self.append("main/views/stats_view.c", self.USER_VIEW)
+        code, output = self.check()
+        self.assertEqual(code, 0, output)
+
+    def test_bluetooth_starts_without_the_soft_radio_start(self):
+        # The old way: the radio starts while the full screen is lit (a brown-out on a weak unit)
+        self.append("main/views/stats_view.c", "\nvoid MyView_init(void) { Ota_init(); }\n")
+        self.assert_fails("radio-start")
+
+    def test_bluetooth_starts_next_to_the_start_function(self):
+        self.append("main/views/stats_view.c", self.USER_VIEW + "void MyView_again(void) { Ota_init(); }\n")
+        self.assert_fails("radio-start")
+
+    def test_soft_radio_start_without_the_sign(self):
+        self.append("main/views/stats_view.c", self.USER_VIEW.replace("if(!BtStart_draw(VIEW_ID__STATS, _draw)) ", ""))
+        self.assert_fails("radio-start")
+
+    def test_update_view_starts_the_radio_at_once(self):
+        self.edit("main/views/update_view.c", "  BtStart_begin(VIEW_ID__UPDATE, _startBluetooth);", "  Ota_init();")
+        self.assert_fails("radio-start")
+
+    def test_start_function_called_directly(self):
+        self.edit("main/views/update_view.c", "  BtStart_begin(VIEW_ID__UPDATE, _startBluetooth);",
+                  "  _startBluetooth();\n  BtStart_begin(VIEW_ID__UPDATE, _startBluetooth);")
+        self.assert_fails("radio-start")
+
+    def test_radio_start_name_in_a_text_is_not_a_call(self):
+        self.append("main/views/stats_view.c",
+                    self.USER_VIEW + 'void MyView_log(void) { printf("Ota_init() // comes later"); }\n')
+        code, output = self.check()
+        self.assertEqual(code, 0, output)
+
+    def test_direct_call_after_a_text_with_two_slashes(self):
+        self.append("main/views/stats_view.c",
+                    self.USER_VIEW + 'void MyView_log(void) { printf("https://x"); _myStart(); }\n')
+        self.assert_fails("radio-start")
+
+    def test_start_function_with_an_attribute(self):
+        self.append("main/views/stats_view.c",
+                    self.USER_VIEW.replace("static void _myStart", "static void __attribute__((noinline)) _myStart"))
         code, output = self.check()
         self.assertEqual(code, 0, output)
 
