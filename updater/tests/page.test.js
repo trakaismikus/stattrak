@@ -564,10 +564,16 @@ test("an official release: Use this loads its file, without a download and a dro
   await page.waitFor(`document.querySelector('[data-release="1"]')`);
   assert.equal(await text(page, "releaseList").then((s) => /Use this/.test(s)), true);
   await page.evaluate(`document.querySelector('[data-release="1"]').click()`);
-  await page.waitFor(`document.getElementById("fileCardMeta").textContent.includes("official release v2.0.0")`);
+  await page.waitFor(`document.querySelector('[data-release-row="1"]').classList.contains("release--on")`);
   assert.ok(await page.evaluate(`window.__fetches.includes("api/firmware?tag=v2.0.0&file=stattrak.bin")`));
-  assert.equal(await page.evaluate(`document.querySelector('[data-release-row="1"]').classList.contains("release--on")`), true);
-  assert.match(await text(page, "fileCardMeta"), /version 2\.0\.0/);
+  assert.match(await text(page, "releaseList"), /Selected/);
+  assert.equal(await page.evaluate("state.uploadedFile.version"), "2.0.0");
+  // The row says "Selected": no second card for the same file, on either tab
+  assert.equal(await page.evaluate(visible("fileCard")), false);
+  await page.evaluate(`document.querySelector('.fw-tab[data-tab="upload"]').click()`);
+  assert.equal(await page.evaluate(visible("fileCard")), false);
+  assert.equal(await page.evaluate(visible("dropzone")), true);
+  await page.evaluate(`document.querySelector('.fw-tab[data-tab="hosted"]').click()`);
   await click(page, "step2NextBtn");
   await click(page, "flashBtn");
   assert.equal(await page.evaluate(`document.querySelector("[data-unofficial]").hidden`), true);
@@ -620,7 +626,7 @@ test("an official release that loads while a file is selected: Next waits; the t
   await click(page, "step1NextBtn");
   await page.waitFor(`document.querySelector('[data-release="1"]')`);
   await page.evaluate(`document.querySelector('[data-release="1"]').click()`);
-  await page.waitFor(`document.getElementById("fileCardMeta").textContent.includes("official release v2.0.0")`);
+  await page.waitFor(`document.querySelector('[data-release-row="1"]').classList.contains("release--on")`);
   // B loads slowly: while it loads, Next is hidden and does nothing
   await page.evaluate(`(() => { const f = window.fetch; window.fetch = (u) => new Promise((ok) => setTimeout(() => ok(f(u)), 20000)); })()`);
   await page.evaluate(`document.querySelector('[data-release="2"]').click()`);
@@ -628,7 +634,7 @@ test("an official release that loads while a file is selected: Next waits; the t
   assert.equal(await page.evaluate(visible("step2NextRow")), false);
   await page.evaluate(`document.getElementById("step2NextBtn").click()`);
   assert.equal(await page.evaluate("state.step2Confirmed"), false);
-  await page.waitFor(`state.releaseLoading === null && document.getElementById("fileCardMeta").textContent.includes("official release v2.1.0")`);
+  await page.waitFor(`state.releaseLoading === null && document.querySelector('[data-release-row="2"]').classList.contains("release--on")`);
   // A question names one file; the file changes before Yes: nothing is sent
   await click(page, "step2NextBtn");
   await click(page, "flashBtn");
