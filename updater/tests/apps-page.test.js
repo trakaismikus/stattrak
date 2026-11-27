@@ -52,6 +52,10 @@ function initScript(deviceOptions) {
       Object.defineProperty(navigator, "bluetooth", { value: window.__device.bluetooth(), configurable: true });
       const realFetch = window.fetch.bind(window);
       window.fetch = async (url, init) => /api\\.github\\.com/.test(String(url)) ? new Response("[]", { status: 200 }) : realFetch(url, init);
+      // A stand-in app store: it gives the page the test apps (updater/apps/) like the store of the web site does
+      document.addEventListener("DOMContentLoaded", () => AppsTab.api.addCatalog("test-store", catalog.apps.map((a) => ({
+        key: "store-" + a.id, id: parseInt(a.id, 16), name: a.name, desc: a.description || "", size: a.size, version: a.version,
+        permissions: a.permissions || [], picture: a.picture, settings: a.settings || [], file: "apps/" + a.file }))));
     })();
   `;
 }
@@ -92,14 +96,20 @@ const click = (page, expression) => page.evaluate(`(${expression}).click()`);
 async function connect(page) {
   await act(page, '[data-act="connect"]');
   await page.waitFor(has("#appsList"));
-  // The catalog comes from a file and can come after the device list (more so on a busy computer)
-  try { await page.waitFor(has(".cat"), 5000); } catch (error) { /* a test without a catalog */ }
 }
+
+/* Install an app of the stand-in store (the store page calls AppsTab.api.install) */
+const offer = (page, name) => page.evaluate(`(() => {
+  const item = AppsTab.state.extra["test-store"].find((i) => i.name === ${JSON.stringify(name)});
+  if (!item) throw new Error("not in the test store: " + ${JSON.stringify(name)});
+  AppsTab.api.install(item);
+})()`);
+const storeItem = (name) => `AppsTab.state.extra["test-store"].find((i) => i.name === ${JSON.stringify(name)})`;
 
 /* The page shows the question of the device ("Answer on StatTrak") */
 const asking = (page, timeoutMs) => page.waitFor(`/Answer on StatTrak/.test((document.querySelector("#instpanel .inst__big") || {}).textContent)`, timeoutMs || 20000);
 
-test("connect: the apps of the device in menu order, SETTINGS last, the storage and the catalog", { skip: SKIP }, async (t) => {
+test("connect: the apps of the device in menu order, SETTINGS last, the storage, no apps to add", { skip: SKIP }, async (t) => {
   const page = await open(t, { install: ["ROUND TIMER"], hiddenApps: [2] });
   assert.match(await mainText(page), /Apps: SYNC.*Hold right button/);
   await connect(page);
@@ -107,10 +117,10 @@ test("connect: the apps of the device in menu order, SETTINGS last, the storage 
   assert.deepEqual(await texts(page, "#appsList .row .lbl"), ["Shown", "Hidden", "Shown", "Shown"]);
   assert.deepEqual(await texts(page, "#appsList .tag"), ["Built-in", "Built-in", "Built-in", "Installed · 1.1 KB", "Always last"]);
   assert.match(await texts(page, ".status .store span").then((t) => t[0]), /^1\.1 KB \/ 24 KB$/);
-  // Installed apps are not in the catalog; the others are, with their permissions.
-  // The catalog loads by itself: on a slow computer it can come after the device list.
-  await page.waitFor(`document.querySelectorAll(".cat").length > 0`);
-  assert.deepEqual(await texts(page, ".cat .row__name"), ["BATTERY LOG", "CLIP MARKS", "HEADSHOT %", "REACTION", "RESPAWN TIMER", "RUNNER", "SLOTS", "WALLPAPER"]);
+  // My device lists no apps to add (also when a store gives apps): only the store and From file add apps
+  assert.deepEqual(await texts(page, ".cat .row__name"), []);
+  assert.match(await page.evaluate(`document.getElementById("appsAddHint").textContent`), /Install apps from the app store, or add an app file \(\.stapp\) with From file\./);
+  assert.equal(await page.evaluate(`!!document.querySelector('[data-act="file"]')`), true);
   // The name of the device at the top (no version), a pencil for the Bluetooth name
   assert.equal(await page.evaluate(`document.querySelector(".status__dev").textContent`), "StatTrak");
   await act(page, '[data-act="name-edit"]');
@@ -118,7 +128,6 @@ test("connect: the apps of the device in menu order, SETTINGS last, the storage 
   assert.equal(await page.evaluate(`!!document.querySelector('[data-name="reset"]')`), false);
   await act(page, '#modalRoot [data-name="close"]');
   assert.equal(await page.evaluate(`document.getElementById("modalRoot").hidden`), true);
-  assert.match(await page.evaluate(`${catRow("HEADSHOT %")}.textContent`), /Changes your kill counts/);
   // Built-in apps have no delete button; only apps with known settings have a gear
   assert.equal(await page.evaluate(`!!${inRow("KILLS", '[data-act="del"]')}`), false);
   assert.equal(await page.evaluate(`!!${inRow("ROUND TIMER", '[data-act="edit"]')}`), true);
@@ -173,17 +182,17 @@ test("delete asks in the page; Cancel keeps the app, Delete removes it", { skip:
   await act(page, '[data-act="really-del"]');
   await page.waitFor(`!${row("ROUND TIMER")}`);
   assert.deepEqual(await device(page, "appNames()"), ["KILLS", "KILLS + DEAD", "STATS"]);
-  // It is in the catalog again, and the storage is free again
-  await page.waitFor(catRow("ROUND TIMER"));
+  // The storage is free again; My device does not offer the app again
+  assert.equal(await page.evaluate(`!!${catRow("ROUND TIMER")}`), false);
   assert.equal((await texts(page, ".status .store span"))[0], "0 KB / 24 KB");
 });
 
-test("install from the catalog: the question on the device first, then the transfer, then 'Installed'", { skip: SKIP }, async (t) => {
+test("install from the store: the question on the device first, then the transfer, then 'Installed'", { skip: SKIP }, async (t) => {
   const page = await open(t, { appQuestionMs: 60000 });
   await connect(page);
-  await click(page, `${catRow("REACTION")}.querySelector('[data-act="install"]')`);
+  await offer(page, "REACTION");
   await asking(page);
-  // During the install the other catalog apps and the device list are locked
+  // During the install the row of the app shows its state, and the device list is locked
   assert.deepEqual(await texts(page, ".cat .row__name"), ["REACTION"]);
   assert.equal(await page.evaluate(`document.getElementById("appsList").classList.contains("list--busy")`), true);
   assert.equal(await page.evaluate(`document.getElementById("tabFirmware").getAttribute("aria-disabled")`), "true");
@@ -217,7 +226,7 @@ test("install from the catalog: the question on the device first, then the trans
 test("OPEN on the device after the install: a calm message, not 'Connection lost'", { skip: SKIP }, async (t) => {
   const page = await open(t, { appQuestionMs: 60000 });
   await connect(page);
-  await click(page, `${catRow("REACTION")}.querySelector('[data-act="install"]')`);
+  await offer(page, "REACTION");
   await asking(page);
   await device(page, "holdButton2()");
   await page.waitFor(has("#donepanel"));
@@ -235,7 +244,7 @@ test("OPEN on the device after the install: a calm message, not 'Connection lost
 test("SYNC MORE on the device: the next install works; a lost connection later is 'Connection lost'", { skip: SKIP }, async (t) => {
   const page = await open(t, { appQuestionMs: 60000 });
   await connect(page);
-  await click(page, `${catRow("REACTION")}.querySelector('[data-act="install"]')`);
+  await offer(page, "REACTION");
   await asking(page);
   await device(page, "holdButton2()");
   await page.waitFor(has("#donepanel"));
@@ -243,7 +252,7 @@ test("SYNC MORE on the device: the next install works; a lost connection later i
   assert.equal(await device(page, "syncState"), 0);
   // The page sees it (STATUS): the device does not show APP INSTALLED any more
   await page.waitFor(`AppsTab.state.opened === null`);
-  await click(page, `${catRow("ROUND TIMER")}.querySelector('[data-act="install"]')`);
+  await offer(page, "ROUND TIMER");
   await asking(page);
   await device(page, "holdButton2()");
   await page.waitFor(row("ROUND TIMER"));
@@ -257,7 +266,7 @@ test("SYNC MORE on the device: the next install works; a lost connection later i
 test("the person says no on the device: 'Not installed', Try again works", { skip: SKIP }, async (t) => {
   const page = await open(t, { appQuestionMs: 60000 });
   await connect(page);
-  await click(page, `${catRow("ROUND TIMER")}.querySelector('[data-act="install"]')`);
+  await offer(page, "ROUND TIMER");
   await asking(page);
   await device(page, "holdButton1()");
   await page.waitFor(`${catRow("ROUND TIMER")}.querySelector(".res--err")`);
@@ -273,8 +282,8 @@ test("the person says no on the device: 'Not installed', Try again works", { ski
 test("no answer on the device in 30 s: 'Not installed'", { skip: SKIP }, async (t) => {
   const page = await open(t, {});
   await connect(page);
-  await click(page, `${catRow("REACTION")}.querySelector('[data-act="install"]')`);
-  await page.waitFor(`${catRow("REACTION")}.querySelector(".res--err")`, 30000);
+  await offer(page, "REACTION");
+  await page.waitFor(`${catRow("REACTION")} && ${catRow("REACTION")}.querySelector(".res--err")`, 30000);
   assert.ok((await device(page, "events")).includes("question timeout"));
   assert.deepEqual(await device(page, "appNames()"), ["KILLS", "KILLS + DEAD", "STATS"]);
 });
@@ -282,7 +291,7 @@ test("no answer on the device in 30 s: 'Not installed'", { skip: SKIP }, async (
 test("a lost answer during the transfer: the page sends again from the expected offset", { skip: SKIP }, async (t) => {
   const page = await open(t, { loseDataAnswerAt: 70, appQuestionMs: 60000 });
   await connect(page);
-  await click(page, `${catRow("HEADSHOT %")}.querySelector('[data-act="install"]')`);
+  await offer(page, "HEADSHOT %");
   await asking(page, 30000);
   await device(page, "holdButton2()");
   await page.waitFor(row("HEADSHOT %"));
@@ -294,12 +303,14 @@ test("a lost answer during the transfer: the page sends again from the expected 
   assert.equal(same, true);
 });
 
-test("an app that does not fit: 'Needs … free' in place of Install", { skip: SKIP }, async (t) => {
+test("an app that does not fit: the store gets 'Needs … free', nothing is sent", { skip: SKIP }, async (t) => {
   const big = (i) => ({ name: "BIG " + i, id: 0x10000 + i, size: 4096 });
   const page = await open(t, { extraApps: [1, 2, 3, 4, 5].map(big).concat([{ name: "MID", id: 0x20000, size: 3900 }]) });
   await connect(page);
-  assert.match(await page.evaluate(`${catRow("REACTION")}.querySelector(".need").textContent`), /^Needs 1\.2 KB· 0\.2 KB free$/);
-  assert.equal(await page.evaluate(`!!${catRow("REACTION")}.querySelector('[data-act="install"]')`), false);
+  assert.deepEqual(await page.evaluate(`AppsTab.api.roomFor(${storeItem("REACTION")})`), { text: "Needs 1.2 KB", small: "0.2 KB free" });
+  await offer(page, "REACTION");
+  assert.equal(await device(page, "appCommands.includes(0x0113)"), false, "BEGIN was sent");
+  assert.equal(await page.evaluate(`!!${catRow("REACTION")}`), false);
   assert.equal(await page.evaluate(`!!document.querySelector(".store--full")`), true);
 });
 
@@ -381,7 +392,7 @@ test("a file that is not an app, a damaged app, then a good app from a file", { 
 test("the connection is lost during an install: 'Connection lost', the tabs work again", { skip: SKIP }, async (t) => {
   const page = await open(t, {});
   await connect(page);
-  await click(page, `${catRow("REACTION")}.querySelector('[data-act="install"]')`);
+  await offer(page, "REACTION");
   await asking(page);
   await device(page, "holdButton2()");
   await page.waitFor(`window.__device.syncReceived > 200`, 20000);
@@ -396,7 +407,7 @@ test("the connection is lost during an install: 'Connection lost', the tabs work
 test("the device stops the transfer (hold button 1): 'The transfer stopped', Try again works", { skip: SKIP }, async (t) => {
   const page = await open(t, { appQuestionMs: 60000 });
   await connect(page);
-  await click(page, `${catRow("SLOTS")}.querySelector('[data-act="install"]')`);
+  await offer(page, "SLOTS");
   await asking(page);
   await device(page, "holdButton2()");
   await page.waitFor(`window.__device.syncReceived > 100`, 20000);
@@ -412,8 +423,8 @@ test("the device stops the transfer (hold button 1): 'The transfer stopped', Try
 test("a format 2 app on a firmware that reads format 1 only: 'Update the firmware first', nothing is sent", { skip: SKIP }, async (t) => {
   const page = await open(t, { appFormat: 1 });
   await connect(page);
-  await click(page, `${catRow("RUNNER")}.querySelector('[data-act="install"]')`);
-  await page.waitFor(`${catRow("RUNNER")}.querySelector(".res--err")`);
+  await offer(page, "RUNNER");
+  await page.waitFor(`${catRow("RUNNER")} && ${catRow("RUNNER")}.querySelector(".res--err")`);
   assert.match(await page.evaluate(`${catRow("RUNNER")}.textContent`), /Not installed.*Update the firmware first: this app needs a newer StatTrak firmware\./);
   assert.equal(await device(page, "appCommands.includes(0x0113)"), false, "BEGIN was sent");
   // A format 2 file

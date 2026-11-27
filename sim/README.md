@@ -145,7 +145,8 @@ image above).
   `simulator.html#app=<the package as base64url>`, and `&fresh` for a new device.
 - The panel "Apps" on the right: click an app of the catalog (`updater/apps/`, put into the page
   by the build; run `python tools/app.py catalog` first for the newest ones), or pick a `.stapp`
-  file. "Answer yes and open the app" on: the simulator holds RIGHT for the question and opens
+  file. The page of the web site has no catalog apps (`websim.build(panel_apps=False)`, CMake
+  `-DSIM_PANEL_APPS=OFF`): only the file field. "Answer yes and open the app" on: the simulator holds RIGHT for the question and opens
   the app. Off: the device asks "INSTALL <NAME>?" and you answer (hold RIGHT = yes, hold LEFT =
   no). After the install the device shows SYNC MORE (LEFT) and OPEN (RIGHT).
 - The install is the real firmware code; only the phone is simulated. The headless commands

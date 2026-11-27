@@ -27,7 +27,7 @@ This page is the specification. It is for AI coding tools and developers.
 | App sync | `main/views/app_sync_view.c` + setting "Apps: SYNC" | Bluetooth on for the app manager, firmware update refused, install question. |
 | Bluetooth commands | `main/ble_commands.c` | `0x0110` to `0x011C` (section 6); the data commands `0x0120` to `0x012A` are in [DATA.md](DATA.md). |
 | Compiler | `tools/app.py` | `.sts` source -> `.stapp` package, with the same check as the engine. |
-| Catalog | `apps/` -> `updater/apps/catalog.json` + `updater/apps/*.stapp` | The apps that the web updater offers. |
+| Catalog | `apps/` -> `updater/apps/catalog.json` + `updater/apps/*.stapp` | Test apps: for the tests and the local simulator. The web site does not offer them; users get apps from the app store or a file. |
 
 ## 2. Limits
 
@@ -677,7 +677,8 @@ and the built-in screen in the simulator (`python tools/sim.py ... png:...`).
    no install, it needs the internet). `--build` builds the page from the firmware code of this
    folder (Emscripten or Docker, about 1 minute the first time; `tools/websim.py`): use it when
    you changed the firmware.
-4. Put it into the catalog of the web updater: `python tools/app.py catalog` builds every
+4. Put it into the test catalog (tests and the local simulator, not the web site):
+   `python tools/app.py catalog` builds every
    `apps/*/*.sts` into `updater/apps/<name>.stapp` and writes `updater/apps/catalog.json`.
 5. Tests: `tests/test_app_tool.py` (`cd tests` then `python -m unittest test_app_tool`).
 6. Share it in the app store of the web page: [APP_STORE.md](APP_STORE.md). The store reads one

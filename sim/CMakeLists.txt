@@ -298,9 +298,14 @@ if(EMSCRIPTEN)
     file(COPY ${ROOT_DIR}/updater/assets/device.webp DESTINATION ${CMAKE_BINARY_DIR})
   endif()
 
-  # The apps of the web updater catalog (updater/apps/*.stapp) go into the page as hex text: the
-  # "Apps" panel installs them. Run "python tools/app.py catalog" first to have the newest ones.
-  file(GLOB SIM_APP_FILES CONFIGURE_DEPENDS ${ROOT_DIR}/updater/apps/*.stapp)
+  # The test apps (updater/apps/*.stapp) go into the page as hex text: the "Apps" panel installs
+  # them. Run "python tools/app.py catalog" first to have the newest ones. The web site builds the
+  # page with SIM_PANEL_APPS=OFF: its panel has only the file field (tools/websim.py).
+  option(SIM_PANEL_APPS "Put the test apps of updater/apps into the Apps panel of the page" ON)
+  set(SIM_APP_FILES "")
+  if(SIM_PANEL_APPS)
+    file(GLOB SIM_APP_FILES CONFIGURE_DEPENDS ${ROOT_DIR}/updater/apps/*.stapp)
+  endif()
   set(SIM_APPS_JS "")
   foreach(app_file ${SIM_APP_FILES})
     file(READ ${app_file} app_hex HEX)

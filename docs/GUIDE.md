@@ -75,8 +75,8 @@ More about the page: [updater/README.md](../updater/README.md).
 ## 3. Apps and App Sync
 
 Your StatTrak can run **apps**, like a watch. An app is a small file (up to 4 KB): a game, a
-timer, a different counter. You install it over Bluetooth from your browser, in the **My device**
-tab of the Web Updater. The firmware stays the same, so an app install takes a few seconds. The
+timer, a different counter. You install it over Bluetooth from your browser: from the
+**App store** of the web page, or from a file on the **My device** tab. The firmware stays the same, so an app install takes a few seconds. The
 firmware checks each app, and an app runs in a closed box: it cannot touch the firmware update,
 Bluetooth or the power.
 
@@ -92,9 +92,10 @@ Bluetooth or the power.
 
 1. **On the StatTrak:** Settings, then `Apps: SYNC`, hold the right button. The display shows
    `APP SYNC` and `WAITING`.
-2. **On the computer:** open <https://stattrak.tridos.design/#device> (the **My device** tab), click
+2. **On the computer:** open the App store, <https://stattrak.tridos.design/#store>. Click
    **Connect** and pick your StatTrak.
-3. Click **Install** next to an app.
+3. Click **Install** next to an app. An app file (`.stapp`) from somebody else: open the
+   **My device** tab and click **From file**.
 4. **Answer on the StatTrak.** It asks `INSTALL <NAME>?`. Hold the right button for yes, or the left button for
    no. The page sends the app only after your yes.
 
@@ -125,25 +126,14 @@ The bar at the top shows how much of the 24 KB for apps you use. `SETTINGS` is a
 app in the menu, so you can always get to the firmware update.
 
 <p align="center">
-  <img src="images/apps-list.png" alt="The My device tab: the apps on the device, with show / hide, arrows, settings and delete, and the apps to add" width="80%">
+  <img src="images/apps-list.png" alt="The My device tab: the apps on the device, with show / hide, arrows, settings and delete" width="80%">
 </p>
 
-### The apps you can install now
+### Where to find apps
 
-These are the official apps. The **App store** tab of the web page
-(<https://stattrak.tridos.design/#store>) also has the apps that other owners made.
-
-| App | What it does |
-| --- | --- |
-| **BATTERY LOG** | Logs the battery voltage each 1, 2 or 5 minutes until the battery is empty. Download the log on the My device tab. |
-| **CLIP MARKS** | For video: press 2 when the camera starts, 1 for each kill. Each kill gets a time mark that you download for your video editor. |
-| **HEADSHOT %** | Counts kills and headshots and shows the headshot percentage. |
-| **REACTION** | A reaction game: wait for GO, then press a button as fast as you can. |
-| **RESPAWN TIMER** | The wait at the respawn point in big digits. Flashes and chimes when you can go. As the background app it comes back on the screen when the time is up (firmware 2.0.0). |
-| **ROUND TIMER** | Times each round, and beeps at the end. |
-| **RUNNER** | An endless runner: jump over the cacti. The game gets faster. |
-| **SLOTS** | A slot machine. Three the same wins, with confetti and a song on the buzzer. |
-| **WALLPAPER** | Looks like the big KILLS counter, but shows your own number. |
+The **App store** of the web page (<https://stattrak.tridos.design/#store>) has the apps of
+TRIDOS and the apps that other owners made. Each app shows a picture, a short text and what it
+may do (for example "Uses sound"). My device shows only the apps on your StatTrak.
 
 ### Boot image, backup, app data, device log
 
@@ -155,7 +145,7 @@ part to open it.
   file* puts them back, on this StatTrak or on a new one. You pick the parts (for example only
   the settings, to copy them to a friend's StatTrak). The StatTrak asks "RESTORE BACKUP?" first.
   The app files are not in the backup: install the apps first, the page tells you which.
-- **App data.** Apps like BATTERY LOG and CLIP MARKS keep rows of numbers on the StatTrak
+- **App data.** Some apps keep rows of numbers on the StatTrak
   (4 KB for each app). *Download CSV* gives you a file for a spreadsheet or a video editor.
   *Delete data* asks on the StatTrak first.
 - **Boot image.** Choose a PNG or JPG: the StatTrak shows it for 2 seconds when you switch it

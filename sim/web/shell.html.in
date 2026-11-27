@@ -234,6 +234,13 @@
         buttons.push(button);
       });
 
+      // A page without test apps (the web site): only the file field
+      if (!APPS.length) {
+        list.hidden = true;
+        document.querySelector('#apps label.file').firstChild.textContent = 'App file (.stapp)';
+        status.textContent = 'Pick an app file. It is installed like with the web updater.';
+      }
+
       fileInput.addEventListener('change', function(event) {
         var file = event.target.files[0];
         event.target.blur();
