@@ -85,8 +85,9 @@ Rules for a command:
 ## When is Bluetooth on?
 
 Bluetooth uses battery power and it is a door into the device. The official firmware keeps it
-off, except in two views: the **update view** (Settings, `Firmware: UPDATE`) and the **accept
-view** (after an update). User commands work there too.
+off, except in three views: the **update view** (Settings, `Firmware: UPDATE`), the **accept
+view** (after an update) and the **app sync view** (Settings, `Apps: SYNC`). User commands work
+there too.
 
 A feature that needs Bluetooth at other times switches it on in a view of its own, with the
 soft radio start (see "Radio start" below):

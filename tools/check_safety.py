@@ -439,7 +439,15 @@ class Checker:
             if handle is None or re.search(r"case\s+BLE_COMMAND__APP_", handle):
                 self.fail("update-views", "main/ble_commands.c: the app commands are handled only in _handleApp().")
 
+    @staticmethod
+    def blank_strings(code):
+        """The same text with spaces in place of what is in "..." and '...': a name in a text is not a call."""
+        return re.sub(r'"(?:\\.|[^"\\\n])*"|\'(?:\\.|[^\'\\\n])*\'',
+                      lambda m: m.group(0)[0] + " " * (len(m.group(0)) - 2) + m.group(0)[-1], code)
+
     def check_radio_start(self):
+        # The check reads the text of one file. It does not follow a macro or a function pointer, and
+        # it does not know which view of a file calls BtStart_draw() and BtStart_cancel().
         calls = r"\b(%s)\s*\(" % "|".join(RADIO_START_FUNCTIONS)
         for relative in self.source_files():
             if not relative.startswith("main/"):
@@ -447,12 +455,12 @@ class Checker:
             text = self.read(relative)
             if text is None:
                 continue
-            code = self.strip_comments(text)
+            code = self.blank_strings(self.strip_comments(text))
             found = list(re.finditer(calls, code))
             if not found:
                 continue
             # The start functions: the second argument of each BtStart_begin(view, start)
-            names = re.findall(r"\bBtStart_begin\s*\([^,;()]+,\s*(\w+)\s*\)", code)
+            names = sorted(set(re.findall(r"\bBtStart_begin\s*\([^,;()]+,\s*(\w+)\s*\)", code)))
             spans = [span for span in (self.function_body(code, name) for name in names) if span]
             for call in found:
                 if not any(start <= call.start() < end for start, end in spans):
@@ -460,6 +468,14 @@ class Checker:
                               "A view starts Bluetooth with BtStart_begin(VIEW_ID__..., start), and `start` calls "
                               "%s() (docs/BLUETOOTH.md, 'Radio start')."
                               % (relative, call.group(1), call.group(1)))
+            # Only BtStart calls a start function. A direct call starts the radio with the full screen lit.
+            for name in names:
+                for use in re.finditer(r"\b%s\s*\(" % re.escape(name), code):
+                    before = re.search(r"(\w+|\*)\s*$", code[:use.start()])
+                    if before and before.group(1) not in ("return", "else", "do"):
+                        continue    # The definition or a prototype: a type is in front of the name
+                    self.fail("radio-start", "%s: the start function %s() is called directly. Only BtStart calls "
+                              "it, when the display shows only the Bluetooth sign." % (relative, name))
             for name, where in (("BtStart_draw", "draw"), ("BtStart_cancel", "deinit")):
                 if not re.search(r"\b%s\s*\(" % name, code):
                     self.fail("radio-start", "%s starts Bluetooth, but its %s function does not call %s() "

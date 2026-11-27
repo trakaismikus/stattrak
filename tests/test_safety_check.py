@@ -235,6 +235,17 @@ class SafetyCheckTest(unittest.TestCase):
         self.edit("main/views/update_view.c", "  BtStart_begin(VIEW_ID__UPDATE, _startBluetooth);", "  Ota_init();")
         self.assert_fails("radio-start")
 
+    def test_start_function_called_directly(self):
+        self.edit("main/views/update_view.c", "  BtStart_begin(VIEW_ID__UPDATE, _startBluetooth);",
+                  "  _startBluetooth();\n  BtStart_begin(VIEW_ID__UPDATE, _startBluetooth);")
+        self.assert_fails("radio-start")
+
+    def test_radio_start_name_in_a_text_is_not_a_call(self):
+        self.append("main/views/stats_view.c",
+                    self.USER_VIEW + 'void MyView_log(void) { printf("Ota_init() comes later"); }\n')
+        code, output = self.check()
+        self.assertEqual(code, 0, output)
+
     def test_flash_value_renamed(self):
         self.edit("main/app.h", "ENTRY(TOTAL_KILLS,   total_kills,", "ENTRY(TOTAL_KILLS,   kills,")
         self.assert_fails("nvs-keys")
