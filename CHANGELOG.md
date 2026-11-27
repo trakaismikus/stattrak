@@ -35,9 +35,10 @@ The first big update since 1.0.1. Your kills, deaths and settings stay after the
 
 ### Your data
 
-- **Backup and restore.** Save your stats, settings, apps and start picture in one file on your
-  computer. Put them back on the same StatTrak or on a new one. The StatTrak asks
-  `RESTORE BACKUP?` first.
+- **Backup and restore.** Save your stats, settings, app menu, app settings and saved values,
+  and start picture in one file on your computer. Put them back on the same StatTrak or on a
+  new one. The apps themselves are not in the file: install them first, the page tells you
+  which. The StatTrak asks `RESTORE BACKUP?` first.
 - **Download the data of an app**, for example the battery log or the clip marks, as a file for
   a spreadsheet.
 
