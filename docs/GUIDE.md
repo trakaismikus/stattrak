@@ -119,7 +119,7 @@ The My device tab shows all apps on your StatTrak, in the order of the app menu.
   the right button on the app,
 - delete an app (the bin). The built-in apps stay.
 - give your StatTrak its own Bluetooth name, so you find it fast when there are more StatTraks
-  (for example `StatTrak | RED 7`). It changes the next time you open `Apps: SYNC`.
+  (for example `StatTrak | SSG10`). It changes the next time you open `Apps: SYNC`.
 
 The bar at the top shows how much of the 24 KB for apps you use. `SETTINGS` is always the last
 app in the menu, so you can always get to the firmware update.

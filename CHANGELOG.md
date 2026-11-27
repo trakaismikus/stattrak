@@ -14,9 +14,14 @@ The first big update since 1.0.1. Your kills, deaths and settings stay after the
   before each app.
 - **An app store.** Apps from TRIDOS and from other owners. One click to install. Sort,
   hide and delete your apps. You can also hide the built-in screens that you do not use.
-- **Apps to start with:** RESPAWN TIMER (the wait at the respawn point in big digits, with a
-  chime when you can go), HEADSHOT %, ROUND TIMER, REACTION, RUNNER, SLOTS, CLIP MARKS (time
-  marks of your kills for your video), BATTERY LOG and WALLPAPER.
+- **9 apps from TRIDOS, ready to install** on the My device tab:
+  - RESPAWN TIMER: the wait at the respawn point in big digits, with a chime when you can go.
+  - HEADSHOT %: counts your kills and headshots, and shows your headshot percentage.
+  - ROUND TIMER: times each round, and beeps at the end.
+  - CLIP MARKS: marks the time of each kill, so you find them fast in your video.
+  - BATTERY LOG: records the battery level until the battery is empty.
+  - WALLPAPER: looks like the big kill counter, but shows your own number.
+  - REACTION, RUNNER and SLOTS: small games for the break.
 - **One app can run in the background.** It counts while you look at an other screen, and it
   comes on the screen by itself when it must tell you something, for example when the respawn
   time is up. Settings > `Background`.
@@ -31,7 +36,7 @@ The first big update since 1.0.1. Your kills, deaths and settings stay after the
 - **The Settings list goes round.** Up from the first row goes to the last row, and down from
   the last row goes to the first row.
 - **Your own start picture** when the StatTrak switches on (none by default).
-- **Your own Bluetooth name**, for example `StatTrak | RED 7`.
+- **Your own Bluetooth name**, for example `StatTrak | SSG10`.
 
 ### Your data
 
