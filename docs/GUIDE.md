@@ -101,7 +101,7 @@ Bluetooth or the power.
 
 <table>
   <tr>
-    <td width="50%"><img src="images/apps-ask.png" alt="The page shows the question on the device: INSTALL REACTION?"></td>
+    <td width="50%"><img src="images/apps-ask.png" alt="The page shows the question on the device: INSTALL SLOTS?"></td>
     <td width="50%"><img src="images/apps-done.png" alt="Installed: SYNC MORE or OPEN on the device"></td>
   </tr>
   <tr>

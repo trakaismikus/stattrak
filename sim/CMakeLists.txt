@@ -316,7 +316,8 @@ if(EMSCRIPTEN)
 
   configure_file(${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html.in ${CMAKE_BINARY_DIR}/shell.html)
 
-  set_target_properties(simulator PROPERTIES SUFFIX ".html")
+  # A new shell.html (other apps, SIM_PANEL_APPS ON -> OFF) must link the page again
+  set_target_properties(simulator PROPERTIES SUFFIX ".html" LINK_DEPENDS ${CMAKE_BINARY_DIR}/shell.html)
 
   target_compile_options(simulator PRIVATE -sUSE_SDL=2)
 
