@@ -1,3 +1,12 @@
+> [!IMPORTANT]
+> **This is the branch `feat/titan-app`, an experiment. It will never be part of the official
+> firmware.** It adds TITAN: a built-in app that connects the StatTrak to a GATE TITAN II
+> Bluetooth trigger unit and shows the rounds left, the fire mode and the gun battery. It was
+> tested in the simulator only. Read [docs/TITAN.md](docs/TITAN.md) first. The official firmware
+> is on the branch [`main`](https://github.com/trakaismikus/stattrak/tree/main) and in the
+> [releases](https://github.com/trakaismikus/stattrak/releases). Use this branch only if you
+> know how to go back to the official firmware (hold both buttons for 10 seconds at power-on).
+
 <p align="center">
   <img src="docs/images/title.jpg" alt="StatTrak open firmware: your device, your rules" width="100%">
 </p>
