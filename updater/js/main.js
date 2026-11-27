@@ -334,11 +334,13 @@ function renderStep2() {
       .join("");
   }
 
-  // file card (lives outside the tab panes so it stays visible after
-  // the user swaps tabs to download another release)
-  $("dropzone").hidden = !!state.uploadedFile;
-  $("fileCard").hidden = !state.uploadedFile;
-  if (state.uploadedFile) {
+  // The file card is only for a file from the disk (Upload .bin). An official release
+  // shows as "Selected" in its own row, so a second card for it says the same thing twice.
+  // The card lives outside the tab panes: a file from the disk stays in view on both tabs.
+  const ownFile = state.uploadedFile && !state.uploadedFile.release ? state.uploadedFile : null;
+  $("dropzone").hidden = !!ownFile;
+  $("fileCard").hidden = !ownFile;
+  if (ownFile) {
     $("fileCardName").textContent = state.uploadedFile.name;
     const official = officialStatus();
     let officialText = "";
