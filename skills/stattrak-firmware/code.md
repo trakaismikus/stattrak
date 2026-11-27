@@ -153,11 +153,18 @@ get answers. Read `docs/BLUETOOTH.md` before you use it. The short version:
 - Add commands in `main/ble_commands.c` only. The command numbers start at `0x0100`.
   The code runs in the main loop, like a view. Do not change `components/ble_ota/` for a feature.
 - A command has 16 data bytes at most. An answer has a status byte and 13 data bytes at most.
-- Bluetooth is on only in the update view and the accept view. A view of your own can switch
-  it on with `Ota_init()` in its `init` and `Ota_deinit()` in its `deinit`. Call
-  `Ota_setUpdateAllowed(false)` after `Ota_init()` there, so nobody near the user can send
-  a firmware while the user plays. Bluetooth uses battery power: keep it off when the feature
-  does not need it.
+- Bluetooth is on only in the update view, the accept view and "Apps: SYNC". A view of your own
+  can switch it on, but **only with the soft radio start** (`main/views/bt_start.h`): call
+  `BtStart_begin(VIEW_ID__MY_VIEW, _startBluetooth)` in its `init`, `BtStart_draw()` in its `draw`,
+  and `BtStart_cancel()` and `Ota_deinit()` in its `deinit`. Call `Ota_init()` only in the start
+  function `_startBluetooth`. `docs/BLUETOOTH.md` ("When is Bluetooth on?") has the code to copy.
+  Why: the radio start and a bright display together pull too much current. On a weak unit the
+  device switched off. The soft start shows only a small Bluetooth sign while the radio starts.
+  `python tools/check_safety.py` (rule `radio-start`) fails when a view starts Bluetooth an
+  other way.
+- Call `Ota_setUpdateAllowed(false)` after `Ota_init()` in the start function of your view, so
+  nobody near the user can send a firmware while the user plays. Bluetooth uses battery power:
+  keep it off when the feature does not need it.
 - Test each command in the simulator: `tests/test_bluetooth.py` and `python tools/sim.py ... ble:0100`.
 - The app manager of the web updater uses the commands `0x0110` to `0x011C` (`docs/APPS.md`,
   section 6). They work only in the view Settings > "Apps: SYNC". Do not use these numbers.

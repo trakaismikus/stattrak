@@ -107,6 +107,10 @@ FORBIDDEN_FUNCTIONS = [
 # nvs_flash_erase() removes all stored values. Only these files can call it.
 NVS_ERASE_FILES = ["main/main.c", "main/eeprom.c"]
 
+# Functions that start the Bluetooth radio. In main/ they are called only in the start function that a
+# view gives to BtStart_begin() (main/views/bt_start.h): the display shows only the Bluetooth sign then.
+RADIO_START_FUNCTIONS = ["Ota_init", "AppBle_init"]
+
 RULES = [
     ("partition-table",
      "partitions.csv must not change.",
@@ -148,6 +152,12 @@ RULES = [
      "in code, never from flash.",
      "Without Bluetooth in these views the phone cannot send or accept firmware. Ota_setUpdateAllowed(false) "
      "is for views of user features only: in the update path it makes the device refuse each new firmware."),
+    ("radio-start",
+     "In main/, Bluetooth starts only with the soft radio start: Ota_init() is called only in the start "
+     "function that a view gives to BtStart_begin(), and that view uses BtStart_draw() and BtStart_cancel().",
+     "The radio start pulls a current peak. Together with a bright display it pulled the supply below the "
+     "brown-out level on a weak unit: the chip restarted and the device switched off (6 of 10 starts). "
+     "BtStart shows only a small Bluetooth sign while the radio starts (docs/BLUETOOTH.md, 'Radio start')."),
     ("nvs-keys",
      "The released flash value names must stay, and each name has 15 characters at most.",
      "A renamed value is lost for users (counters go to zero). A name that is too long is never stored."),
@@ -429,6 +439,32 @@ class Checker:
             if handle is None or re.search(r"case\s+BLE_COMMAND__APP_", handle):
                 self.fail("update-views", "main/ble_commands.c: the app commands are handled only in _handleApp().")
 
+    def check_radio_start(self):
+        calls = r"\b(%s)\s*\(" % "|".join(RADIO_START_FUNCTIONS)
+        for relative in self.source_files():
+            if not relative.startswith("main/"):
+                continue
+            text = self.read(relative)
+            if text is None:
+                continue
+            code = self.strip_comments(text)
+            found = list(re.finditer(calls, code))
+            if not found:
+                continue
+            # The start functions: the second argument of each BtStart_begin(view, start)
+            names = re.findall(r"\bBtStart_begin\s*\([^,;()]+,\s*(\w+)\s*\)", code)
+            spans = [span for span in (self.function_body(code, name) for name in names) if span]
+            for call in found:
+                if not any(start <= call.start() < end for start, end in spans):
+                    self.fail("radio-start", "%s: %s() is called outside the start function of BtStart_begin(). "
+                              "A view starts Bluetooth with BtStart_begin(VIEW_ID__..., start), and `start` calls "
+                              "%s() (docs/BLUETOOTH.md, 'Radio start')."
+                              % (relative, call.group(1), call.group(1)))
+            for name, where in (("BtStart_draw", "draw"), ("BtStart_cancel", "deinit")):
+                if not re.search(r"\b%s\s*\(" % name, code):
+                    self.fail("radio-start", "%s starts Bluetooth, but its %s function does not call %s() "
+                              "(docs/BLUETOOTH.md, 'Radio start')." % (relative, where, name))
+
     def body_text(self, code, name):
         """The text between the braces of the C function `name`, or None."""
         span = self.function_body(code, name)
@@ -591,6 +627,7 @@ class Checker:
         self.check_function_use()
         self.check_start_sequence()
         self.check_update_views()
+        self.check_radio_start()
         self.check_nvs_keys()
         self.check_setting_values()
         self.check_bluetooth_identity()

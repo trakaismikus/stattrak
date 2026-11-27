@@ -175,6 +175,7 @@ the update mode and the start sequence.
 | Remove `Ota_init()` from `update_view.c` or `fw_accept_view.c`, or remove the setting "Firmware: UPDATE" | Without Bluetooth in these views the web updater cannot send or accept firmware. |
 | Call `Ota_setUpdateAllowed(false)` in the update view, the accept view, `main.c` or `app.c` | The device then refuses each new firmware. |
 | Change the Bluetooth name `StatTrak`, the service numbers `0x8018`, `0x8020` to `0x8023`, or the update commands and packets | The web updater finds the device and talks to it with them. |
+| Start Bluetooth (`Ota_init()`) outside the soft radio start: the start function that a view gives to `BtStart_begin()` (`docs/BLUETOOTH.md`, "Radio start") | The radio start and a bright display together pull too much current. On a weak unit the device switched off in 6 of 10 starts. The soft start shows only a small Bluetooth sign while the radio starts. |
 | Switch the device off for a low battery while firmware is received | A device that reads a wrong battery level could never get a new firmware. |
 | Rename, reuse or change the meaning of a flash value in `ENTRY_LIST` (`main/app.h`) | Users lose their counters, or an other firmware version reads a wrong value. |
 | Block the main loop: `while(1)` or a long delay without `vTaskDelay()`, slow code in a `draw` function | Buttons, the display and the update mode stop. The user cannot switch off. |

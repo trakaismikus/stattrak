@@ -150,7 +150,10 @@ So the update view, the accept view and the app sync start the radio softly
 
 `tests/test_radio_start.py` checks that at most 150 pixels are lit from the radio start to
 0.4 s after it, for each of the three views and for the 10 s hold. Use the same start in each
-new view that switches Bluetooth on.
+new view that switches Bluetooth on. `python tools/check_safety.py` (rule `radio-start`) fails
+when code in `main/` calls `Ota_init()` outside the start function of `BtStart_begin()`, or when
+that view does not call `BtStart_draw()` and `BtStart_cancel()`. Add your view to
+`tests/test_radio_start.py` too: only that test counts the lit pixels.
 
 ## The other side: a web page or an app
 

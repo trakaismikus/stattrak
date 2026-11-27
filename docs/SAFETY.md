@@ -94,6 +94,9 @@ In short:
     view and the accept view must always take new firmware (`docs/BLUETOOTH.md`).
 15. Add a new value of a setting at the end of its list, never in the middle. The device
     stores the position.
+16. Start Bluetooth only with the soft radio start (`BtStart_begin()`, `main/views/bt_start.h`).
+    The radio start and a bright display together switched a weak unit off
+    (`docs/BLUETOOTH.md`, "Radio start").
 
 ### Risk of each part of the code
 
