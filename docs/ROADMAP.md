@@ -14,8 +14,8 @@ simulator cannot test.
 
 1. **Try the device version question on real devices (A4).** Update from 1.0.1, from "1.0.1
    with RCR123A" and from 1.2.0-b4; answer DIY and PEQ; factory reset; the repair with a hold on
-   Settings > Version; the update mode after each of them. Must be done before the next
-   official release.
+   Settings > Version; the update mode after each of them. Firmware 2.0.0 has this code
+   (released 2026-11-27).
 2. **Rescue from a firmware that crashes at each start (A3).** Count the starts in flash.
    After 3 starts that did not reach 10 seconds of normal operation, open the update view
    directly, before the normal views start. Option: go back to the other firmware slot.
@@ -26,25 +26,19 @@ simulator cannot test.
    user commands, the web updater (`updater/`) and the firmware build with the setup tool on
    Windows and macOS were not run on hardware. The test lists are in the pull request.
 
-### Before this repository becomes public
+### Open after the public release (2026-11-27)
 
-This repository (`trakaismikus/stattrak`) is private until these are done:
-
-1. The test on real devices (item 4 above), and the pull request with this work is merged.
-2. The public address of the web updater works: the DNS record for
-   `stattrak.tridos.design`.
-3. The official firmware files are in the "Releases" of this repository. Then change
-   `GH_OWNER` and `GH_REPO` in `updater/js/main.js` from `janiszah/stattrak-fw` to this
-   repository, and put a note into
-   the old release repository.
-4. Check the firmware fonts and the picture (AUDIT, section D), and the use of the name
+1. The tests on real devices (items 1 and 4 above).
+2. A note in the old release repository `janiszah/stattrak-fw`: the official releases are
+   here now. Only its owner can write it.
+3. Check the firmware fonts and the picture (AUDIT, section D), and the use of the name
    "StatTrak".
-5. Say in `docs/SAFETY.md` if a wired rescue is possible for users.
+4. Say in `docs/SAFETY.md` if a wired rescue is possible for users.
+5. A contact for security reports (CONTRIBUTING.md): switch on "Private vulnerability
+   reporting" in the GitHub settings of this repository.
 
 ## Backlog
 
-- First official release with the fixes of this audit, so that devices in use get the
-  check of flash values (A1).
 - Ask for a confirmation on the device (button press) before a firmware transfer starts (C3).
 - Clear the ring buffer when a firmware transfer starts (B8).
 - A Bluetooth command "get state" (is a new firmware waiting for the accept?), so the web
@@ -61,6 +55,16 @@ This repository (`trakaismikus/stattrak`) is private until these are done:
   not pick two files by hand. It needs a sign-in key of the store for a maker.
 
 ## Shipped
+
+- **2026-11-27: firmware 2.0.0, the first public release, and this repository is public.**
+  Version 2.0.0 is the code of 1.2.1-b1 (the betas 1.2.0-b1 to 1.2.1-b1 are hidden now). What
+  is new for the user, compared to 1.0.1: [CHANGELOG.md](../CHANGELOG.md). The official
+  firmware files are in the Releases of this repository: 2.0.0, and a copy of "1.0.1 with
+  RCR123A" (the file of `janiszah/stattrak-fw`) for a way back. The web updater lists the
+  releases of this repository (`GH_OWNER` / `GH_REPO` in `updater/js/main.js`, `REPO` in
+  `updater/api/firmware.js`). Not done yet: the device tests of "Next up", the font and name
+  check (AUDIT, section D), the wired rescue note in docs/SAFETY.md, and a note in the old
+  release repository `janiszah/stattrak-fw` (only its owner can write it).
 
 - **2026-11-27: the start with an AI tool is simpler and faster.** The text to paste into an AI
   coding tool is the first thing in the README and on the Get started page. It is the same text

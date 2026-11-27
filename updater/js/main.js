@@ -4,8 +4,8 @@
  * 3-step DOM from a single state object + render().
  */
 
-const GH_OWNER = "janiszah";
-const GH_REPO  = "stattrak-fw";
+const GH_OWNER = "trakaismikus";
+const GH_REPO  = "stattrak";
 
 // --- State ------------------------------------------------------------
 const state = {

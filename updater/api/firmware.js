@@ -8,7 +8,7 @@
 // digest of the release). From a disk or a server without functions the page shows the manual way.
 export const config = { runtime: 'edge' };
 
-export const REPO = 'janiszah/stattrak-fw';
+export const REPO = 'trakaismikus/stattrak';
 const MAX = 1024 * 1024;   // as FirmwareFile.MAX_SIZE
 const NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
 
