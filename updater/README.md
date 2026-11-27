@@ -75,9 +75,11 @@ its display for each confirmation command, also when no new firmware waits.
 clicks **Connect**. Then the page shows the apps of the device in menu order (SETTINGS is always
 last) and the storage of the 24 KB for apps. The person can show or hide an app, move it (drag,
 arrows, or the arrow keys on the handle), change its settings, and delete it (the page asks in the
-row, not in a browser dialog). Under "Add apps" are the apps of `apps/catalog.json` (made by
-`python tools/app.py catalog`; do not change these files by hand) and **From file** for a
-`.stapp` file.
+row, not in a browser dialog). "Add apps" has only **From file** for a `.stapp` file: My device
+lists no apps to add. Apps come from the app store of the web site (an added script,
+`AppsTab.api.addCatalog`) or from a file. The apps of `apps/catalog.json` (made by
+`python tools/app.py catalog`; do not change these files by hand) are test apps for the tests
+and the local simulator: the page does not offer them.
 
 An install goes in this order (`docs/APPS.md` section 6):
 
@@ -122,10 +124,10 @@ that filter gets the name start filter "StatTrak" only. The firmware tab looks f
   that needs a newer app engine or package format than the device has (INFO) is not sent: "Update
   the firmware first". The device does the full check.
 - The device has no command for the title picture or the setting names of an installed app. The
-  page knows them for catalog apps and for a file installed in this page session; other apps show
+  page knows them for the apps of an added script and for a file installed in this page session; other apps show
   their name as the picture, and their settings are changed on the device.
-- **Update available.** An installed app that is older than the same app in the catalog (or in
-  the apps of an added script, below) shows "Update available (v1 → v2)" and an **Update**
+- **Update available.** An installed app that is older than the same app in the apps of an
+  added script (the app store, below) shows "Update available (v1 → v2)" and an **Update**
   button. The update is a normal install of the new package (the device asks first).
 
 ## The StatTrak button (header)
@@ -253,7 +255,7 @@ or an install runs, all buttons are locked.
 | `assets/device.webp` | The device: a render of the 3D model, made by `../tools/device_art/` (also the picture of the web simulator) |
 | `assets/sync-path.js` | The display of the firmware of this repository on the way to "Apps: SYNC", from the headless simulator (`../tools/device_art/make_sync_path.py`). The My device tab plays it before Connect |
 | `assets/update-path-1.0.1.js` | The display of firmware 1.0.1 on the way to the update mode, from the 1.0.1 simulator (`../tools/device_art/fw101/make_update_path.py`). Most devices that come to the page have 1.0.1 |
-| `apps/` | The app catalog: made by `python tools/app.py catalog`, not by hand |
+| `apps/` | The test apps (tests, local simulator; the page does not offer them): made by `python tools/app.py catalog`, not by hand |
 | `tests/fake-device.js` | A stand-in for the device and for Web Bluetooth. Its packet code is a port of the firmware code in `../components/ble_ota/`; its app commands are a port of `../main/ble_commands.c`, `../main/apps.c` and `../main/views/app_sync_view.c` (with the buttons of "Apps: SYNC"); its device chooser uses the filters (name, service UUID); with `data: true` it has the commands and the transfers of `../docs/DATA.md` (test hooks for app data, the device log, the start picture, the flash values) |
 | `tests/ble.test.js` | Tests of `js/ble.js` and `js/firmware.js` in Node.js |
 | `tests/page.test.js` | Tests of the full page in a headless Chrome. They click the buttons as a user does |

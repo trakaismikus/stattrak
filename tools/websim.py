@@ -48,8 +48,24 @@ def _newest_source():
     return newest
 
 
-def is_up_to_date():
-    return os.path.isfile(PAGE) and os.path.getmtime(PAGE) >= _newest_source()
+def _panel_file():
+    """The file that says if the page has the test apps in its Apps panel ("on" / "off")"""
+    return os.path.join(BUILD_DIR, "panel-apps.txt")
+
+
+def is_up_to_date(panel_apps=None):
+    """Is build-web/simulator.html newer than its sources? panel_apps True / False: and was it
+    built with / without the test apps in the Apps panel (None: either one)"""
+    if not (os.path.isfile(PAGE) and os.path.getmtime(PAGE) >= _newest_source()):
+        return False
+    if panel_apps is None:
+        return True
+    try:
+        with open(_panel_file(), "r", encoding="utf-8") as handle:
+            built = handle.read().strip()
+    except OSError:
+        built = "on"   # a page of an older build: it has the test apps
+    return built == ("on" if panel_apps else "off")
 
 
 def _wsl_path(path):
@@ -84,7 +100,9 @@ def _cache_source():
     return None
 
 
-def build(log=print):
+def build(log=print, panel_apps=True):
+    """Build build-web/simulator.html. panel_apps False: the Apps panel has no test apps (the
+    page of the web site shows only the apps of the store; a person can still pick a file)"""
     found = _builder()
     if found is None:
         raise WebSimError(
@@ -101,13 +119,16 @@ def build(log=print):
     if earlier is not None and norm(earlier) != norm(source + "/sim"):
         shutil.rmtree(BUILD_DIR, ignore_errors=True)
     os.makedirs(BUILD_DIR, exist_ok=True)
-    line = ("emcmake cmake -S sim -B build-web -DSINGLE_FILE=1 -DSTATTRAK_TESTS=OFF > build-web/build.log 2>&1"
-            " && cmake --build build-web >> build-web/build.log 2>&1")
+    line = ("emcmake cmake -S sim -B build-web -DSINGLE_FILE=1 -DSTATTRAK_TESTS=OFF -DSIM_PANEL_APPS=%s"
+            " > build-web/build.log 2>&1 && cmake --build build-web >> build-web/build.log 2>&1"
+            % ("ON" if panel_apps else "OFF"))
     log("Building the web simulator with %s (about 1 minute; the log is build-web/build.log)..." % name)
     result = subprocess.run(command(line), cwd=ROOT)
     if result.returncode != 0 or not os.path.isfile(PAGE):
         raise WebSimError("The build of the web simulator failed. See the lines above and build-web/build.log.")
     os.utime(PAGE, None)   # newer than the sources now, also when the build changed nothing
+    with open(_panel_file(), "w", encoding="utf-8") as handle:
+        handle.write("on\n" if panel_apps else "off\n")
     log("Built %s" % PAGE)
 
 

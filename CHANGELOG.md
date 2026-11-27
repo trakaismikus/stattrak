@@ -9,14 +9,16 @@ The first big update since 1.0.1. Your kills, deaths and settings stay after the
 ### Apps
 
 - **Your StatTrak can have apps now.** Games, timers, counters and tools. Install them in a few
-  seconds from the web page: [stattrak.tridos.design](https://stattrak.tridos.design), tab
-  **My device**. On the StatTrak: Settings, then `Apps: SYNC`. The StatTrak asks `INSTALL?`
-  before each app.
-- **An app store.** Apps from TRIDOS and from other owners. One click to install. Sort,
-  hide and delete your apps. You can also hide the built-in screens that you do not use.
-- **Apps to start with:** RESPAWN TIMER (the wait at the respawn point in big digits, with a
-  chime when you can go), HEADSHOT %, ROUND TIMER, REACTION, RUNNER, SLOTS, CLIP MARKS (time
-  marks of your kills for your video), BATTERY LOG and WALLPAPER.
+  seconds from the **App store** of the web page:
+  [stattrak.tridos.design](https://stattrak.tridos.design/#store). On the StatTrak: Settings,
+  then `Apps: SYNC`. The StatTrak asks `INSTALL?` before each app.
+- **The app store** has apps from TRIDOS and from other owners. For example:
+  - RESPAWN TIMER: the wait at the respawn point in big digits, with a chime when you can go.
+  - RUNNER: a game. Jump over the cacti. It gets faster.
+  - SLOTS: a slot machine. Three the same wins.
+- **Your apps on the My device tab.** Sort, hide and delete your apps. You can also hide the
+  built-in screens that you do not use. Have an app file (`.stapp`)? Install it with
+  **From file**.
 - **One app can run in the background.** It counts while you look at an other screen, and it
   comes on the screen by itself when it must tell you something, for example when the respawn
   time is up. Settings > `Background`.
@@ -31,7 +33,7 @@ The first big update since 1.0.1. Your kills, deaths and settings stay after the
 - **The Settings list goes round.** Up from the first row goes to the last row, and down from
   the last row goes to the first row.
 - **Your own start picture** when the StatTrak switches on (none by default).
-- **Your own Bluetooth name**, for example `StatTrak | RED 7`.
+- **Your own Bluetooth name**, for example `StatTrak | SSG10`.
 
 ### Your data
 
@@ -39,8 +41,7 @@ The first big update since 1.0.1. Your kills, deaths and settings stay after the
   and start picture in one file on your computer. Put them back on the same StatTrak or on a
   new one. The apps themselves are not in the file: install them first, the page tells you
   which. The StatTrak asks `RESTORE BACKUP?` first.
-- **Download the data of an app**, for example the battery log or the clip marks, as a file for
-  a spreadsheet.
+- **Download the data that an app keeps** (for example a log), as a file for a spreadsheet.
 
 ### Battery
 

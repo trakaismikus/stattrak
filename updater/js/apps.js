@@ -12,7 +12,6 @@
  */
 
 const AppsTab = (() => {
-  const catalogUrl = () => SiteUI.base() + "apps/catalog.json";
   const MAX_BYTES = 24 * 1024;          // all installed packages together (docs/APPS.md section 2)
   const PERMISSION_TEXT = { sound: "Uses sound", counters: "Changes your kill counts",
                             data: "Keeps data on the device", awake: "Keeps the device on while open",
@@ -32,7 +31,7 @@ const AppsTab = (() => {
     del: null,              // id of the app with the delete question
     hint: null,             // id of the app that shows "One app must stay shown."
     inst: null,             // { key, phase: start | ask | transfer, pct }
-    err: null,              // { key, text } under a catalog row
+    err: null,              // { key, text } under the row of the app that did not install
     fileErr: null,          // text of the file error
     fileItem: null,         // an app from a file, shown under "Add apps"
     fresh: null,            // id of the app that was just installed
@@ -41,9 +40,8 @@ const AppsTab = (() => {
     nameDraft: "",          // the text in the name field
     nameMsg: null,          // { kind: ok | err, text } under the name field
     nameOpen: false,        // the popup "Bluetooth name" is open
-    catalog: null,          // [item]
     extra: {},              // source -> [item]: apps that an added script knows (AppsTab.api.addCatalog)
-    known: {},              // idHex -> { picture, settings } of catalog and file apps
+    known: {},              // idHex -> { picture, settings } of the apps of added scripts (the store)
     serial: "",             // the device id, 12 hex digits (Settings > Serial on StatTrak)
   };
   const tabs = new Map();   // name -> { tab, view, onShow } of the added tabs (AppsTab.api.addTab)
@@ -108,8 +106,9 @@ const AppsTab = (() => {
     return known && known.settings && known.settings.length === app.settingCount && app.settingCount > 0 ? known.settings : null;
   }
 
-  /* All apps that the page can install: the catalog, then the apps of added scripts */
-  const allItems = () => (A.catalog || []).concat(...Object.values(A.extra));
+  /* All apps that the page can install: only the apps of added scripts (the app store).
+     The apps in updater/apps/ are for tests and the local simulator: the page never offers them. */
+  const allItems = () => [].concat(...Object.values(A.extra));
   /* The newest item with the id of this installed app, when it is newer */
   function updateFor(app) {
     if (app.builtin) return null;
@@ -127,27 +126,6 @@ const AppsTab = (() => {
     if (!old && A.info && A.info.count >= A.info.maxApps) return { text: `${A.info.maxApps} of ${A.info.maxApps} apps` };
     if (item.size > free() + (old ? old.size : 0)) return { text: "Needs " + kb(item.size), small: kb(free()) + " free" };
     return null;
-  }
-
-  async function loadCatalog() {
-    if (A.catalog) return;
-    A.catalog = [];
-    try {
-      const response = await fetch(catalogUrl(), { cache: "no-cache" });
-      const catalog = await response.json();
-      if (!catalog || catalog.format !== "stattrak-apps" || !Array.isArray(catalog.apps)) throw new Error("not a catalog");
-      A.catalog = catalog.apps
-        .filter((a) => /^[0-9a-f]{8}$/.test(a.id) && typeof a.name === "string" && typeof a.file === "string" && /^[\w.-]+\.stapp$/.test(a.file))
-        .map((a) => ({
-          key: a.id, id: parseInt(a.id, 16), name: a.name, desc: a.description || "", size: a.size,
-          version: a.version, permissions: a.permissions || [], picture: a.picture, settings: a.settings || [],
-          file: SiteUI.base() + "apps/" + a.file,
-        }));
-      for (const item of A.catalog) A.known[item.key] = { picture: item.picture, settings: item.settings };
-    } catch (error) {
-      log("no app catalog: " + error.message, "warn");
-    }
-    render();
   }
 
   /* ---- views --------------------------------------------------------------------------- */
@@ -270,14 +248,17 @@ const AppsTab = (() => {
     let h = vStatus() + SyncParts.view();
     h += `<section><div class="sec-head"><h2 class="h2">On your StatTrak</h2></div><div class="list${busy() ? " list--busy" : ""}" id="appsList">` +
       A.list.map((app, i) => vRow(app, i, last)).join("") + vSettingsRow() + "</div></section>";
-    const working = allItems().filter((i) => !(A.catalog || []).includes(i) && ((A.inst && A.inst.key === i.key) || (A.err && A.err.key === i.key)));
-    const items = (A.catalog || []).concat(working, A.fileItem ? [A.fileItem] : []);
+    // Only the app that installs now (from the app store or a file): My device lists no apps to add
+    const working = allItems().filter((i) => (A.inst && A.inst.key === i.key) || (A.err && A.err.key === i.key));
+    const items = working.concat(A.fileItem ? [A.fileItem] : []);
     h += `<section><div class="sec-head"><h2 class="h2">Add apps</h2><button class="btn btn--ghost btn--sm" type="button" data-act="file"${busy() ? " disabled" : ""}>${icon("upload", 14)}From file</button></div>` +
       (A.fileErr ? `<div class="banner banner--error" role="alert"><span class="banner__icon">${icon("alert", 20)}</span>` +
         `<div><div class="banner__title">Not a StatTrak app</div><div class="banner__body">${esc(A.fileErr)}</div>` +
         '<button class="btn btn--ghost btn--sm banner__more" type="button" data-act="file">Pick another file</button></div>' +
         `<button class="icon-btn banner__close" type="button" data-act="dismiss" aria-label="Close">${icon("x")}</button></div>` : "") +
-      `<div class="list">${items.map(vCat).join("")}</div></section>`;
+      (items.length ? `<div class="list">${items.map(vCat).join("")}</div>`
+        : '<p class="row__desc" id="appsAddHint">Install apps from the app store, or add an app file (.stapp) with <b>From file</b>.</p>') +
+      "</section>";
     return h;
   }
 
@@ -424,7 +405,6 @@ const AppsTab = (() => {
         if (button) button.click();
       }
       A.tab = name;
-      loadCatalog();
     } else {
       disconnect(null);
       A.tab = "firmware";
@@ -515,8 +495,6 @@ const AppsTab = (() => {
       A.conn = "on";
       log(`connected, firmware ${A.fw}, ${A.list.length} apps, ${A.info.free} bytes free`, "ok");
       SiteEvents.emitDevice({ event: "connected", serial: A.serial, fw: A.fw, name: namePart() });
-      // On the other pages (no My device view) the catalog is loaded here: for "Update available"
-      if (!A.catalog) loadCatalog();
     } catch (error) {
       if (ota !== A.ota) return;
       // Firmware 1.0.1 does not answer user commands at all

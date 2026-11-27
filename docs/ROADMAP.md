@@ -56,6 +56,13 @@ simulator cannot test.
 
 ## Shipped
 
+- **2026-11-27: users get apps only from the app store or a file.** My device lists no apps to
+  add (only **From file**), and "Update available" comes only from the app store. The apps in
+  `updater/apps/` stay in the repository as test apps (tests, the local simulator). The web
+  simulator of the web site has no test apps in its panel (`tools/websim.py`,
+  `build(panel_apps=False)`). The changelog of 2.0.0 and the install pictures (Get started,
+  docs/GUIDE.md) show only apps of the store.
+
 - **2026-11-27: firmware 2.0.0, the first public release, and this repository is public.**
   Version 2.0.0 is the code of 1.2.1-b1 (the betas 1.2.0-b1 to 1.2.1-b1 are hidden now). What
   is new for the user, compared to 1.0.1: [CHANGELOG.md](../CHANGELOG.md). The official
