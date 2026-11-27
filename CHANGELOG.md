@@ -21,7 +21,9 @@ The first big update since 1.0.1. Your kills, deaths and settings stay after the
   - CLIP MARKS: marks the time of each kill, so you find them fast in your video.
   - BATTERY LOG: records the battery level until the battery is empty.
   - WALLPAPER: looks like the big kill counter, but shows your own number.
-  - REACTION, RUNNER and SLOTS: small games for the break.
+  - REACTION: a game. Wait for GO, then press a button as fast as you can.
+  - RUNNER: a game. Jump over the cacti. It gets faster.
+  - SLOTS: a slot machine. Three the same wins.
 - **One app can run in the background.** It counts while you look at an other screen, and it
   comes on the screen by itself when it must tell you something, for example when the respawn
   time is up. Settings > `Background`.
